@@ -138,6 +138,7 @@ export function createUserMenuTitleMap(
 
 export const staticRouteTitleMap: Record<string, string> = {
   "/dashboard": "工作台",
+  "/business/inventory-adjustments": "库存调整",
   "/notifications": "我的通知",
   "/forms/basic": "标准表单 Demo",
   "/examples": "页面示例",

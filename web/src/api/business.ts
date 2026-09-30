@@ -3,11 +3,33 @@ import type { ApiPageResult } from "@/types/api";
 export type ProductRecord = {id:number;code:string;name:string;type:"GOODS"|"SERVICE";brand?:string|null;model?:string|null;specification?:string|null;category?:string|null;unit:string;purchasePrice?:string|null;salePrice?:string|null;remark?:string|null;status:number};
 export type PartnerRecord = {id:number;code:string;name:string;type:"COMPANY"|"PERSON";isCustomer:boolean;isSupplier:boolean;contact?:string|null;phone?:string|null;address?:string|null;remark?:string|null;invoiceName?:string|null;taxNumber?:string|null;registeredAddress?:string|null;registeredPhone?:string|null;bankName?:string|null;bankAccount?:string|null;status:number};
 export type BusinessPage<T> = ApiPageResult<T>;
+export type AdjustmentStatus = "DRAFT" | "POSTED" | "CANCELLED";
+export type AdjustmentReason = "OPENING" | "SURPLUS" | "SHORTAGE" | "DAMAGE" | "OTHER";
+export type InventoryAdjustmentItem = {
+  id: number; productId: number; productCode: string; productName: string;
+  productModel?: string | null; productSpecification?: string | null;
+  productType: "GOODS" | "SERVICE"; unit: string; quantity: string; reason: AdjustmentReason; remark?: string | null;
+};
+export type InventoryAdjustment = {
+  id: number; documentNo: string; status: AdjustmentStatus; version: number;
+  createdBy: number; createdByName?: string; createTime: string; items?: InventoryAdjustmentItem[];
+  cancelledBy: number | null; cancelledByName?: string; cancelledAt: string | null; cancelReason: string | null;
+};
+export type InventoryAdjustmentDraftItem = {
+  productId: number; productType: "GOODS" | "SERVICE"; unit: string; quantity: string;
+  reason: AdjustmentReason; remark?: string;
+};
 export const productPage=(query:Record<string,string|number>)=>http.get<BusinessPage<ProductRecord>>("/api/v1/products",{query});
+export const getProduct=(id:number)=>http.get<ProductRecord>(`/api/v1/products/${id}`);
 export const saveProduct=(data:Omit<ProductRecord,"id"|"status">,id?:number)=>id?http.put<ProductRecord>(`/api/v1/products/${id}`,data):http.post<ProductRecord>("/api/v1/products",data);
 export const productStatus=(id:number,status:number)=>http.put<void>(`/api/v1/products/${id}/status`,{status});
 export const partnerPage=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerRecord>>("/api/v1/partners",{query});
 export const savePartner=(data:Omit<PartnerRecord,"id"|"status">,id?:number)=>id?http.put<PartnerRecord>(`/api/v1/partners/${id}`,data):http.post<PartnerRecord>("/api/v1/partners",data);
 export const partnerStatus=(id:number,status:number)=>http.put<void>(`/api/v1/partners/${id}/status`,{status});
+export const inventoryAdjustmentPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryAdjustment>>("/api/v1/inventory/adjustments",{query});
+export const getInventoryAdjustment=(id:number)=>http.get<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}`);
+export const createInventoryAdjustment=(data:{items:InventoryAdjustmentDraftItem[]})=>http.post<InventoryAdjustment>("/api/v1/inventory/adjustments",data);
+export const updateInventoryAdjustment=(id:number,data:{version:number;items:InventoryAdjustmentDraftItem[]})=>http.put<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}`,data);
+export const cancelInventoryAdjustment=(id:number,data:{version:number;reason:string})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/cancel`,data);
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);

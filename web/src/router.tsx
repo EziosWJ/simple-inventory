@@ -27,6 +27,7 @@ import { NotificationManagePage } from "@/pages/system/notifications";
 import { ProductsPage } from "@/pages/business/products";
 import { PartnersPage } from "@/pages/business/partners";
 import { WarehousePage } from "@/pages/business/warehouse";
+import { InventoryAdjustmentsPage } from "@/pages/business/inventory-adjustments";
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: "business/products", element: <ProductsPage /> },
       { path: "business/partners", element: <PartnersPage /> },
       { path: "business/warehouse", element: <WarehousePage /> },
+      { path: "business/inventory-adjustments", element: <InventoryAdjustmentsPage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,
