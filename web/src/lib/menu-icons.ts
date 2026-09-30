@@ -4,6 +4,7 @@ import {
   Boxes,
   Building2,
   CircleDot,
+  ContactRound,
   Database,
   FileText,
   GitBranch,
@@ -21,6 +22,7 @@ import {
   SlidersHorizontal,
   User,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,6 +59,8 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   notice: Bell,
   chart: BarChart3,
   package: Package,
+  "contact-round": ContactRound,
+  warehouse: Warehouse,
   module: Boxes,
   branch: GitBranch,
   monitor: MonitorCog,

@@ -24,6 +24,9 @@ import { SystemRolesPage } from "@/pages/system/roles";
 import { UsersPage } from "@/pages/system/users";
 import { NotificationsPage } from "@/pages/notifications";
 import { NotificationManagePage } from "@/pages/system/notifications";
+import { ProductsPage } from "@/pages/business/products";
+import { PartnersPage } from "@/pages/business/partners";
+import { WarehousePage } from "@/pages/business/warehouse";
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +53,9 @@ export const router = createBrowserRouter([
         path: "system/user",
         element: <UsersPage />,
       },
+      { path: "business/products", element: <ProductsPage /> },
+      { path: "business/partners", element: <PartnersPage /> },
+      { path: "business/warehouse", element: <WarehousePage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,

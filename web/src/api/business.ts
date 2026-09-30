@@ -1,0 +1,13 @@
+import { http } from "@/lib/http";
+import type { ApiPageResult } from "@/types/api";
+export type ProductRecord = {id:number;code:string;name:string;type:"GOODS"|"SERVICE";brand?:string|null;model?:string|null;specification?:string|null;category?:string|null;unit:string;purchasePrice?:string|null;salePrice?:string|null;remark?:string|null;status:number};
+export type PartnerRecord = {id:number;code:string;name:string;type:"COMPANY"|"PERSON";isCustomer:boolean;isSupplier:boolean;contact?:string|null;phone?:string|null;address?:string|null;remark?:string|null;invoiceName?:string|null;taxNumber?:string|null;registeredAddress?:string|null;registeredPhone?:string|null;bankName?:string|null;bankAccount?:string|null;status:number};
+export type BusinessPage<T> = ApiPageResult<T>;
+export const productPage=(query:Record<string,string|number>)=>http.get<BusinessPage<ProductRecord>>("/api/v1/products",{query});
+export const saveProduct=(data:Omit<ProductRecord,"id"|"status">,id?:number)=>id?http.put<ProductRecord>(`/api/v1/products/${id}`,data):http.post<ProductRecord>("/api/v1/products",data);
+export const productStatus=(id:number,status:number)=>http.put<void>(`/api/v1/products/${id}/status`,{status});
+export const partnerPage=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerRecord>>("/api/v1/partners",{query});
+export const savePartner=(data:Omit<PartnerRecord,"id"|"status">,id?:number)=>id?http.put<PartnerRecord>(`/api/v1/partners/${id}`,data):http.post<PartnerRecord>("/api/v1/partners",data);
+export const partnerStatus=(id:number,status:number)=>http.put<void>(`/api/v1/partners/${id}/status`,{status});
+export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
+export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
