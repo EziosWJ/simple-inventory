@@ -13,6 +13,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/dept"
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
@@ -40,6 +41,7 @@ type Dependencies struct {
 	Product      *product.Service
 	Partner      *partner.Service
 	Warehouse    *warehouse.Service
+	Inventory    *inventory.Service
 }
 
 // Application is the assembled HTTP application and its process logger.
@@ -150,6 +152,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	product.RegisterRoutes(apiV1, product.NewHandler(deps.Product))
 	partner.RegisterRoutes(apiV1, partner.NewHandler(deps.Partner))
 	warehouse.RegisterRoutes(apiV1, warehouse.NewHandler(deps.Warehouse))
+	if deps.Inventory != nil {
+		inventory.RegisterRoutes(apiV1, inventory.NewHandler(deps.Inventory))
+	}
 
 	if cfg.Environment == config.EnvironmentDev && cfg.Swagger.Enabled {
 		registerSwaggerUI(router)

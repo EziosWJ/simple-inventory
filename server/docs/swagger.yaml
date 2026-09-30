@@ -245,6 +245,119 @@ definitions:
       remark:
         type: string
     type: object
+  internal_inventory.Adjustment:
+    properties:
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledBy:
+        type: integer
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/internal_inventory.Item'
+        type: array
+      status:
+        type: string
+      version:
+        type: integer
+    type: object
+  internal_inventory.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  internal_inventory.CancelInput:
+    properties:
+      reason:
+        type: string
+      version:
+        type: integer
+    type: object
+  internal_inventory.EditInput:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/internal_inventory.ItemInput'
+        type: array
+      version:
+        type: integer
+    type: object
+  internal_inventory.Input:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/internal_inventory.ItemInput'
+        type: array
+    type: object
+  internal_inventory.Item:
+    properties:
+      id:
+        type: integer
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      productType:
+        type: string
+      quantity:
+        type: string
+      reason:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+    type: object
+  internal_inventory.ItemInput:
+    properties:
+      productId:
+        type: integer
+      productType:
+        type: string
+      quantity:
+        type: string
+      reason:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+    type: object
+  internal_inventory.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/internal_inventory.Adjustment'
+        type: array
+      total:
+        type: integer
+    type: object
   internal_logmgmt.ApiEnvelope:
     properties:
       code:
@@ -2847,6 +2960,251 @@ paths:
       summary: 用户分页
       tags:
       - 用户管理
+  /api/v1/inventory/adjustments:
+    get:
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认10，最大500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 单号子串
+        in: query
+        name: documentNo
+        type: string
+      - description: 单据状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 商品内部ID
+        in: query
+        name: productId
+        type: integer
+      - description: 创建时间下界，包含，RFC3339
+        in: query
+        name: createdFrom
+        type: string
+      - description: 创建时间上界，不包含，RFC3339
+        in: query
+        name: createdTo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Page'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 库存调整单分页
+      tags:
+      - 库存调整
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 至少一条明细；数量为非零十进制字符串，最多三位小数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_inventory.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Adjustment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 新建库存调整草稿
+      tags:
+      - 库存调整
+  /api/v1/inventory/adjustments/{id}:
+    get:
+      parameters:
+      - description: 调整单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Adjustment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 库存调整单详情
+      tags:
+      - 库存调整
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 调整单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 核对的版本与全部新明细；仅DRAFT可编辑，成功版本加1
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_inventory.EditInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Adjustment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 编辑库存调整草稿
+      tags:
+      - 库存调整
+  /api/v1/inventory/adjustments/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 调整单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 核对的版本和必填取消原因（最多500字）；仅DRAFT可取消，重复或版本过期返回409
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_inventory.CancelInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Adjustment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 取消库存调整草稿
+      tags:
+      - 库存调整
   /api/v1/partners:
     get:
       parameters:

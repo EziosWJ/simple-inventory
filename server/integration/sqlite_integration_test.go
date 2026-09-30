@@ -27,6 +27,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/dept"
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
@@ -60,8 +61,8 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	if err := database.GORM.Table("warehouse").Count(&warehouses).Error; err != nil {
 		t.Fatalf("count seeded warehouse: %v", err)
 	}
-	if users != 1 || menus != 20 || configs != 1 || warehouses != 1 {
-		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 20, 1, 1", users, menus, configs, warehouses)
+	if users != 1 || menus != 21 || configs != 1 || warehouses != 1 {
+		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 21, 1, 1", users, menus, configs, warehouses)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatalf("close SQLite database: %v", err)
@@ -792,7 +793,8 @@ func sqliteDependencies(t *testing.T, database *platformdatabase.Database, stora
 		Auth: authService, RBAC: rbacService, Department: deptService, User: userService,
 		Dictionary: dictionaryService, SysConfig: configService, File: fileService,
 		Log: logService, Notification: notificationService,
-		Product: product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
+		Inventory: inventory.NewService(inventory.NewRepository(database.GORM)),
+		Product:   product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }
 
