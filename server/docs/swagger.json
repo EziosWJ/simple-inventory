@@ -27,7 +27,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.loginRequest"
+                            "$ref": "#/definitions/internal_auth.loginRequest"
                         }
                     }
                 ],
@@ -35,19 +35,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.loginResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.loginResponseEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.errorResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.errorResponseEnvelope"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/auth.errorResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.errorResponseEnvelope"
                         },
                         "headers": {
                             "Retry-After": {
@@ -74,13 +74,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.emptyResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.emptyResponseEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.errorResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.errorResponseEnvelope"
                         }
                     }
                 }
@@ -101,13 +101,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.currentUserResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.currentUserResponseEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.errorResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.errorResponseEnvelope"
                         }
                     }
                 }
@@ -128,13 +128,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.currentUserMenusResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.currentUserMenusResponseEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.errorResponseEnvelope"
+                            "$ref": "#/definitions/internal_auth.errorResponseEnvelope"
                         }
                     }
                 }
@@ -158,7 +158,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.configRequest"
+                            "$ref": "#/definitions/internal_sysconfig.configRequest"
                         }
                     }
                 ],
@@ -166,7 +166,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -190,7 +190,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.idsRequest"
+                            "$ref": "#/definitions/internal_sysconfig.idsRequest"
                         }
                     }
                 ],
@@ -198,7 +198,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -228,7 +228,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -263,7 +263,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -293,7 +293,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -322,7 +322,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.configRequest"
+                            "$ref": "#/definitions/internal_sysconfig.configRequest"
                         }
                     }
                 ],
@@ -330,7 +330,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -358,7 +358,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -389,7 +389,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.statusRequest"
+                            "$ref": "#/definitions/internal_sysconfig.statusRequest"
                         }
                     }
                 ],
@@ -397,7 +397,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/sysconfig.ApiEnvelope"
+                            "$ref": "#/definitions/internal_sysconfig.ApiEnvelope"
                         }
                     }
                 }
@@ -421,7 +421,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dept.request"
+                            "$ref": "#/definitions/internal_dept.request"
                         }
                     }
                 ],
@@ -429,13 +429,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -459,7 +459,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dept.ids"
+                            "$ref": "#/definitions/internal_dept.ids"
                         }
                     }
                 ],
@@ -467,13 +467,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -494,7 +494,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -547,13 +547,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -574,7 +574,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -604,13 +604,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -639,7 +639,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dept.request"
+                            "$ref": "#/definitions/internal_dept.request"
                         }
                     }
                 ],
@@ -647,13 +647,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -681,7 +681,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -712,7 +712,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dept.statusReq"
+                            "$ref": "#/definitions/internal_dept.statusReq"
                         }
                     }
                 ],
@@ -720,13 +720,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dept.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dept.ApiEnvelope"
                         }
                     }
                 }
@@ -750,7 +750,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.dataRequest"
+                            "$ref": "#/definitions/internal_dictionary.dataRequest"
                         }
                     }
                 ],
@@ -758,19 +758,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -794,7 +794,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.batchRequest"
+                            "$ref": "#/definitions/internal_dictionary.batchRequest"
                         }
                     }
                 ],
@@ -802,19 +802,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -873,19 +873,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -915,19 +915,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -956,7 +956,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.dataRequest"
+                            "$ref": "#/definitions/internal_dictionary.dataRequest"
                         }
                     }
                 ],
@@ -964,19 +964,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1004,13 +1004,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1034,7 +1034,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.typeRequest"
+                            "$ref": "#/definitions/internal_dictionary.typeRequest"
                         }
                     }
                 ],
@@ -1042,19 +1042,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1078,7 +1078,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.batchRequest"
+                            "$ref": "#/definitions/internal_dictionary.batchRequest"
                         }
                     }
                 ],
@@ -1086,19 +1086,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1151,19 +1151,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1193,19 +1193,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1234,7 +1234,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.typeRequest"
+                            "$ref": "#/definitions/internal_dictionary.typeRequest"
                         }
                     }
                 ],
@@ -1242,19 +1242,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1282,13 +1282,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1319,7 +1319,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dictionary.statusRequest"
+                            "$ref": "#/definitions/internal_dictionary.statusRequest"
                         }
                     }
                 ],
@@ -1327,19 +1327,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1369,13 +1369,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/dictionary.ApiEnvelope"
+                            "$ref": "#/definitions/internal_dictionary.ApiEnvelope"
                         }
                     }
                 }
@@ -1399,7 +1399,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.batchRequest"
+                            "$ref": "#/definitions/internal_filemgmt.batchRequest"
                         }
                     }
                 ],
@@ -1407,19 +1407,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1478,19 +1478,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1539,31 +1539,31 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1612,31 +1612,31 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1666,19 +1666,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1707,7 +1707,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.updateRequest"
+                            "$ref": "#/definitions/internal_filemgmt.updateRequest"
                         }
                     }
                 ],
@@ -1715,19 +1715,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1755,19 +1755,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1806,13 +1806,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1843,7 +1843,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.statusRequest"
+                            "$ref": "#/definitions/internal_filemgmt.statusRequest"
                         }
                     }
                 ],
@@ -1851,19 +1851,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1902,13 +1902,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/filemgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_filemgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1929,19 +1929,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -1994,19 +1994,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -2036,19 +2036,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -2072,7 +2072,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.menuRequest"
+                            "$ref": "#/definitions/internal_rbac.menuRequest"
                         }
                     }
                 ],
@@ -2080,19 +2080,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2116,7 +2116,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.batchRequest"
+                            "$ref": "#/definitions/internal_rbac.batchRequest"
                         }
                     }
                 ],
@@ -2124,19 +2124,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2195,19 +2195,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2228,13 +2228,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2264,13 +2264,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2299,7 +2299,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.menuRequest"
+                            "$ref": "#/definitions/internal_rbac.menuRequest"
                         }
                     }
                 ],
@@ -2307,19 +2307,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2347,13 +2347,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2384,7 +2384,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.statusRequest"
+                            "$ref": "#/definitions/internal_rbac.statusRequest"
                         }
                     }
                 ],
@@ -2392,19 +2392,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2428,7 +2428,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/notification.publishRequest"
+                            "$ref": "#/definitions/internal_notification.publishRequest"
                         }
                     }
                 ],
@@ -2436,7 +2436,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2471,7 +2471,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2506,7 +2506,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2527,7 +2527,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2548,7 +2548,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2578,7 +2578,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2608,7 +2608,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notification.ApiEnvelope"
+                            "$ref": "#/definitions/internal_notification.ApiEnvelope"
                         }
                     }
                 }
@@ -2629,19 +2629,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -2700,19 +2700,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -2742,19 +2742,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/logmgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_logmgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -2778,7 +2778,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.roleRequest"
+                            "$ref": "#/definitions/internal_rbac.roleRequest"
                         }
                     }
                 ],
@@ -2786,19 +2786,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2822,7 +2822,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.batchRequest"
+                            "$ref": "#/definitions/internal_rbac.batchRequest"
                         }
                     }
                 ],
@@ -2830,19 +2830,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2863,13 +2863,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2922,19 +2922,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -2964,19 +2964,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -3005,7 +3005,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.roleRequest"
+                            "$ref": "#/definitions/internal_rbac.roleRequest"
                         }
                     }
                 ],
@@ -3013,19 +3013,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -3053,13 +3053,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -3090,7 +3090,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.menusRequest"
+                            "$ref": "#/definitions/internal_rbac.menusRequest"
                         }
                     }
                 ],
@@ -3098,13 +3098,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -3135,7 +3135,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/rbac.statusRequest"
+                            "$ref": "#/definitions/internal_rbac.statusRequest"
                         }
                     }
                 ],
@@ -3143,19 +3143,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/rbac.ApiEnvelope"
+                            "$ref": "#/definitions/internal_rbac.ApiEnvelope"
                         }
                     }
                 }
@@ -3179,7 +3179,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.userCreateRequest"
+                            "$ref": "#/definitions/internal_usermgmt.userCreateRequest"
                         }
                     }
                 ],
@@ -3187,19 +3187,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3223,7 +3223,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.batchRequest"
+                            "$ref": "#/definitions/internal_usermgmt.batchRequest"
                         }
                     }
                 ],
@@ -3231,19 +3231,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3267,7 +3267,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.avatarRequest"
+                            "$ref": "#/definitions/internal_usermgmt.avatarRequest"
                         }
                     }
                 ],
@@ -3275,19 +3275,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3311,7 +3311,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.passwordRequest"
+                            "$ref": "#/definitions/internal_usermgmt.passwordRequest"
                         }
                     }
                 ],
@@ -3319,19 +3319,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3402,19 +3402,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3444,19 +3444,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3485,7 +3485,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.userUpdateRequest"
+                            "$ref": "#/definitions/internal_usermgmt.userUpdateRequest"
                         }
                     }
                 ],
@@ -3493,19 +3493,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3533,19 +3533,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3575,19 +3575,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3618,7 +3618,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.rolesRequest"
+                            "$ref": "#/definitions/internal_usermgmt.rolesRequest"
                         }
                     }
                 ],
@@ -3626,19 +3626,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     }
                 }
@@ -3669,7 +3669,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.statusRequest"
+                            "$ref": "#/definitions/internal_usermgmt.statusRequest"
                         }
                     }
                 ],
@@ -3677,19 +3677,469 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/usermgmt.ApiEnvelope"
+                            "$ref": "#/definitions/internal_usermgmt.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partners": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "往来单位"
+                ],
+                "summary": "往来单位分页",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "COMPANY 或 PERSON",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "CUSTOMER 或 SUPPLIER",
+                        "name": "identity",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来单位"
+                ],
+                "summary": "新建往来单位",
+                "parameters": [
+                    {
+                        "description": "资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partners/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "往来单位"
+                ],
+                "summary": "往来单位详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "往来单位"
+                ],
+                "summary": "编辑往来单位",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partners/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "往来单位"
+                ],
+                "summary": "设置往来单位状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "目标状态",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.statusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_partner.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/products": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "商品与服务"
+                ],
+                "summary": "商品与服务分页",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "GOODS 或 SERVICE",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "商品与服务"
+                ],
+                "summary": "新建商品与服务",
+                "parameters": [
+                    {
+                        "description": "资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/products/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "商品与服务"
+                ],
+                "summary": "商品与服务详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "商品与服务"
+                ],
+                "summary": "编辑商品与服务",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/products/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "商品与服务"
+                ],
+                "summary": "设置商品状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "目标状态",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.statusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_product.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/warehouse": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "仓库"
+                ],
+                "summary": "查询唯一仓库",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_warehouse.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "仓库"
+                ],
+                "summary": "更新唯一仓库",
+                "parameters": [
+                    {
+                        "description": "资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_warehouse.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_warehouse.ApiEnvelope"
                         }
                     }
                 }
@@ -3697,7 +4147,7 @@
         }
     },
     "definitions": {
-        "auth.LoginResult": {
+        "internal_auth.LoginResult": {
             "type": "object",
             "properties": {
                 "expiresIn": {
@@ -3711,7 +4161,7 @@
                 }
             }
         },
-        "auth.currentUserDeptResponse": {
+        "internal_auth.currentUserDeptResponse": {
             "type": "object",
             "properties": {
                 "deptCode": {
@@ -3725,13 +4175,13 @@
                 }
             }
         },
-        "auth.currentUserMenuResponse": {
+        "internal_auth.currentUserMenuResponse": {
             "type": "object",
             "properties": {
                 "children": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/auth.currentUserMenuResponse"
+                        "$ref": "#/definitions/internal_auth.currentUserMenuResponse"
                     }
                 },
                 "component": {
@@ -3766,7 +4216,7 @@
                 }
             }
         },
-        "auth.currentUserMenusResponseEnvelope": {
+        "internal_auth.currentUserMenusResponseEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3775,7 +4225,7 @@
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/auth.currentUserMenuResponse"
+                        "$ref": "#/definitions/internal_auth.currentUserMenuResponse"
                     }
                 },
                 "message": {
@@ -3783,14 +4233,14 @@
                 }
             }
         },
-        "auth.currentUserResponse": {
+        "internal_auth.currentUserResponse": {
             "type": "object",
             "properties": {
                 "avatar": {
                     "type": "string"
                 },
                 "dept": {
-                    "$ref": "#/definitions/auth.currentUserDeptResponse"
+                    "$ref": "#/definitions/internal_auth.currentUserDeptResponse"
                 },
                 "email": {
                     "type": "string"
@@ -3813,7 +4263,7 @@
                 "roles": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/auth.currentUserRoleResponse"
+                        "$ref": "#/definitions/internal_auth.currentUserRoleResponse"
                     }
                 },
                 "username": {
@@ -3821,21 +4271,21 @@
                 }
             }
         },
-        "auth.currentUserResponseEnvelope": {
+        "internal_auth.currentUserResponseEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "integer"
                 },
                 "data": {
-                    "$ref": "#/definitions/auth.currentUserResponse"
+                    "$ref": "#/definitions/internal_auth.currentUserResponse"
                 },
                 "message": {
                     "type": "string"
                 }
             }
         },
-        "auth.currentUserRoleResponse": {
+        "internal_auth.currentUserRoleResponse": {
             "type": "object",
             "properties": {
                 "id": {
@@ -3849,7 +4299,7 @@
                 }
             }
         },
-        "auth.emptyResponseEnvelope": {
+        "internal_auth.emptyResponseEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3861,7 +4311,7 @@
                 }
             }
         },
-        "auth.errorResponseEnvelope": {
+        "internal_auth.errorResponseEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3873,7 +4323,7 @@
                 }
             }
         },
-        "auth.loginRequest": {
+        "internal_auth.loginRequest": {
             "type": "object",
             "properties": {
                 "password": {
@@ -3884,21 +4334,21 @@
                 }
             }
         },
-        "auth.loginResponseEnvelope": {
+        "internal_auth.loginResponseEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "integer"
                 },
                 "data": {
-                    "$ref": "#/definitions/auth.LoginResult"
+                    "$ref": "#/definitions/internal_auth.LoginResult"
                 },
                 "message": {
                     "type": "string"
                 }
             }
         },
-        "dept.ApiEnvelope": {
+        "internal_dept.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3910,7 +4360,7 @@
                 }
             }
         },
-        "dept.ids": {
+        "internal_dept.ids": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -3921,7 +4371,7 @@
                 }
             }
         },
-        "dept.request": {
+        "internal_dept.request": {
             "type": "object",
             "properties": {
                 "deptCode": {
@@ -3953,7 +4403,7 @@
                 }
             }
         },
-        "dept.statusReq": {
+        "internal_dept.statusReq": {
             "type": "object",
             "properties": {
                 "status": {
@@ -3961,7 +4411,7 @@
                 }
             }
         },
-        "dictionary.ApiEnvelope": {
+        "internal_dictionary.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3973,7 +4423,7 @@
                 }
             }
         },
-        "dictionary.batchRequest": {
+        "internal_dictionary.batchRequest": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -3984,7 +4434,7 @@
                 }
             }
         },
-        "dictionary.dataRequest": {
+        "internal_dictionary.dataRequest": {
             "type": "object",
             "properties": {
                 "dictLabel": {
@@ -4004,7 +4454,7 @@
                 }
             }
         },
-        "dictionary.statusRequest": {
+        "internal_dictionary.statusRequest": {
             "type": "object",
             "properties": {
                 "status": {
@@ -4012,7 +4462,7 @@
                 }
             }
         },
-        "dictionary.typeRequest": {
+        "internal_dictionary.typeRequest": {
             "type": "object",
             "properties": {
                 "dictCode": {
@@ -4032,7 +4482,7 @@
                 }
             }
         },
-        "filemgmt.ApiEnvelope": {
+        "internal_filemgmt.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4044,7 +4494,7 @@
                 }
             }
         },
-        "filemgmt.batchRequest": {
+        "internal_filemgmt.batchRequest": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -4055,7 +4505,7 @@
                 }
             }
         },
-        "filemgmt.statusRequest": {
+        "internal_filemgmt.statusRequest": {
             "type": "object",
             "properties": {
                 "status": {
@@ -4063,7 +4513,7 @@
                 }
             }
         },
-        "filemgmt.updateRequest": {
+        "internal_filemgmt.updateRequest": {
             "type": "object",
             "properties": {
                 "businessModule": {
@@ -4074,7 +4524,7 @@
                 }
             }
         },
-        "logmgmt.ApiEnvelope": {
+        "internal_logmgmt.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4086,7 +4536,7 @@
                 }
             }
         },
-        "notification.ApiEnvelope": {
+        "internal_notification.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4098,7 +4548,7 @@
                 }
             }
         },
-        "notification.publishRequest": {
+        "internal_notification.publishRequest": {
             "type": "object",
             "properties": {
                 "allUsers": {
@@ -4118,7 +4568,7 @@
                 }
             }
         },
-        "rbac.ApiEnvelope": {
+        "internal_partner.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4130,7 +4580,135 @@
                 }
             }
         },
-        "rbac.batchRequest": {
+        "internal_partner.Input": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "bankAccount": {
+                    "type": "string"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "contact": {
+                    "type": "string"
+                },
+                "invoiceName": {
+                    "type": "string"
+                },
+                "isCustomer": {
+                    "type": "boolean"
+                },
+                "isSupplier": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "registeredAddress": {
+                    "type": "string"
+                },
+                "registeredPhone": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "taxNumber": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_partner.statusRequest": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_product.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_product.Input": {
+            "type": "object",
+            "properties": {
+                "brand": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "purchasePrice": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "salePrice": {
+                    "type": "string"
+                },
+                "specification": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_product.statusRequest": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_rbac.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_rbac.batchRequest": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -4141,7 +4719,7 @@
                 }
             }
         },
-        "rbac.menuRequest": {
+        "internal_rbac.menuRequest": {
             "type": "object",
             "properties": {
                 "component": {
@@ -4182,7 +4760,7 @@
                 }
             }
         },
-        "rbac.menusRequest": {
+        "internal_rbac.menusRequest": {
             "type": "object",
             "properties": {
                 "menuIds": {
@@ -4193,7 +4771,7 @@
                 }
             }
         },
-        "rbac.roleRequest": {
+        "internal_rbac.roleRequest": {
             "type": "object",
             "properties": {
                 "remark": {
@@ -4213,7 +4791,7 @@
                 }
             }
         },
-        "rbac.statusRequest": {
+        "internal_rbac.statusRequest": {
             "type": "object",
             "properties": {
                 "status": {
@@ -4221,7 +4799,7 @@
                 }
             }
         },
-        "sysconfig.ApiEnvelope": {
+        "internal_sysconfig.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4233,7 +4811,7 @@
                 }
             }
         },
-        "sysconfig.configRequest": {
+        "internal_sysconfig.configRequest": {
             "type": "object",
             "properties": {
                 "configKey": {
@@ -4259,7 +4837,7 @@
                 }
             }
         },
-        "sysconfig.idsRequest": {
+        "internal_sysconfig.idsRequest": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -4270,7 +4848,7 @@
                 }
             }
         },
-        "sysconfig.statusRequest": {
+        "internal_sysconfig.statusRequest": {
             "type": "object",
             "properties": {
                 "status": {
@@ -4278,7 +4856,7 @@
                 }
             }
         },
-        "usermgmt.ApiEnvelope": {
+        "internal_usermgmt.ApiEnvelope": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4290,7 +4868,7 @@
                 }
             }
         },
-        "usermgmt.avatarRequest": {
+        "internal_usermgmt.avatarRequest": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -4298,7 +4876,7 @@
                 }
             }
         },
-        "usermgmt.batchRequest": {
+        "internal_usermgmt.batchRequest": {
             "type": "object",
             "properties": {
                 "ids": {
@@ -4309,7 +4887,7 @@
                 }
             }
         },
-        "usermgmt.passwordRequest": {
+        "internal_usermgmt.passwordRequest": {
             "type": "object",
             "properties": {
                 "newPassword": {
@@ -4320,7 +4898,7 @@
                 }
             }
         },
-        "usermgmt.rolesRequest": {
+        "internal_usermgmt.rolesRequest": {
             "type": "object",
             "properties": {
                 "roleIds": {
@@ -4331,7 +4909,7 @@
                 }
             }
         },
-        "usermgmt.statusRequest": {
+        "internal_usermgmt.statusRequest": {
             "type": "object",
             "properties": {
                 "status": {
@@ -4339,7 +4917,7 @@
                 }
             }
         },
-        "usermgmt.userCreateRequest": {
+        "internal_usermgmt.userCreateRequest": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -4371,7 +4949,7 @@
                 }
             }
         },
-        "usermgmt.userUpdateRequest": {
+        "internal_usermgmt.userUpdateRequest": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -4397,6 +4975,29 @@
                 },
                 "status": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_warehouse.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_warehouse.Input": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
                 }
             }
         }

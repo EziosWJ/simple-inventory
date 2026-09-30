@@ -15,8 +15,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/pressly/goose/v3"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/app"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
@@ -26,10 +29,13 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
+	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
 )
 
 func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
@@ -50,8 +56,12 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	if err := database.GORM.Table("sys_config").Count(&configs).Error; err != nil {
 		t.Fatalf("count SQLite configs: %v", err)
 	}
-	if users != 1 || menus != 17 || configs != 1 {
-		t.Fatalf("seed counts = users %d, menus %d, configs %d; want 1, 17, 1", users, menus, configs)
+	var warehouses int64
+	if err := database.GORM.Table("warehouse").Count(&warehouses).Error; err != nil {
+		t.Fatalf("count seeded warehouse: %v", err)
+	}
+	if users != 1 || menus != 20 || configs != 1 || warehouses != 1 {
+		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 20, 1, 1", users, menus, configs, warehouses)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatalf("close SQLite database: %v", err)
@@ -68,6 +78,9 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	}
 	if username != "admin" {
 		t.Fatalf("persisted username = %q, want admin", username)
+	}
+	if err := database.GORM.Exec("INSERT INTO warehouse(singleton_id,name) VALUES (2,'second')").Error; err == nil {
+		t.Fatal("SQLite accepted a second logical warehouse")
 	}
 
 	backupPath := filepath.Join(directory, "backup.db")
@@ -92,6 +105,36 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	}
 	if configs != 1 {
 		t.Fatalf("restored config count = %d, want 1", configs)
+	}
+}
+
+func TestSQLitePhase2MigrationUpgradeFromPhase1(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "upgrade.db")
+	database := openSQLiteDatabase(t, path)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetTableName("goose_schema_db_version")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := goose.UpToContext(ctx, database.SQL, filepath.Join(projectRoot(t), "migrations", "sqlite", "schema"), 7); err != nil {
+		t.Fatalf("apply Phase 1 SQLite schema: %v", err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runSQLiteMigrations(t, path)
+
+	database = openSQLiteDatabase(t, path)
+	defer database.Close()
+	for _, table := range []string{"product", "partner", "warehouse"} {
+		if !database.GORM.Migrator().HasTable(table) {
+			t.Fatalf("Phase 1 SQLite database upgrade did not create %s", table)
+		}
+	}
+	var warehouseCount int64
+	if err := database.GORM.Table("warehouse").Count(&warehouseCount).Error; err != nil || warehouseCount != 1 {
+		t.Fatalf("upgraded SQLite warehouse seed count=%d err=%v", warehouseCount, err)
 	}
 }
 
@@ -228,6 +271,236 @@ func TestSQLiteSharedHTTPBusinessContract(t *testing.T) {
 	}
 	if auditCount < 5 {
 		t.Fatalf("SQLite successful operation audit count = %d, want at least 5", auditCount)
+	}
+}
+
+func TestSQLitePhase2ProductPartnerWarehouseContract(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "phase2.db")
+	runSQLiteMigrations(t, dbPath)
+	db := openSQLiteDatabase(t, dbPath)
+	defer db.Close()
+	router, err := app.Build(testAPIConfig(), db, sqliteDependencies(t, db, filepath.Join(dir, "uploads")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodGet, "/api/v1/products", "", ""), http.StatusUnauthorized, 401, "未登录或 token 已失效")
+	token := loginAdmin(t, router)
+	created := serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"同名服务","type":"SERVICE","unit":"次","purchasePrice":"0.00","salePrice":"12.30"}`, token)
+	assertEnvelopeCode(t, created, http.StatusOK, 200, "success")
+	if !strings.Contains(created.Body.String(), `"code":"SP`) || !strings.Contains(created.Body.String(), `"purchasePrice":"0.00"`) {
+		t.Fatalf("product result = %s", created.Body.String())
+	}
+	badPrice := serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"坏价格","type":"GOODS","unit":"个","salePrice":"1.001"}`, token)
+	assertEnvelopeCode(t, badPrice, http.StatusBadRequest, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"`+strings.Repeat("长", 201)+`","type":"GOODS","unit":"个"}`, token), 400, 400, "参数错误")
+	servicePage := serveJSON(router, http.MethodGet, "/api/v1/products?type=SERVICE&keyword=同名", "", token)
+	if servicePage.Code != 200 || !strings.Contains(servicePage.Body.String(), `"total":1`) {
+		t.Fatalf("product search = %s", servicePage.Body.String())
+	}
+	var productResult struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(created.Body.Bytes(), &productResult)
+	productPath := "/api/v1/products/" + itoa(productResult.Data.ID)
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":null}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/products/0", `{"name":"误新建","type":"GOODS","unit":"个"}`, token), 400, 400, "参数错误")
+	beforeProduct := serveJSON(router, http.MethodGet, productPath, "", token)
+	var productDetail struct {
+		Data struct {
+			CreateTime string `json:"createTime"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(beforeProduct.Body.Bytes(), &productDetail)
+	updatedProduct := serveJSON(router, http.MethodPut, productPath, `{"code":"EDITED-PRODUCT","name":"编辑后服务","type":"GOODS","unit":"台","purchasePrice":null,"salePrice":"0.01"}`, token)
+	assertEnvelopeCode(t, updatedProduct, 200, 200, "success")
+	if !strings.Contains(updatedProduct.Body.String(), `"createTime":"`+productDetail.Data.CreateTime+`"`) || !strings.Contains(updatedProduct.Body.String(), `"purchasePrice":null`) || !strings.Contains(updatedProduct.Body.String(), `"salePrice":"0.01"`) {
+		t.Fatalf("product update did not preserve timestamps or money values: %s", updatedProduct.Body.String())
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":1}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":1}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":"manual-product","name":"手工一","type":"GOODS","unit":"个"}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":" MANUAL-PRODUCT ","name":"手工二","type":"GOODS","unit":"个"}`, token), 409, 409, "编码已存在")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath, `{"code":"manual-product","name":"编码冲突编辑","type":"GOODS","unit":"个"}`, token), 409, 409, "编码已存在")
+	assertConcurrentUniqueCode(t, router, token, "/api/v1/products", `{"code":"CONCURRENT-PRODUCT","name":"并发商品","type":"GOODS","unit":"个"}`)
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"价格溢出","type":"GOODS","unit":"个","salePrice":"92233720368547758.08"}`, token), 400, 400, "参数错误")
+	partnerResult := serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"同行","type":"COMPANY","isCustomer":true,"isSupplier":true}`, token)
+	assertEnvelopeCode(t, partnerResult, 200, 200, "success")
+	if !strings.Contains(partnerResult.Body.String(), `"code":"PT`) {
+		t.Fatalf("partner result = %s", partnerResult.Body.String())
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"无身份","type":"PERSON"}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"超长电话","type":"PERSON","isCustomer":true,"phone":"`+strings.Repeat("1", 51)+`"}`, token), 400, 400, "参数错误")
+	var partnerID struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(partnerResult.Body.Bytes(), &partnerID)
+	partnerPath := "/api/v1/partners/" + itoa(partnerID.Data.ID)
+	for _, identity := range []string{"CUSTOMER", "SUPPLIER"} {
+		page := serveJSON(router, http.MethodGet, "/api/v1/partners?identity="+identity, "", token)
+		if page.Code != 200 || !strings.Contains(page.Body.String(), `"total":1`) {
+			t.Fatalf("partner %s filter = %s", identity, page.Body.String())
+		}
+	}
+	updatedPartner := serveJSON(router, http.MethodPut, partnerPath, `{"code":"EDITED-PARTNER","name":"同行已修改","type":"COMPANY","isCustomer":false,"isSupplier":true,"contact":null,"phone":null,"invoiceName":null}`, token)
+	assertEnvelopeCode(t, updatedPartner, 200, 200, "success")
+	if !strings.Contains(updatedPartner.Body.String(), `"contact":null`) {
+		t.Fatalf("partner optional contact was not cleared: %s", updatedPartner.Body.String())
+	}
+	customerPage := serveJSON(router, http.MethodGet, "/api/v1/partners?identity=CUSTOMER", "", token)
+	if !strings.Contains(customerPage.Body.String(), `"total":0`) {
+		t.Fatalf("partner identity edit not applied: %s", customerPage.Body.String())
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":null}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":1}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"code":"partner-duplicate","name":"甲","type":"PERSON","isCustomer":true}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"code":"PARTNER-DUPLICATE","name":"乙","type":"PERSON","isSupplier":true}`, token), 409, 409, "编码已存在")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath, `{"code":"PARTNER-DUPLICATE","name":"编码冲突编辑","type":"PERSON","isCustomer":true}`, token), 409, 409, "编码已存在")
+	assertConcurrentUniqueCode(t, router, token, "/api/v1/partners", `{"code":"CONCURRENT-PARTNER","name":"并发往来单位","type":"PERSON","isCustomer":true}`)
+	warehousePage := serveJSON(router, http.MethodGet, "/api/v1/warehouse", "", token)
+	assertEnvelopeCode(t, warehousePage, 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":"主仓","remark":"更新"}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":"   "}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":"`+strings.Repeat("仓", 101)+`"}`, token), 400, 400, "参数错误")
+	warehousePage = serveJSON(router, http.MethodGet, "/api/v1/warehouse", "", token)
+	if !strings.Contains(warehousePage.Body.String(), `"name":"主仓"`) {
+		t.Fatalf("warehouse persistence = %s", warehousePage.Body.String())
+	}
+	var auditCount int64
+	if err := db.GORM.Table("sys_oper_log").Where("module_name IN ?", []string{"product", "partner", "warehouse"}).Count(&auditCount).Error; err != nil || auditCount < 4 {
+		t.Fatalf("phase2 audits count=%d err=%v", auditCount, err)
+	}
+	var auditMeta struct {
+		RequestMethod string
+		RequestURL    string
+	}
+	if err := db.GORM.Table("sys_oper_log").Select("request_method,request_url").Where("module_name='product' AND operation_type='product.save'").Order("id").Take(&auditMeta).Error; err != nil || auditMeta.RequestMethod != http.MethodPost || auditMeta.RequestURL != "/api/v1/products" {
+		t.Fatalf("phase2 audit request metadata=%+v err=%v", auditMeta, err)
+	}
+	for _, resource := range []string{"product", "partner", "warehouse"} {
+		trigger := "fail_phase2_" + resource + "_audit"
+		if err := db.GORM.Exec("CREATE TRIGGER " + trigger + " BEFORE INSERT ON sys_oper_log WHEN NEW.module_name='" + resource + "' BEGIN SELECT RAISE(ABORT, 'phase2 audit failure'); END").Error; err != nil {
+			t.Fatalf("create %s audit trigger: %v", resource, err)
+		}
+		var response *httptest.ResponseRecorder
+		switch resource {
+		case "product":
+			response = serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":"ROLLBACK-PRODUCT","name":"回滚商品","type":"GOODS","unit":"个"}`, token)
+		case "partner":
+			response = serveJSON(router, http.MethodPost, "/api/v1/partners", `{"code":"ROLLBACK-PARTNER","name":"回滚单位","type":"PERSON","isCustomer":true}`, token)
+		case "warehouse":
+			response = serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":"不得保存"}`, token)
+		}
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("%s audit failure status=%d body=%s", resource, response.Code, response.Body.String())
+		}
+		if resource == "product" {
+			response = serveJSON(router, http.MethodPut, productPath, `{"code":"ROLLBACK-EDIT","name":"不应保存","type":"GOODS","unit":"个"}`, token)
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("product edit audit failure status=%d body=%s", response.Code, response.Body.String())
+			}
+			response = serveJSON(router, http.MethodPut, productPath+"/status", `{"status":0}`, token)
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("product status audit failure status=%d body=%s", response.Code, response.Body.String())
+			}
+		}
+		if resource == "partner" {
+			response = serveJSON(router, http.MethodPut, partnerPath, `{"code":"ROLLBACK-PARTNER-EDIT","name":"不应保存","type":"COMPANY","isCustomer":true,"isSupplier":false}`, token)
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("partner edit audit failure status=%d body=%s", response.Code, response.Body.String())
+			}
+			response = serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":0}`, token)
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("partner status audit failure status=%d body=%s", response.Code, response.Body.String())
+			}
+		}
+		if err := db.GORM.Exec("DROP TRIGGER " + trigger).Error; err != nil {
+			t.Fatalf("drop %s audit trigger: %v", resource, err)
+		}
+		if resource == "product" {
+			var count int64
+			_ = db.GORM.Table("product").Where("code=?", "ROLLBACK-PRODUCT").Count(&count).Error
+			if count != 0 {
+				t.Fatalf("product was not rolled back: %d", count)
+			}
+			var unchanged struct {
+				Name   string
+				Code   string
+				Status int
+			}
+			if err := db.GORM.Table("product").Select("name,code,status").Where("id=?", productResult.Data.ID).Take(&unchanged).Error; err != nil || unchanged.Name != "编辑后服务" || unchanged.Code != "EDITED-PRODUCT" || unchanged.Status != 1 {
+				t.Fatalf("product edit/status survived audit failure: %+v err=%v", unchanged, err)
+			}
+		}
+		if resource == "partner" {
+			var count int64
+			_ = db.GORM.Table("partner").Where("code=?", "ROLLBACK-PARTNER").Count(&count).Error
+			if count != 0 {
+				t.Fatalf("partner was not rolled back: %d", count)
+			}
+			var unchanged struct {
+				Name   string
+				Code   string
+				Status int
+			}
+			if err := db.GORM.Table("partner").Select("name,code,status").Where("id=?", partnerID.Data.ID).Take(&unchanged).Error; err != nil || unchanged.Name != "同行已修改" || unchanged.Code != "EDITED-PARTNER" || unchanged.Status != 1 {
+				t.Fatalf("partner edit/status survived audit failure: %+v err=%v", unchanged, err)
+			}
+		}
+		if resource == "warehouse" {
+			warehousePage = serveJSON(router, http.MethodGet, "/api/v1/warehouse", "", token)
+			if !strings.Contains(warehousePage.Body.String(), `"name":"主仓"`) {
+				t.Fatalf("warehouse update survived audit failure: %s", warehousePage.Body.String())
+			}
+		}
+	}
+}
+
+func assertConcurrentUniqueCode(t *testing.T, router http.Handler, token, path, body string) {
+	t.Helper()
+	const workers = 6
+	start := make(chan struct{})
+	results := make([]int, workers)
+	for i := range results {
+		results[i] = -1
+	}
+	var group sync.WaitGroup
+	for i := range workers {
+		group.Add(1)
+		go func(index int) {
+			defer group.Done()
+			<-start
+			for attempt := 0; attempt < 10; attempt++ {
+				response := serveJSON(router, http.MethodPost, path, body, token)
+				if response.Code == http.StatusOK || response.Code == http.StatusConflict {
+					results[index] = response.Code
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		}(i)
+	}
+	close(start)
+	group.Wait()
+	successes, conflicts := 0, 0
+	for _, status := range results {
+		if status == http.StatusOK {
+			successes++
+		} else if status == http.StatusConflict {
+			conflicts++
+		}
+	}
+	if successes != 1 || conflicts != workers-1 {
+		t.Fatalf("concurrent unique-code result statuses=%v, want one success and %d conflicts", results, workers-1)
 	}
 }
 
@@ -473,6 +746,7 @@ func sqliteDependencies(t *testing.T, database *platformdatabase.Database, stora
 		Auth: authService, RBAC: rbacService, Department: deptService, User: userService,
 		Dictionary: dictionaryService, SysConfig: configService, File: fileService,
 		Log: logService, Notification: notificationService,
+		Product: product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }
 

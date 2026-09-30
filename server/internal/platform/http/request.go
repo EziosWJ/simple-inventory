@@ -19,9 +19,11 @@ type userIDKey struct{}
 // RequestMeta is request-scoped information safe for Service to consume via
 // context.Context without depending on Gin.
 type RequestMeta struct {
-	RequestID string
-	ClientIP  string
-	UserAgent string
+	RequestID     string
+	ClientIP      string
+	UserAgent     string
+	RequestMethod string
+	RequestURL    string
 }
 
 var fallbackRequestSequence atomic.Uint64
@@ -36,9 +38,11 @@ func RequestMetadata() gin.HandlerFunc {
 		}
 
 		meta := RequestMeta{
-			RequestID: requestID,
-			ClientIP:  c.ClientIP(),
-			UserAgent: c.Request.UserAgent(),
+			RequestID:     requestID,
+			ClientIP:      c.ClientIP(),
+			UserAgent:     c.Request.UserAgent(),
+			RequestMethod: c.Request.Method,
+			RequestURL:    c.Request.URL.RequestURI(),
 		}
 		ctx := context.WithValue(c.Request.Context(), requestMetaKey{}, meta)
 		c.Request = c.Request.WithContext(ctx)

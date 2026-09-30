@@ -82,6 +82,21 @@ func TestDialectMigrationVersionsStayInLockstep(t *testing.T) {
 	}
 }
 
+func TestPhase2BusinessMigrationContract(t *testing.T) {
+	for _, dialect := range []string{"postgres", "sqlite"} {
+		product := readFile(t, filepath.Join(dialectPath(dialect, "schema"), "00008_phase2_schema.sql"))
+		for _, required := range []string{"CREATE TABLE product", "CREATE TABLE partner", "CREATE TABLE warehouse", "purchase_price_cents", "sale_price_cents", "singleton_id"} {
+			if !strings.Contains(string(product), required) {
+				t.Errorf("%s phase 2 schema is missing %q", dialect, required)
+			}
+		}
+		seed := readFile(t, filepath.Join(dialectPath(dialect, "seed"), "00005_warehouse_seed.sql"))
+		if !strings.Contains(string(seed), "默认仓库") {
+			t.Errorf("%s phase 2 seed does not create the default warehouse", dialect)
+		}
+	}
+}
+
 func assertGooseFiles(t *testing.T, files []string) {
 	t.Helper()
 	for _, name := range files {

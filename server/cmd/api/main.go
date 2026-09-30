@@ -20,10 +20,13 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
+	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
 )
 
 const defaultUserPassword = "admin123"
@@ -102,6 +105,9 @@ func main() {
 		slog.Error("build notification service", "error", err)
 		os.Exit(1)
 	}
+	productService := product.NewService(product.NewRepository(database.GORM))
+	partnerService := partner.NewService(partner.NewRepository(database.GORM))
+	warehouseService := warehouse.NewService(warehouse.NewRepository(database.GORM))
 
 	application, err := app.New(*cfg, database, app.Dependencies{
 		Auth:         authService,
@@ -113,6 +119,9 @@ func main() {
 		File:         fileService,
 		Log:          logService,
 		Notification: notificationService,
+		Product:      productService,
+		Partner:      partnerService,
+		Warehouse:    warehouseService,
 	})
 	if err != nil {
 		slog.Error("build application", "error", err)

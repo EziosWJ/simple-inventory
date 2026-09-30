@@ -15,10 +15,13 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
+	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformhttp "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
+	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
 )
 
 // Dependencies holds the named business services the HTTP application assembles.
@@ -34,6 +37,9 @@ type Dependencies struct {
 	File         *filemgmt.Service
 	Log          *logmgmt.Service
 	Notification *notification.Service
+	Product      *product.Service
+	Partner      *partner.Service
+	Warehouse    *warehouse.Service
 }
 
 // Application is the assembled HTTP application and its process logger.
@@ -139,6 +145,11 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 		}
 		notification.RegisterRoutes(system, notificationHandler)
 	}
+	apiV1 := router.Group("/api/v1")
+	apiV1.Use(auth.BearerMiddleware(deps.Auth))
+	product.RegisterRoutes(apiV1, product.NewHandler(deps.Product))
+	partner.RegisterRoutes(apiV1, partner.NewHandler(deps.Partner))
+	warehouse.RegisterRoutes(apiV1, warehouse.NewHandler(deps.Warehouse))
 
 	if cfg.Environment == config.EnvironmentDev && cfg.Swagger.Enabled {
 		registerSwaggerUI(router)

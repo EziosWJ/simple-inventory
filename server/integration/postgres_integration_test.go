@@ -29,10 +29,13 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
+	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
 )
 
 const postgresImage = "postgres:17-alpine"
@@ -84,6 +87,146 @@ func TestPostgresLogClearSeedDefaultsByEnvironment(t *testing.T) {
 				t.Fatalf("log-clear seed for %s = %q, want %q", test.environment, value.ConfigValue, test.want)
 			}
 		})
+	}
+}
+
+func TestPostgresProductPartnerWarehouseContract(t *testing.T) {
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("Docker is required for PostgreSQL integration tests")
+	}
+	temporary := startPostgres(t)
+	runMigrations(t, projectRoot(t), temporary.dsn)
+	runMigrations(t, projectRoot(t), temporary.dsn)
+	database := openTemporaryDatabase(t, temporary.dsn)
+	defer database.Close()
+	router, err := app.Build(testAPIConfig(), database, testDependencies(t, database, t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := loginAdmin(t, router)
+	productResponse := serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"PG商品","type":"GOODS","unit":"台","salePrice":"100.01"}`, token)
+	assertEnvelopeCode(t, productResponse, 200, 200, "success")
+	if !strings.Contains(productResponse.Body.String(), `"salePrice":"100.01"`) {
+		t.Fatalf("postgres product = %s", productResponse.Body.String())
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":"PG-DUP","name":"商品甲","type":"GOODS","unit":"个"}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":" pg-dup ","name":"商品乙","type":"GOODS","unit":"个"}`, token), 409, 409, "编码已存在")
+	assertConcurrentUniqueCode(t, router, token, "/api/v1/products", `{"code":"PG-CONCURRENT","name":"并发商品","type":"GOODS","unit":"个"}`)
+	var productCreated struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(productResponse.Body.Bytes(), &productCreated)
+	productPath := "/api/v1/products/" + itoa(productCreated.Data.ID)
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath, `{"code":"PG-EDIT","name":"修改商品","type":"SERVICE","unit":"次","salePrice":null}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath, `{"code":"PG-DUP","name":"编码冲突编辑","type":"GOODS","unit":"个"}`, token), 409, 409, "编码已存在")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, productPath+"/status", `{"status":1}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"溢出价格","type":"GOODS","unit":"个","salePrice":"92233720368547758.08"}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"`+strings.Repeat("长", 201)+`","type":"GOODS","unit":"个"}`, token), 400, 400, "参数错误")
+	partnerResponse := serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"PG同行","type":"COMPANY","isCustomer":true,"isSupplier":true}`, token)
+	assertEnvelopeCode(t, partnerResponse, 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"PG缺身份","type":"PERSON"}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"name":"超长电话","type":"PERSON","isCustomer":true,"phone":"`+strings.Repeat("1", 51)+`"}`, token), 400, 400, "参数错误")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"code":"PG-PARTNER-DUP","name":"单位甲","type":"PERSON","isCustomer":true}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPost, "/api/v1/partners", `{"code":" pg-partner-dup ","name":"单位乙","type":"PERSON","isSupplier":true}`, token), 409, 409, "编码已存在")
+	assertConcurrentUniqueCode(t, router, token, "/api/v1/partners", `{"code":"PG-PARTNER-CONCURRENT","name":"并发往来单位","type":"PERSON","isCustomer":true}`)
+	var partnerCreated struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(partnerResponse.Body.Bytes(), &partnerCreated)
+	partnerPath := "/api/v1/partners/" + itoa(partnerCreated.Data.ID)
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath, `{"code":"PG-PARTNER-EDIT","name":"PG更新","type":"COMPANY","isCustomer":false,"isSupplier":true,"contact":null}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath, `{"code":"PG-PARTNER-DUP","name":"编码冲突编辑","type":"PERSON","isCustomer":true}`, token), 409, 409, "编码已存在")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":0}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, partnerPath+"/status", `{"status":1}`, token), 200, 200, "success")
+	for _, identity := range []struct {
+		value string
+		total int
+	}{{"CUSTOMER", 2}, {"SUPPLIER", 1}} {
+		response := serveJSON(router, http.MethodGet, "/api/v1/partners?identity="+identity.value, "", token)
+		if response.Code != 200 || !strings.Contains(response.Body.String(), `"total":`+itoa(int64(identity.total))) {
+			t.Fatalf("postgres partner %s filter = %s", identity.value, response.Body.String())
+		}
+	}
+	warehouseResponse := serveJSON(router, http.MethodGet, "/api/v1/warehouse", "", token)
+	assertEnvelopeCode(t, warehouseResponse, 200, 200, "success")
+	if err := database.GORM.Exec("INSERT INTO warehouse(singleton_id,name) VALUES(2,'第二仓')").Error; err == nil {
+		t.Fatal("PostgreSQL accepted a second logical warehouse")
+	}
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":"PG主仓","remark":"修改"}`, token), 200, 200, "success")
+	assertEnvelopeCode(t, serveJSON(router, http.MethodPut, "/api/v1/warehouse", `{"name":""}`, token), 400, 400, "参数错误")
+	var requestMetadata struct {
+		RequestMethod string
+		RequestURL    string
+	}
+	if err := database.GORM.Table("sys_oper_log").Select("request_method,request_url").Where("module_name='product' AND operation_type='product.save'").Order("id").Take(&requestMetadata).Error; err != nil || requestMetadata.RequestMethod != "POST" || requestMetadata.RequestURL != "/api/v1/products" {
+		t.Fatalf("audit request metadata=%+v err=%v", requestMetadata, err)
+	}
+	if err := database.GORM.Exec(`CREATE OR REPLACE FUNCTION fail_phase2_audit() RETURNS trigger AS $$ BEGIN IF NEW.module_name IN ('product','partner','warehouse') THEN RAISE EXCEPTION 'phase2 audit failure'; END IF; RETURN NEW; END; $$ LANGUAGE plpgsql`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.GORM.Exec(`CREATE TRIGGER fail_phase2_audit BEFORE INSERT ON sys_oper_log FOR EACH ROW EXECUTE FUNCTION fail_phase2_audit()`).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, attempt := range []struct{ path, body string }{{"/api/v1/products", `{"code":"PG-ROLLBACK","name":"回滚","type":"GOODS","unit":"个"}`}, {"/api/v1/partners", `{"code":"PG-ROLLBACK","name":"回滚","type":"PERSON","isCustomer":true}`}, {"/api/v1/warehouse", `{"name":"审计失败"}`}} {
+		method := http.MethodPost
+		if attempt.path == "/api/v1/warehouse" {
+			method = http.MethodPut
+		}
+		response := serveJSON(router, method, attempt.path, attempt.body, token)
+		if response.Code != 500 {
+			t.Fatalf("audit failure %s response=%d %s", attempt.path, response.Code, response.Body.String())
+		}
+	}
+	for _, attempt := range []struct{ method, path, body string }{
+		{http.MethodPut, productPath, `{"code":"PG-ROLLBACK-EDIT","name":"不应保存","type":"GOODS","unit":"个"}`},
+		{http.MethodPut, productPath + "/status", `{"status":0}`},
+		{http.MethodPut, partnerPath, `{"code":"PG-ROLLBACK-PARTNER-EDIT","name":"不应保存","type":"COMPANY","isCustomer":true}`},
+		{http.MethodPut, partnerPath + "/status", `{"status":0}`},
+	} {
+		response := serveJSON(router, attempt.method, attempt.path, attempt.body, token)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("audit failure %s %s response=%d %s", attempt.method, attempt.path, response.Code, response.Body.String())
+		}
+	}
+	if err := database.GORM.Exec(`DROP TRIGGER fail_phase2_audit ON sys_oper_log`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.GORM.Exec(`DROP FUNCTION fail_phase2_audit()`).Error; err != nil {
+		t.Fatal(err)
+	}
+	var rolledBackProducts, rolledBackPartners int64
+	_ = database.GORM.Table("product").Where("code='PG-ROLLBACK'").Count(&rolledBackProducts).Error
+	_ = database.GORM.Table("partner").Where("code='PG-ROLLBACK'").Count(&rolledBackPartners).Error
+	if rolledBackProducts != 0 || rolledBackPartners != 0 {
+		t.Fatalf("business records survived failed audit: products=%d partners=%d", rolledBackProducts, rolledBackPartners)
+	}
+	var unchangedProduct struct {
+		Name   string
+		Code   string
+		Status int
+	}
+	if err := database.GORM.Table("product").Select("name,code,status").Where("id=?", productCreated.Data.ID).Take(&unchangedProduct).Error; err != nil || unchangedProduct.Name != "修改商品" || unchangedProduct.Code != "PG-EDIT" || unchangedProduct.Status != 1 {
+		t.Fatalf("product edit/status survived audit failure: %+v err=%v", unchangedProduct, err)
+	}
+	var unchangedPartner struct {
+		Name   string
+		Code   string
+		Status int
+	}
+	if err := database.GORM.Table("partner").Select("name,code,status").Where("id=?", partnerCreated.Data.ID).Take(&unchangedPartner).Error; err != nil || unchangedPartner.Name != "PG更新" || unchangedPartner.Code != "PG-PARTNER-EDIT" || unchangedPartner.Status != 1 {
+		t.Fatalf("partner edit/status survived audit failure: %+v err=%v", unchangedPartner, err)
+	}
+	warehouseResponse = serveJSON(router, http.MethodGet, "/api/v1/warehouse", "", token)
+	if !strings.Contains(warehouseResponse.Body.String(), `"name":"PG主仓"`) {
+		t.Fatalf("warehouse survived failed audit: %s", warehouseResponse.Body.String())
 	}
 }
 
@@ -756,6 +899,9 @@ func startPostgres(t *testing.T) temporaryPostgres {
 	)
 	output, err := command.CombinedOutput()
 	if err != nil {
+		if strings.Contains(strings.ToLower(string(output)), "permission denied") || strings.Contains(strings.ToLower(string(output)), "cannot connect to the docker daemon") {
+			t.Skipf("Docker daemon is unavailable for PostgreSQL integration: %s", strings.TrimSpace(string(output)))
+		}
 		t.Fatalf("start temporary PostgreSQL: %v\n%s", err, output)
 	}
 	t.Cleanup(func() {
@@ -976,6 +1122,7 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 		File:         fileService,
 		Log:          logService,
 		Notification: mustNotificationService(t, notificationRepository),
+		Product:      product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }
 
