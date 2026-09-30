@@ -1,28 +1,27 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Boxes, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Field } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { isApiError } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
 import type { LoginErrors } from "@/types";
+import "./login.css";
 
 const REMEMBERED_USERNAME_KEY = "simple-inventory-remembered-username";
 
-function MobileBrand() {
+const features = [
+  { icon: "purchase", title: "采购管理", description: "高效订货 智能对账" },
+  { icon: "sales", title: "销售管理", description: "快速开单 提升业绩" },
+  { icon: "inventory", title: "库存管理", description: "实时库存 精准掌控" },
+  { icon: "reports", title: "数据报表", description: "多维分析 助力决策" },
+];
+
+function Brand() {
   return (
-    <div className="mb-8 flex items-center gap-3 min-[992px]:hidden">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-[0_8px_24px_rgb(22_119_255_/_0.22)]">
-        <Boxes className="h-5 w-5" aria-hidden />
-      </div>
-      <div>
-        <p className="text-base font-semibold tracking-tight text-text-primary">简单进销存</p>
-        <p className="mt-0.5 text-xs text-text-tertiary">
-          Simple Inventory
-        </p>
-      </div>
+    <div className="login-brand">
+      <img src="/login/svg/logo-mark.svg" alt="" width="48" height="48" />
+      <span>简单进销存</span>
     </div>
   );
 }
@@ -38,6 +37,7 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [helpMessage, setHelpMessage] = useState("");
 
   const stateFrom =
     (location.state as { from?: { pathname?: string } } | null)?.from
@@ -106,124 +106,85 @@ export function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen w-screen min-w-0 flex-col overflow-hidden bg-[#f5f8fc] min-[992px]:grid min-[992px]:grid-cols-[55%_45%]">
-      <section
-        className="relative hidden min-h-screen overflow-hidden bg-[#edf5ff] min-[992px]:flex min-[992px]:items-center min-[992px]:px-16 xl:px-24"
-        aria-label="产品介绍"
-        style={{
-          background:
-            "radial-gradient(circle at 20% 25%, rgba(37,99,235,.15), transparent 35%), linear-gradient(135deg, #f0f6ff 0%, #e8f1ff 100%)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37, 99, 235, 0.07) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-          aria-hidden
-        />
-        <div className="pointer-events-none absolute -right-48 top-1/2 h-[34rem] w-[34rem] -translate-y-1/2 rounded-full border border-primary/10" aria-hidden />
-        <div className="pointer-events-none absolute -right-20 top-1/2 h-[22rem] w-[22rem] -translate-y-1/2 rounded-full border border-primary/10" aria-hidden />
-        <div className="pointer-events-none absolute right-24 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_0_8px_rgb(22_119_255_/_0.08),0_0_30px_rgb(22_119_255_/_0.5)]" aria-hidden />
-        <div className="pointer-events-none absolute bottom-16 left-16 h-px w-32 bg-primary/20" aria-hidden />
-        <div className="pointer-events-none absolute bottom-16 left-16 h-16 w-px bg-primary/20" aria-hidden />
-
-        <div className="relative z-10 w-full max-w-[560px]">
-          <div className="mb-14 flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-[0_12px_28px_rgb(22_119_255_/_0.24)]">
-              <Boxes className="h-6 w-6" aria-hidden />
-            </div>
-            <div>
-              <p className="text-xl font-semibold tracking-tight text-text-primary">
-                简单进销存
-              </p>
-              <p className="mt-1 text-xs tracking-wide text-text-tertiary">
-                Simple Inventory
-              </p>
-            </div>
-          </div>
-
-          <p className="mb-4 text-sm font-medium tracking-[0.12em] text-primary">
-            轻量进销存管理
-          </p>
-          <h1 className="text-4xl font-semibold leading-[1.2] tracking-[-0.03em] text-text-primary xl:text-5xl">
-            简单 · 清晰 · 可追溯
-          </h1>
-          <div className="mt-6 h-px w-12 bg-primary/70" aria-hidden />
-          <p className="mt-6 max-w-md text-base leading-7 text-text-secondary">
-            围绕采购、销售与库存建立清晰的数据链路，让日常进销存管理更简单。
-          </p>
-
-          <div className="mt-16 grid max-w-md grid-cols-3 gap-8 border-t border-primary/15 pt-5">
-            <div>
-              <p className="text-lg font-semibold text-text-primary">统一</p>
-              <p className="mt-1 text-xs text-text-tertiary">专注核心流程</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-text-primary">实时</p>
-              <p className="mt-1 text-xs text-text-tertiary">库存变化可追溯</p>
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-text-primary">可靠</p>
-              <p className="mt-1 text-xs text-text-tertiary">关键操作有留痕</p>
-            </div>
-          </div>
+    <main className="login-page">
+      <header className="login-header">
+        <div className="login-header-brand">
+          <Brand />
+          <span className="login-tagline">让生意管理更简单</span>
         </div>
-      </section>
+        <p className="login-values">简单 · 高效 · 专业 · 成长</p>
+      </header>
 
-      <section className="flex min-h-screen w-full items-center justify-center bg-[radial-gradient(circle_at_top_right,_rgba(219,234,254,0.6),_transparent_42%),linear-gradient(135deg,_#f8fbff_0%,_#f2f6fb_100%)] px-5 py-10 sm:px-8 min-[992px]:px-12">
-        <div className="w-full max-w-[420px]">
-          <div className="w-full rounded-2xl border border-slate-900/[0.06] bg-white/[0.96] p-6 shadow-[0_20px_50px_rgb(15_23_42_/_0.08),0_2px_8px_rgb(15_23_42_/_0.04)] sm:p-8 min-[992px]:px-10 min-[992px]:py-9">
-            <MobileBrand />
+      <div className="login-content">
+        <section className="login-hero" aria-label="产品介绍">
+          <div className="login-hero-copy">
+            <h1>简单<span>进销存</span></h1>
+            <p className="login-hero-subtitle">让企业的采购、销售与库存管理更简单</p>
+            <ul className="login-features">
+              {features.map((feature) => (
+                <li key={feature.icon}>
+                  <img src={`/login/svg/feature/${feature.icon}.svg`} alt="" width="52" height="52" />
+                  <div>
+                    <p>{feature.title}</p>
+                    <span>{feature.description}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <img
+            className="login-warehouse"
+            src="/login/png/hero-warehouse.png"
+            alt="仓储管理场景：仓库、货物、叉车、配送车辆与库存看板"
+            width="1448"
+            height="1086"
+            fetchPriority="high"
+          />
+          <p className="login-hero-caption">
+            <span className="login-caption-dots" aria-hidden="true"><i /><i /><i /></span>
+            <span>从混乱到有序，让每一件货物创造更大价值</span>
+          </p>
+        </section>
 
-            <div className="mb-8">
-              <p className="mb-2 text-sm font-medium text-primary">欢迎回来</p>
-              <h2 className="text-2xl font-semibold tracking-tight text-text-primary">欢迎登录</h2>
-              <p className="mt-2 text-sm text-text-tertiary">请输入账号信息进入系统</p>
+        <section className="login-panel" aria-labelledby="login-heading">
+          <div className="login-card">
+            <Brand />
+            <div className="login-card-heading">
+              <h2 id="login-heading">欢迎登录</h2>
+              <p>高效管理采购、销售与库存</p>
             </div>
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <Field
-                label="用户名"
-                htmlFor="username"
-                required
-                error={errors.username}
-              >
-                <div className="relative">
-                  <UserRound
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400"
-                    aria-hidden
-                  />
+            <form className="login-form" onSubmit={handleSubmit} noValidate>
+              <div className="login-field">
+                <div className="login-input-wrap">
+                  <img className="login-input-icon" src="/login/svg/auth/user.svg" alt="" width="26" height="26" />
+                  <label htmlFor="username">用户名</label>
                   <Input
                     id="username"
+                    name="username"
                     value={username}
                     placeholder="请输入用户名"
                     onChange={(event) => {
                       setUsername(event.target.value);
                       setErrors((current) => ({ ...current, username: undefined, account: undefined }));
                     }}
-                    className="h-[46px] rounded-[10px] border-slate-200 bg-slate-50/60 pl-[42px] pr-3 focus:bg-white"
+                    className="login-input"
                     autoComplete="username"
+                    required
                     aria-invalid={Boolean(errors.username)}
+                    aria-describedby={errors.username ? "username-error" : undefined}
                   />
                 </div>
-              </Field>
+                {errors.username && <p className="login-field-error" id="username-error" role="alert">{errors.username}</p>}
+              </div>
 
-              <Field
-                label="密码"
-                htmlFor="password"
-                required
-                error={errors.password}
-              >
-                <div className="relative">
-                  <LockKeyhole
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400"
-                    aria-hidden
-                  />
+              <div className="login-field">
+                <div className="login-input-wrap">
+                  <img className="login-input-icon" src="/login/svg/auth/lock.svg" alt="" width="26" height="26" />
+                  <label htmlFor="password">密码</label>
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     placeholder="请输入密码"
@@ -231,59 +192,68 @@ export function LoginPage() {
                       setPassword(event.target.value);
                       setErrors((current) => ({ ...current, password: undefined, account: undefined }));
                     }}
-                    className="h-[46px] rounded-[10px] border-slate-200 bg-slate-50/60 pl-[42px] pr-[42px] focus:bg-white"
+                    className="login-input login-password-input"
                     autoComplete="current-password"
+                    required
                     aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? "password-error" : undefined}
                   />
                   <button
                     type="button"
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:text-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    className="login-password-toggle"
                     aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    aria-pressed={showPassword}
                     onClick={() => setShowPassword((value) => !value)}
                   >
-                    {showPassword ? <EyeOff className="h-[18px] w-[18px]" aria-hidden /> : <Eye className="h-[18px] w-[18px]" aria-hidden />}
+                    <img src={`/login/svg/auth/${showPassword ? "eye" : "eye-off"}.svg`} alt="" width="24" height="24" />
                   </button>
                 </div>
-              </Field>
+                {errors.password && <p className="login-field-error" id="password-error" role="alert">{errors.password}</p>}
+              </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label htmlFor="remember-me" className="inline-flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+              <div className="login-form-options">
+                <label htmlFor="remember-me" className="login-remember">
                   <Checkbox id="remember-me" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
                   记住我
                 </label>
-                <span className="inline-flex items-center gap-1 text-xs text-text-tertiary">
-                  <ShieldCheck className="h-3.5 w-3.5 text-success" aria-hidden />
-                  安全登录
-                </span>
+                <button type="button" className="login-text-button" onClick={() => setHelpMessage("如需重置密码，请联系为你开通账号的系统管理员。")}>忘记密码？</button>
               </div>
 
               {errors.account && (
-                <p className="rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-sm leading-5 text-error" role="alert">
-                  {errors.account}
-                </p>
+                <p className="login-account-error" role="alert">{errors.account}</p>
               )}
 
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
-                className="mt-2 h-[46px] w-full rounded-[10px] shadow-[0_10px_24px_rgb(22_119_255_/_0.20)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgb(22_119_255_/_0.26)]"
+                className="login-submit"
                 disabled={submitting}
                 aria-busy={submitting}
               >
                 {submitting ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" aria-hidden />
                     登录中…
                   </>
-                ) : "登录"}
+                ) : (
+                  <><span>登 录</span><img src="/login/svg/auth/arrow-right.svg" alt="" width="30" height="30" /></>
+                )}
               </Button>
             </form>
-          </div>
 
-          <p className="mt-6 text-center text-xs text-slate-400">© 2026 简单进销存</p>
-        </div>
-      </section>
+            <div className="login-support">
+              <p className="login-support-divider"><span>需要帮助？</span></p>
+              <button type="button" className="login-text-button login-support-button" onClick={() => setHelpMessage("请联系为你开通账号的系统管理员，获取登录帮助或账号支持。") }>
+                <img src="/login/svg/auth/support.svg" alt="" width="26" height="26" />
+                联系管理员
+              </button>
+              {helpMessage && <p className="login-help-message" role="status">{helpMessage}</p>}
+            </div>
+          </div>
+        </section>
+      </div>
+      <footer className="login-footer">简单进销存 · 专注中小企业的数字化管理工具</footer>
     </main>
   );
 }
