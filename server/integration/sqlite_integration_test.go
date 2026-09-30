@@ -138,6 +138,51 @@ func TestSQLitePhase2MigrationUpgradeFromPhase1(t *testing.T) {
 	}
 }
 
+func TestSQLiteBusinessDictionarySeedDownPreservesUserCodeCollision(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "custom-dictionary.db")
+	command := exec.Command("go", "run", "./cmd/migrate", "up", "--kind", "schema")
+	command.Dir = projectRoot(t)
+	command.Env = sqliteEnvironment(path, config.EnvironmentTest)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("apply SQLite schema before dictionary seed: %v\n%s", err, output)
+	}
+	database := openSQLiteDatabase(t, path)
+	defer database.Close()
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetTableName("goose_seed_db_version")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	seedDir := filepath.Join(projectRoot(t), "migrations", "sqlite", "seed")
+	if err := goose.UpToContext(ctx, database.SQL, seedDir, 5); err != nil {
+		t.Fatalf("apply existing SQLite seeds: %v", err)
+	}
+	if err := database.GORM.Exec("INSERT INTO sys_dict_type(dict_name,dict_code,status,is_builtin) VALUES('自建商品类型','PRODUCT_TYPE',1,0)").Error; err != nil {
+		t.Fatalf("create user dictionary code collision: %v", err)
+	}
+	if err := database.GORM.Exec(`INSERT INTO sys_dict_data(dict_type_id,dict_label,dict_value)
+SELECT id,'用户实物','GOODS' FROM sys_dict_type WHERE dict_code='PRODUCT_TYPE'`).Error; err != nil {
+		t.Fatalf("create user dictionary item collision: %v", err)
+	}
+	if err := goose.UpToContext(ctx, database.SQL, seedDir, 6); err != nil {
+		t.Fatalf("apply business dictionary seed with custom collision: %v", err)
+	}
+	if err := goose.DownToContext(ctx, database.SQL, seedDir, 5); err != nil {
+		t.Fatalf("roll back business dictionary seed: %v", err)
+	}
+	var customTypeCount, customItemCount int64
+	if err := database.GORM.Table("sys_dict_type").Where("dict_code='PRODUCT_TYPE' AND is_builtin=0").Count(&customTypeCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.GORM.Table("sys_dict_data AS d").Joins("JOIN sys_dict_type AS t ON t.id=d.dict_type_id").Where("t.dict_code='PRODUCT_TYPE' AND t.is_builtin=0 AND d.dict_value='GOODS' AND d.dict_label='用户实物'").Count(&customItemCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if customTypeCount != 1 || customItemCount != 1 {
+		t.Fatalf("business seed rollback changed a user dictionary collision: types=%d items=%d", customTypeCount, customItemCount)
+	}
+}
+
 func TestSQLiteLogClearSeedDefaultsByEnvironment(t *testing.T) {
 	for _, test := range []struct {
 		environment string
@@ -286,6 +331,7 @@ func TestSQLitePhase2ProductPartnerWarehouseContract(t *testing.T) {
 	}
 	assertEnvelopeCode(t, serveJSON(router, http.MethodGet, "/api/v1/products", "", ""), http.StatusUnauthorized, 401, "未登录或 token 已失效")
 	token := loginAdmin(t, router)
+	assertBusinessDictionaryContract(t, router, token)
 	created := serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"同名服务","type":"SERVICE","unit":"次","purchasePrice":"0.00","salePrice":"12.30"}`, token)
 	assertEnvelopeCode(t, created, http.StatusOK, 200, "success")
 	if !strings.Contains(created.Body.String(), `"code":"SP`) || !strings.Contains(created.Body.String(), `"purchasePrice":"0.00"`) {

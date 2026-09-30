@@ -14,13 +14,32 @@ import { SearchFilterBar } from "@/components/common/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { DataTableColumn } from "@/types";
+import {
+  BUSINESS_STATUS_VALUES,
+  DICT_CODES,
+  PRODUCT_TYPE_VALUES,
+  type DictSelectOption,
+} from "@/constants/dicts";
+import { useDictOptions } from "@/hooks/use-dict-options";
+import {
+  businessDictLabel,
+  missingBusinessDictValues,
+  preserveCurrentDictOption,
+} from "@/lib/business-dict-label";
+import type { ApiStatus, DataTableColumn } from "@/types";
 
 type Filters = { keyword: string; type: string; category: string; status: string };
 type ProductDraft = Omit<ProductRecord, "id" | "status">;
 const emptyFilters: Filters = { keyword: "", type: "", category: "", status: "" };
 
 export function ProductsPage() {
+  const productTypeDict = useDictOptions<ProductRecord["type"]>(DICT_CODES.PRODUCT_TYPE, {
+    allowedValues: PRODUCT_TYPE_VALUES,
+  });
+  const businessStatusDict = useDictOptions<ApiStatus>(DICT_CODES.BUSINESS_STATUS, {
+    allowedValues: BUSINESS_STATUS_VALUES,
+    valueType: "number",
+  });
   const [records, setRecords] = useState<ProductRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -32,6 +51,10 @@ export function ProductsPage() {
   const [actionError, setActionError] = useState("");
   const [editing, setEditing] = useState<ProductRecord | null>(null);
   const [detail, setDetail] = useState<ProductRecord | null>(null);
+  const missingTypes = missingBusinessDictValues(productTypeDict.options, PRODUCT_TYPE_VALUES);
+  const missingStatuses = missingBusinessDictValues(businessStatusDict.options, BUSINESS_STATUS_VALUES);
+  const productTypeIssue = productTypeDict.error || (missingTypes.length ? `字典缺少可用值：${missingTypes.join("、")}` : "");
+  const businessStatusIssue = businessStatusDict.error || (missingStatuses.length ? `字典缺少可用值：${missingStatuses.join("、")}` : "");
 
   useEffect(() => {
     let current = true;
@@ -73,12 +96,12 @@ export function ProductsPage() {
       key: "specification",
       render: (_, record) => `${record.model || "-"} / ${record.specification || "-"}`,
     },
-    { title: "类型", dataIndex: "type", render: (value) => value === "SERVICE" ? "服务" : "实物" },
+    { title: "类型", dataIndex: "type", render: (value) => businessDictLabel(productTypeDict.options, value) },
     { title: "分类", dataIndex: "category", render: (value) => value || "-" },
     { title: "单位", dataIndex: "unit" },
     { title: "参考采购价", dataIndex: "purchasePrice", render: (value) => value ?? "-" },
     { title: "参考销售价", dataIndex: "salePrice", render: (value) => value ?? "-" },
-    { title: "状态", dataIndex: "status", render: (value) => value === 1 ? "启用" : "停用" },
+    { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(businessStatusDict.options, value) },
     {
       title: "操作",
       key: "actions",
@@ -87,7 +110,7 @@ export function ProductsPage() {
           <Button size="sm" variant="secondary" onClick={() => setDetail(record)}>查看</Button>
           <Button size="sm" variant="secondary" onClick={() => setEditing(record)}>编辑</Button>
           <Button size="sm" variant="secondary" onClick={() => void changeStatus(record)}>
-            {record.status === 1 ? "停用" : "恢复"}
+            {businessDictLabel(businessStatusDict.options, record.status === 1 ? 0 : 1)}
           </Button>
         </div>
       ),
@@ -142,13 +165,17 @@ export function ProductsPage() {
           onChange={(event) => { setDraft({ ...draft, keyword: event.target.value }); setPage(1); }}
         />
         <Select value={draft.type} onChange={(event) => { setDraft({ ...draft, type: event.target.value }); setPage(1); }}>
-          <option value="">全部类型</option><option value="GOODS">实物</option><option value="SERVICE">服务</option>
+          <option value="">全部类型</option>{productTypeDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </Select>
         <Input placeholder="分类" value={draft.category} onChange={(event) => { setDraft({ ...draft, category: event.target.value }); setPage(1); }} />
         <Select value={draft.status} onChange={(event) => { setDraft({ ...draft, status: event.target.value }); setPage(1); }}>
-          <option value="">全部状态</option><option value="1">启用</option><option value="0">停用</option>
+          <option value="">全部状态</option>{businessStatusDict.options.map((option) => <option key={option.value} value={String(option.value)}>{option.label}</option>)}
         </Select>
       </SearchFilterBar>
+      {(productTypeIssue || businessStatusIssue) && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
+        <span>{[productTypeIssue && `${DICT_CODES.PRODUCT_TYPE}：${productTypeIssue}`, businessStatusIssue && `${DICT_CODES.BUSINESS_STATUS}：${businessStatusIssue}`].filter(Boolean).join("；")}</span>
+        <Button size="sm" variant="secondary" onClick={() => { productTypeDict.reload(); businessStatusDict.reload(); }}>重试</Button>
+      </div>}
       {actionError && <p role="alert" className="mb-3 text-sm text-danger">{actionError}</p>}
       <DataTableCard pagination={
         <Pagination page={page} pageSize={10} total={total} onPageChange={setPage} />
@@ -159,7 +186,7 @@ export function ProductsPage() {
         <dialog open className="fixed inset-0 z-50 m-auto max-h-[90vh] w-[min(640px,95vw)] overflow-auto rounded-admin border border-border bg-surface p-card shadow-admin">
           <h2 className="mb-4 text-lg font-semibold">档案详情</h2>
           <dl className="grid gap-3 sm:grid-cols-2">
-            {productDetails(detail).map(([label, value]) => <Detail key={label} label={label} value={value} />)}
+            {productDetails(detail, productTypeDict.options, businessStatusDict.options).map(([label, value]) => <Detail key={label} label={label} value={value} />)}
           </dl>
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDetail(null)}>关闭</Button>
@@ -167,7 +194,15 @@ export function ProductsPage() {
           </div>
         </dialog>
       )}
-      {editing && <ProductForm key={editing.id} record={editing} onCancel={() => setEditing(null)} onSave={save} />}
+      {editing && <ProductForm
+        key={editing.id}
+        record={editing}
+        typeOptions={productTypeDict.options}
+        typeIssue={productTypeIssue}
+        retryTypes={productTypeDict.reload}
+        onCancel={() => setEditing(null)}
+        onSave={save}
+      />}
     </>
   );
 }
@@ -176,12 +211,16 @@ function newProduct(): ProductRecord {
   return { id: 0, code: "", name: "", type: "GOODS", unit: "", status: 1 };
 }
 
-function productDetails(record: ProductRecord): [string, string | null | undefined][] {
+function productDetails(
+  record: ProductRecord,
+  typeOptions: readonly DictSelectOption<ProductRecord["type"]>[],
+  statusOptions: readonly DictSelectOption<ApiStatus>[],
+): [string, string | null | undefined][] {
   return [
-    ["编码", record.code], ["名称", record.name], ["类型", record.type === "SERVICE" ? "服务" : "实物"],
+    ["编码", record.code], ["名称", record.name], ["类型", businessDictLabel(typeOptions, record.type)],
     ["品牌", record.brand], ["型号", record.model], ["规格", record.specification], ["分类", record.category],
     ["基本单位", record.unit], ["参考采购价", record.purchasePrice], ["参考销售价", record.salePrice],
-    ["状态", record.status ? "启用" : "停用"], ["备注", record.remark],
+    ["状态", businessDictLabel(statusOptions, record.status)], ["备注", record.remark],
   ];
 }
 
@@ -189,8 +228,11 @@ function Detail({ label, value }: { label: string; value?: string | null }) {
   return <div><dt className="text-xs text-text-tertiary">{label}</dt><dd>{value || "-"}</dd></div>;
 }
 
-function ProductForm({ record, onCancel, onSave }: {
+function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onSave }: {
   record: ProductRecord;
+  typeOptions: readonly DictSelectOption<ProductRecord["type"]>[];
+  typeIssue: string;
+  retryTypes: () => void;
   onCancel: () => void;
   onSave: (value: ProductDraft, id?: number) => Promise<void>;
 }) {
@@ -223,6 +265,7 @@ function ProductForm({ record, onCancel, onSave }: {
       title={record.id ? "编辑档案" : "新建档案"}
       onCancel={onCancel}
       onSubmit={submit}
+      submitDisabled={!record.id && (Boolean(typeIssue) || !typeOptions.some((option) => option.value === values.type))}
       contentClassName="w-[min(720px,95vw)]"
       bodyClassName="overflow-auto"
     >
@@ -234,7 +277,7 @@ function ProductForm({ record, onCancel, onSave }: {
         ))}
         <label className="grid gap-1 text-sm">类型
           <Select value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as ProductRecord["type"] })}>
-            <option value="GOODS">实物</option><option value="SERVICE">服务</option>
+            {preserveCurrentDictOption(typeOptions, values.type).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </Select>
         </label>
         {(["purchasePrice", "salePrice"] as const).map((key) => (
@@ -243,6 +286,7 @@ function ProductForm({ record, onCancel, onSave }: {
           </label>
         ))}
         {error && <p role="alert" className="col-span-full text-sm text-danger">{error}</p>}
+        {typeIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PRODUCT_TYPE}：{typeIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryTypes}>重试</Button></div>}
       </div>
     </FormDialog>
   );

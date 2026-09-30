@@ -13,6 +13,7 @@ export type DictSelectOption<T extends string | number = string> = {
 
 export const DICT_CODES = {
   COMMON_STATUS: "COMMON_STATUS",
+  BUSINESS_STATUS: "BUSINESS_STATUS",
   CONFIG_TYPE: "CONFIG_TYPE",
   CONFIG_VALUE_TYPE: "CONFIG_VALUE_TYPE",
   FILE_BUSINESS_MODULE: "FILE_BUSINESS_MODULE",
@@ -20,11 +21,18 @@ export const DICT_CODES = {
   MENU_TYPE: "MENU_TYPE",
   MENU_VISIBLE: "MENU_VISIBLE",
   OPERATION_TYPE: "OPERATION_TYPE",
+  PRODUCT_TYPE: "PRODUCT_TYPE",
+  PARTNER_TYPE: "PARTNER_TYPE",
+  PARTNER_IDENTITY: "PARTNER_IDENTITY",
   USER_GENDER: "USER_GENDER",
 } as const;
 
 export const MENU_TYPE_VALUES = ["DIR", "MENU", "LINK"] as const;
 export const API_STATUS_VALUES = [1, 0] as const;
+export const BUSINESS_STATUS_VALUES = [1, 0] as const;
+export const PRODUCT_TYPE_VALUES = ["GOODS", "SERVICE"] as const;
+export const PARTNER_TYPE_VALUES = ["COMPANY", "PERSON"] as const;
+export const PARTNER_IDENTITY_VALUES = ["CUSTOMER", "SUPPLIER"] as const;
 export const USER_GENDER_VALUES = ["UNKNOWN", "MALE", "FEMALE"] as const;
 export const CONFIG_TYPE_VALUES = ["SYSTEM", "CUSTOM"] as const;
 export const CONFIG_VALUE_TYPE_VALUES = ["TEXT", "NUMBER", "BOOLEAN"] as const;

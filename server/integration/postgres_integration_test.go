@@ -104,6 +104,7 @@ func TestPostgresProductPartnerWarehouseContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	token := loginAdmin(t, router)
+	assertBusinessDictionaryContract(t, router, token)
 	productResponse := serveJSON(router, http.MethodPost, "/api/v1/products", `{"name":"PG商品","type":"GOODS","unit":"台","salePrice":"100.01"}`, token)
 	assertEnvelopeCode(t, productResponse, 200, 200, "success")
 	if !strings.Contains(productResponse.Body.String(), `"salePrice":"100.01"`) {
