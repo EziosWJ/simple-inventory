@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" fill="none">
+  <defs>
+    <linearGradient id="city" x1="500" y1="100" x2="500" y2="660" gradientUnits="userSpaceOnUse"><stop stop-color="#b9dcfa" stop-opacity=".45"/><stop offset="1" stop-color="#c8e7ff" stop-opacity=".12"/></linearGradient>
+    <linearGradient id="bars" x1="960" y1="150" x2="960" y2="340" gradientUnits="userSpaceOnUse"><stop stop-color="#55b8f5" stop-opacity=".65"/><stop offset="1" stop-color="#74c6fa" stop-opacity=".05"/></linearGradient>
+  </defs>
+  <g fill="url(#city)">
+    <path d="M20 340 100 318 180 340v140H20zM195 350l60-18 55 18v170H195zM330 330l80-25 70 25v180H330zM530 160l110-75 75 28v320H530zM720 76l25-10 28 9v330h-53zM795 135l25-8 40 12v282h-65zM888 103l28 8v265h-28z"/>
+    <path d="M4 235h22v75H4zM84 265h20v72H84zM208 282h16v55h-16zM356 256h25v83h-25z" opacity=".7"/>
+  </g>
+  <g fill="url(#bars)">
+    <path d="m886 273 24 4v104h-24zM924 250l25 4v127h-25zM963 218l25 4v159h-25zM1002 182l25 4v195h-25zM1042 141l25 4v236h-25z"/>
+  </g>
+  <path d="M690 274c169-12 282-68 357-175" stroke="#fff" stroke-opacity=".65" stroke-width="9"/>
+  <path d="m1023 103 38-32-1 42" fill="#fff" fill-opacity=".7"/>
+  <g stroke="#fff" stroke-opacity=".52" stroke-width="3">
+    <path d="m0 479 440-140 595 265-445 174zM0 584l518-161 583 265M144 437l588 265M318 382l590 263M15 694l609-180"/>
+  </g>
+</svg>
