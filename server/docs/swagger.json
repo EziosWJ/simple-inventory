@@ -4367,6 +4367,326 @@
                 }
             }
         },
+        "/api/v1/partner-balances": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询客户应收与供应商应付余额",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "CUSTOMER",
+                            "SUPPLIER"
+                        ],
+                        "type": "string",
+                        "description": "方向",
+                        "name": "direction",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "往来单位ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.BalancePage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/entries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "分页查询往来金额流水",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来单位ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "CUSTOMER",
+                            "SUPPLIER"
+                        ],
+                        "type": "string",
+                        "description": "方向",
+                        "name": "direction",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/entries/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询往来金额记录详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "金额记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Entry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/entries/{id}/reverse": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "冲销期初应收应付",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "期初流水ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "冲销原因",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Entry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/opening": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "录入期初应收应付",
+                "parameters": [
+                    {
+                        "description": "requestKey幂等键、人民币正金额、业务日期和必填说明",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/receivable.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Entry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partners": {
             "get": {
                 "security": [
@@ -6406,6 +6726,151 @@
             "type": "object",
             "properties": {
                 "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "receivable.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "receivable.Balance": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "entryCount": {
+                    "type": "integer"
+                },
+                "hasRecords": {
+                    "type": "boolean"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                }
+            }
+        },
+        "receivable.BalancePage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Balance"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "receivable.Entry": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "balanceAfter": {
+                    "type": "string"
+                },
+                "balanceBefore": {
+                    "type": "string"
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "effectiveAt": {
+                    "type": "string"
+                },
+                "entryType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "operatorId": {
+                    "type": "integer"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "reversedById": {
+                    "type": "integer"
+                },
+                "reversesId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "receivable.Input": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "requestKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "receivable.Page": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Entry"
+                    }
+                },
+                "total": {
                     "type": "integer"
                 }
             }

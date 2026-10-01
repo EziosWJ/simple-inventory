@@ -1,0 +1,215 @@
+package receivable
+
+import (
+	"context"
+	"errors"
+	"strconv"
+
+	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	platform "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
+	"github.com/gin-gonic/gin"
+)
+
+type Handler struct{ s *Service }
+type ApiEnvelope struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
+}
+
+func NewHandler(s *Service) *Handler { return &Handler{s} }
+func RegisterRoutes(r gin.IRouter, h *Handler) {
+	g := r.Group("/partner-balances")
+	g.GET("", h.balances)
+	g.GET("/entries", h.page)
+	g.GET("/entries/:id", h.detail)
+	g.POST("/opening", h.create)
+	g.POST("/entries/:id/reverse", h.reverse)
+}
+func metadata(ctx context.Context) audit.Metadata {
+	m := audit.Metadata{RequestID: platform.RequestIDFromContext(ctx)}
+	if p, ok := auth.PrincipalFromContext(ctx); ok {
+		m.ActorID = p.UserID
+	}
+	if r, ok := platform.RequestMetaFromContext(ctx); ok {
+		m.ClientIP = r.ClientIP
+		m.UserAgent = r.UserAgent
+		m.RequestMethod = r.RequestMethod
+		m.RequestURL = r.RequestURL
+	}
+	return m
+}
+
+// @Summary 查询客户应收与供应商应付余额
+// @Tags 往来余额
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
+// @Param partnerId query int false "往来单位ID"
+// @Success 200 {object} ApiEnvelope{data=BalancePage}
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/partner-balances [get]
+func (h *Handler) balances(c *gin.Context) {
+	p, e := paramInt(c, "page", 1)
+	if e != nil {
+		platform.WriteError(c, 400, 400, "页码无效", nil)
+		return
+	}
+	size, e := paramInt(c, "pageSize", 20)
+	if e != nil {
+		platform.WriteError(c, 400, 400, "分页大小无效", nil)
+		return
+	}
+	partnerID := int64(0)
+	if raw := c.Query("partnerId"); raw != "" {
+		partnerID, e = strconv.ParseInt(raw, 10, 64)
+		if e != nil || partnerID <= 0 {
+			platform.WriteError(c, 400, 400, "往来单位无效", nil)
+			return
+		}
+	}
+	v, e := h.s.Balances(c.Request.Context(), partnerID, p, size, c.Query("direction"))
+	if e != nil {
+		platform.WriteError(c, 400, 400, e.Error(), nil)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 分页查询往来金额流水
+// @Tags 往来余额
+// @Security BearerAuth
+// @Produce json
+// @Param partnerId query int false "往来单位ID"
+// @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Success 200 {object} ApiEnvelope{data=Page}
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/entries [get]
+func (h *Handler) page(c *gin.Context) {
+	p, e := paramInt(c, "page", 1)
+	if e != nil {
+		platform.WriteError(c, 400, 400, "页码无效", nil)
+		return
+	}
+	size, e := paramInt(c, "pageSize", 20)
+	if e != nil {
+		platform.WriteError(c, 400, 400, "分页大小无效", nil)
+		return
+	}
+	partner := int64(0)
+	if x := c.Query("partnerId"); x != "" {
+		partner, e = strconv.ParseInt(x, 10, 64)
+		if e != nil {
+			platform.WriteError(c, 400, 400, "往来单位无效", nil)
+			return
+		}
+	}
+	v, e := h.s.Page(c.Request.Context(), partner, c.Query("direction"), p, size)
+	if e != nil {
+		platform.WriteError(c, 400, 400, e.Error(), nil)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 查询往来金额记录详情
+// @Tags 往来余额
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "金额记录ID"
+// @Success 200 {object} ApiEnvelope{data=Entry}
+// @Failure 404 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/entries/{id} [get]
+func (h *Handler) detail(c *gin.Context) {
+	id, e := strconv.ParseInt(c.Param("id"), 10, 64)
+	if e != nil || id <= 0 {
+		platform.WriteError(c, 400, 400, "记录ID无效", nil)
+		return
+	}
+	v, e := h.s.Detail(c.Request.Context(), id)
+	if e != nil {
+		platform.WriteError(c, 404, 404, e.Error(), nil)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 录入期初应收应付
+// @Tags 往来余额
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body Input true "requestKey幂等键、人民币正金额、业务日期和必填说明"
+// @Success 200 {object} ApiEnvelope{data=Entry}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/opening [post]
+func (h *Handler) create(c *gin.Context) {
+	var in Input
+	if c.ShouldBindJSON(&in) != nil {
+		platform.WriteError(c, 400, 400, "请求参数无效", nil)
+		return
+	}
+	v, e := h.s.Create(c.Request.Context(), metadata(c.Request.Context()), in)
+	if e != nil {
+		if errors.Is(e, ErrInvalid) {
+			platform.WriteError(c, 400, 400, e.Error(), nil)
+		} else if errors.Is(e, ErrConflict) {
+			platform.WriteError(c, 409, 409, e.Error(), nil)
+		} else {
+			platform.WriteError(c, 500, 500, "保存期初余额失败", nil)
+		}
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 冲销期初应收应付
+// @Tags 往来余额
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "期初流水ID"
+// @Param body body object true "冲销原因"
+// @Success 200 {object} ApiEnvelope{data=Entry}
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/entries/{id}/reverse [post]
+func (h *Handler) reverse(c *gin.Context) {
+	id, e := strconv.ParseInt(c.Param("id"), 10, 64)
+	var in struct {
+		Reason string `json:"reason"`
+	}
+	if e != nil || c.ShouldBindJSON(&in) != nil {
+		platform.WriteError(c, 400, 400, "请求参数无效", nil)
+		return
+	}
+	v, e := h.s.Reverse(c.Request.Context(), metadata(c.Request.Context()), id, in.Reason)
+	if e != nil {
+		if errors.Is(e, ErrInvalid) {
+			platform.WriteError(c, 400, 400, e.Error(), nil)
+		} else if errors.Is(e, ErrNotFound) {
+			platform.WriteError(c, 404, 404, e.Error(), nil)
+		} else if errors.Is(e, ErrConflict) {
+			platform.WriteError(c, 409, 409, e.Error(), nil)
+		} else {
+			platform.WriteError(c, 500, 500, "冲销期初余额失败", nil)
+		}
+		return
+	}
+	platform.OK(c, v)
+}
+func paramInt(c *gin.Context, key string, def int) (int, error) {
+	if x := c.Query(key); x != "" {
+		v, e := strconv.Atoi(x)
+		if e != nil || v < 1 {
+			return 0, ErrInvalid
+		}
+		return v, nil
+	}
+	return def, nil
+}

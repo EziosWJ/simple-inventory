@@ -800,6 +800,101 @@ definitions:
       status:
         type: integer
     type: object
+  receivable.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  receivable.Balance:
+    properties:
+      amount:
+        type: string
+      direction:
+        type: string
+      entryCount:
+        type: integer
+      hasRecords:
+        type: boolean
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+    type: object
+  receivable.BalancePage:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/receivable.Balance'
+        type: array
+      total:
+        type: integer
+    type: object
+  receivable.Entry:
+    properties:
+      amount:
+        type: string
+      balanceAfter:
+        type: string
+      balanceBefore:
+        type: string
+      businessDate:
+        type: string
+      description:
+        type: string
+      direction:
+        type: string
+      documentNo:
+        type: string
+      effectiveAt:
+        type: string
+      entryType:
+        type: string
+      id:
+        type: integer
+      operatorId:
+        type: integer
+      partnerId:
+        type: integer
+      reversedById:
+        type: integer
+      reversesId:
+        type: integer
+    type: object
+  receivable.Input:
+    properties:
+      amount:
+        type: string
+      businessDate:
+        type: string
+      description:
+        type: string
+      direction:
+        type: string
+      partnerId:
+        type: integer
+      requestKey:
+        type: string
+    type: object
+  receivable.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/receivable.Entry'
+        type: array
+      total:
+        type: integer
+    type: object
   sysconfig.ApiEnvelope:
     properties:
       code:
@@ -3631,6 +3726,194 @@ paths:
       summary: 库存流水分页查询
       tags:
       - 库存
+  /api/v1/partner-balances:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 方向
+        enum:
+        - CUSTOMER
+        - SUPPLIER
+        in: query
+        name: direction
+        type: string
+      - description: 往来单位ID
+        in: query
+        name: partnerId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.BalancePage'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询客户应收与供应商应付余额
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/entries:
+    get:
+      parameters:
+      - description: 往来单位ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 方向
+        enum:
+        - CUSTOMER
+        - SUPPLIER
+        in: query
+        name: direction
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Page'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 分页查询往来金额流水
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/entries/{id}:
+    get:
+      parameters:
+      - description: 金额记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Entry'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询往来金额记录详情
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/entries/{id}/reverse:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 期初流水ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 冲销原因
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Entry'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 冲销期初应收应付
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/opening:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: requestKey幂等键、人民币正金额、业务日期和必填说明
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/receivable.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Entry'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 录入期初应收应付
+      tags:
+      - 往来余额
   /api/v1/partners:
     get:
       parameters:
