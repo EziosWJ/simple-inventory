@@ -4320,6 +4320,19 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
+                            "ADJUSTMENT",
+                            "PURCHASE",
+                            "SALE",
+                            "PURCHASE_RETURN",
+                            "SALE_RETURN"
+                        ],
+                        "type": "string",
+                        "description": "来源单据类型",
+                        "name": "sourceType",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
                             "ORIGINAL",
                             "REVERSAL"
                         ],
@@ -4460,7 +4473,7 @@ const docTemplate = `{
                 "tags": [
                     "往来余额"
                 ],
-                "summary": "分页查询往来金额流水",
+                "summary": "按实际生效时间分页查询完整来源往来明细",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4488,6 +4501,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "每页条数",
                         "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效起点（包含）",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效终点（不包含）",
+                        "name": "to",
                         "in": "query"
                     }
                 ],
@@ -4586,7 +4611,7 @@ const docTemplate = `{
                 "tags": [
                     "往来余额"
                 ],
-                "summary": "冲销期初应收应付或收付款记录",
+                "summary": "冲销期初、收付款或退款记录",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4695,6 +4720,74 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/partner-balances/refunds": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "向客户退款或收到供应商退款（保存即生效）",
+                "parameters": [
+                    {
+                        "description": "退款方式、业务日期与幂等键；金额不得超过对应方向当前待退款",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/receivable.SettlementInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Entry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partner-balances/settlements": {
             "post": {
                 "security": [
@@ -4750,6 +4843,88 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/statement": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询完整期间往来对账单（含历史期初与完整流水）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来单位ID",
+                        "name": "partnerId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "CUSTOMER",
+                            "SUPPLIER"
+                        ],
+                        "type": "string",
+                        "description": "方向",
+                        "name": "direction",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效起点（包含）",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效终点（不包含）",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Statement"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -5280,6 +5455,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "直送业务包含两边原单及退货的数量金额和操作记录追溯；先销售退货入库，再单独办理采购退货出库。",
                 "consumes": [
                     "application/json"
                 ],
@@ -5897,6 +6073,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "采购单独过账；直送采购取消前必须先取消全部未取消关联销售。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6026,6 +6203,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "直送业务包含两边原单及退货的数量金额和操作记录追溯；先销售退货入库，再单独办理采购退货出库。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6691,6 +6869,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "直送销售必须关联已过账直送采购；事务内按实物商品ID汇总数量核对，两单分别过账。",
                 "consumes": [
                     "application/json"
                 ],
@@ -7135,6 +7314,155 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "integer"
+                }
+            }
+        },
+        "directdelivery.DocumentRef": {
+            "type": "object",
+            "properties": {
+                "cancelReason": {
+                    "type": "string"
+                },
+                "cancelledAt": {
+                    "type": "string"
+                },
+                "cancelledByName": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "directdelivery.Trace": {
+            "type": "object",
+            "properties": {
+                "purchase": {
+                    "$ref": "#/definitions/directdelivery.TraceDocument"
+                },
+                "purchaseReturns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.TraceDocument"
+                    }
+                },
+                "saleReturns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.TraceDocument"
+                    }
+                },
+                "sales": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.TraceDocument"
+                    }
+                }
+            }
+        },
+        "directdelivery.TraceDocument": {
+            "type": "object",
+            "properties": {
+                "businessDate": {
+                    "type": "string"
+                },
+                "cancelReason": {
+                    "type": "string"
+                },
+                "cancelledAt": {
+                    "type": "string"
+                },
+                "cancelledByName": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "createdByName": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.TraceItem"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "originalId": {
+                    "type": "integer"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "totalAmount": {
+                    "type": "string"
+                }
+            }
+        },
+        "directdelivery.TraceItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "originalItemId": {
+                    "type": "integer"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "unitPrice": {
+                    "type": "string"
                 }
             }
         },
@@ -7789,6 +8117,18 @@ const docTemplate = `{
                 "createdByName": {
                     "type": "string"
                 },
+                "directDelivery": {
+                    "type": "boolean"
+                },
+                "directDocuments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.DocumentRef"
+                    }
+                },
+                "directTrace": {
+                    "$ref": "#/definitions/directdelivery.Trace"
+                },
                 "documentNo": {
                     "type": "string"
                 },
@@ -7836,6 +8176,9 @@ const docTemplate = `{
                 "businessDate": {
                     "type": "string"
                 },
+                "directDelivery": {
+                    "type": "boolean"
+                },
                 "items": {
                     "type": "array",
                     "items": {
@@ -7858,6 +8201,9 @@ const docTemplate = `{
             "properties": {
                 "businessDate": {
                     "type": "string"
+                },
+                "directDelivery": {
+                    "type": "boolean"
                 },
                 "items": {
                     "type": "array",
@@ -8014,6 +8360,9 @@ const docTemplate = `{
                 },
                 "createdByName": {
                     "type": "string"
+                },
+                "directTrace": {
+                    "$ref": "#/definitions/directdelivery.Trace"
                 },
                 "documentNo": {
                     "type": "string"
@@ -8394,8 +8743,14 @@ const docTemplate = `{
                 "operatorId": {
                     "type": "integer"
                 },
+                "operatorName": {
+                    "type": "string"
+                },
                 "partnerId": {
                     "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
                 },
                 "paymentMethod": {
                     "type": "string"
@@ -8403,13 +8758,22 @@ const docTemplate = `{
                 "purchaseId": {
                     "type": "integer"
                 },
+                "purchaseReturnId": {
+                    "type": "integer"
+                },
                 "reversedById": {
                     "type": "integer"
+                },
+                "reversedDocumentNo": {
+                    "type": "string"
                 },
                 "reversesId": {
                     "type": "integer"
                 },
                 "saleId": {
+                    "type": "integer"
+                },
+                "saleReturnId": {
                     "type": "integer"
                 },
                 "transactionNo": {
@@ -8485,6 +8849,47 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "transactionNo": {
+                    "type": "string"
+                }
+            }
+        },
+        "receivable.Statement": {
+            "type": "object",
+            "properties": {
+                "closingAmount": {
+                    "type": "string"
+                },
+                "decreaseAmount": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "increaseAmount": {
+                    "type": "string"
+                },
+                "netChange": {
+                    "type": "string"
+                },
+                "openingAmount": {
+                    "type": "string"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Entry"
+                    }
+                },
+                "to": {
                     "type": "string"
                 }
             }
@@ -8639,6 +9044,21 @@ const docTemplate = `{
                 "deliveryPhone": {
                     "type": "string"
                 },
+                "directDelivery": {
+                    "type": "boolean"
+                },
+                "directDocuments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directdelivery.DocumentRef"
+                    }
+                },
+                "directPurchaseId": {
+                    "type": "integer"
+                },
+                "directTrace": {
+                    "$ref": "#/definitions/directdelivery.Trace"
+                },
                 "documentNo": {
                     "type": "string"
                 },
@@ -8704,6 +9124,12 @@ const docTemplate = `{
                 "deliveryPhone": {
                     "type": "string"
                 },
+                "directDelivery": {
+                    "type": "boolean"
+                },
+                "directPurchaseId": {
+                    "type": "integer"
+                },
                 "items": {
                     "type": "array",
                     "items": {
@@ -8735,6 +9161,12 @@ const docTemplate = `{
                 },
                 "deliveryPhone": {
                     "type": "string"
+                },
+                "directDelivery": {
+                    "type": "boolean"
+                },
+                "directPurchaseId": {
+                    "type": "integer"
                 },
                 "items": {
                     "type": "array",
@@ -8894,6 +9326,9 @@ const docTemplate = `{
                 },
                 "createdByName": {
                     "type": "string"
+                },
+                "directTrace": {
+                    "$ref": "#/definitions/directdelivery.Trace"
                 },
                 "documentNo": {
                     "type": "string"

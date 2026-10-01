@@ -218,6 +218,104 @@ definitions:
       status:
         type: integer
     type: object
+  directdelivery.DocumentRef:
+    properties:
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledByName:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      partnerName:
+        type: string
+      postedAt:
+        type: string
+      postedByName:
+        type: string
+      status:
+        type: string
+    type: object
+  directdelivery.Trace:
+    properties:
+      purchase:
+        $ref: '#/definitions/directdelivery.TraceDocument'
+      purchaseReturns:
+        items:
+          $ref: '#/definitions/directdelivery.TraceDocument'
+        type: array
+      saleReturns:
+        items:
+          $ref: '#/definitions/directdelivery.TraceDocument'
+        type: array
+      sales:
+        items:
+          $ref: '#/definitions/directdelivery.TraceDocument'
+        type: array
+    type: object
+  directdelivery.TraceDocument:
+    properties:
+      businessDate:
+        type: string
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdByName:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/directdelivery.TraceItem'
+        type: array
+      kind:
+        type: string
+      originalId:
+        type: integer
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      postedAt:
+        type: string
+      postedByName:
+        type: string
+      status:
+        type: string
+      totalAmount:
+        type: string
+    type: object
+  directdelivery.TraceItem:
+    properties:
+      amount:
+        type: string
+      id:
+        type: integer
+      originalItemId:
+        type: integer
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productName:
+        type: string
+      quantity:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
   filemgmt.ApiEnvelope:
     properties:
       code:
@@ -647,6 +745,14 @@ definitions:
         type: integer
       createdByName:
         type: string
+      directDelivery:
+        type: boolean
+      directDocuments:
+        items:
+          $ref: '#/definitions/directdelivery.DocumentRef'
+        type: array
+      directTrace:
+        $ref: '#/definitions/directdelivery.Trace'
       documentNo:
         type: string
       id:
@@ -678,6 +784,8 @@ definitions:
     properties:
       businessDate:
         type: string
+      directDelivery:
+        type: boolean
       items:
         items:
           $ref: '#/definitions/purchase.LineInput'
@@ -693,6 +801,8 @@ definitions:
     properties:
       businessDate:
         type: string
+      directDelivery:
+        type: boolean
       items:
         items:
           $ref: '#/definitions/purchase.LineInput'
@@ -795,6 +905,8 @@ definitions:
         type: integer
       createdByName:
         type: string
+      directTrace:
+        $ref: '#/definitions/directdelivery.Trace'
       documentNo:
         type: string
       id:
@@ -1043,17 +1155,27 @@ definitions:
         type: integer
       operatorId:
         type: integer
+      operatorName:
+        type: string
       partnerId:
         type: integer
+      partnerName:
+        type: string
       paymentMethod:
         type: string
       purchaseId:
         type: integer
+      purchaseReturnId:
+        type: integer
       reversedById:
         type: integer
+      reversedDocumentNo:
+        type: string
       reversesId:
         type: integer
       saleId:
+        type: integer
+      saleReturnId:
         type: integer
       transactionNo:
         type: string
@@ -1103,6 +1225,33 @@ definitions:
       requestKey:
         type: string
       transactionNo:
+        type: string
+    type: object
+  receivable.Statement:
+    properties:
+      closingAmount:
+        type: string
+      decreaseAmount:
+        type: string
+      direction:
+        type: string
+      from:
+        type: string
+      increaseAmount:
+        type: string
+      netChange:
+        type: string
+      openingAmount:
+        type: string
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      records:
+        items:
+          $ref: '#/definitions/receivable.Entry'
+        type: array
+      to:
         type: string
     type: object
   sale.ApiEnvelope:
@@ -1204,6 +1353,16 @@ definitions:
         type: string
       deliveryPhone:
         type: string
+      directDelivery:
+        type: boolean
+      directDocuments:
+        items:
+          $ref: '#/definitions/directdelivery.DocumentRef'
+        type: array
+      directPurchaseId:
+        type: integer
+      directTrace:
+        $ref: '#/definitions/directdelivery.Trace'
       documentNo:
         type: string
       id:
@@ -1247,6 +1406,10 @@ definitions:
         type: string
       deliveryPhone:
         type: string
+      directDelivery:
+        type: boolean
+      directPurchaseId:
+        type: integer
       items:
         items:
           $ref: '#/definitions/sale.LineInput'
@@ -1268,6 +1431,10 @@ definitions:
         type: string
       deliveryPhone:
         type: string
+      directDelivery:
+        type: boolean
+      directPurchaseId:
+        type: integer
       items:
         items:
           $ref: '#/definitions/sale.LineInput'
@@ -1372,6 +1539,8 @@ definitions:
         type: integer
       createdByName:
         type: string
+      directTrace:
+        $ref: '#/definitions/directdelivery.Trace'
       documentNo:
         type: string
       id:
@@ -4284,6 +4453,16 @@ paths:
         in: query
         name: productId
         type: integer
+      - description: 来源单据类型
+        enum:
+        - ADJUSTMENT
+        - PURCHASE
+        - SALE
+        - PURCHASE_RETURN
+        - SALE_RETURN
+        in: query
+        name: sourceType
+        type: string
       - description: 流水类型
         enum:
         - ORIGINAL
@@ -4389,6 +4568,14 @@ paths:
         in: query
         name: pageSize
         type: integer
+      - description: RFC3339生效起点（包含）
+        in: query
+        name: from
+        type: string
+      - description: RFC3339生效终点（不包含）
+        in: query
+        name: to
+        type: string
       produces:
       - application/json
       responses:
@@ -4407,7 +4594,7 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
-      summary: 分页查询往来金额流水
+      summary: 按实际生效时间分页查询完整来源往来明细
       tags:
       - 往来余额
   /api/v1/partner-balances/entries/{id}:
@@ -4473,7 +4660,7 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
-      summary: 冲销期初应收应付或收付款记录
+      summary: 冲销期初、收付款或退款记录
       tags:
       - 往来余额
   /api/v1/partner-balances/opening:
@@ -4512,6 +4699,46 @@ paths:
       summary: 录入期初应收应付
       tags:
       - 往来余额
+  /api/v1/partner-balances/refunds:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退款方式、业务日期与幂等键；金额不得超过对应方向当前待退款
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/receivable.SettlementInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Entry'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 向客户退款或收到供应商退款（保存即生效）
+      tags:
+      - 往来余额
   /api/v1/partner-balances/settlements:
     post:
       consumes:
@@ -4546,6 +4773,57 @@ paths:
       security:
       - BearerAuth: []
       summary: 按往来余额记录客户收款或供应商付款
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/statement:
+    get:
+      parameters:
+      - description: 往来单位ID
+        in: query
+        name: partnerId
+        required: true
+        type: integer
+      - description: 方向
+        enum:
+        - CUSTOMER
+        - SUPPLIER
+        in: query
+        name: direction
+        required: true
+        type: string
+      - description: RFC3339生效起点（包含）
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: RFC3339生效终点（不包含）
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Statement'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询完整期间往来对账单（含历史期初与完整流水）
       tags:
       - 往来余额
   /api/v1/partners:
@@ -4867,6 +5145,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 直送业务包含两边原单及退货的数量金额和操作记录追溯；先销售退货入库，再单独办理采购退货出库。
       parameters:
       - description: 原采购单与退货明细
         in: body
@@ -5224,6 +5503,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 采购单独过账；直送采购取消前必须先取消全部未取消关联销售。
       parameters:
       - description: 采购单ID
         in: path
@@ -5300,6 +5580,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 直送业务包含两边原单及退货的数量金额和操作记录追溯；先销售退货入库，再单独办理采购退货出库。
       parameters:
       - description: 原销售单与退货明细
         in: body
@@ -5684,6 +5965,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 直送销售必须关联已过账直送采购；事务内按实物商品ID汇总数量核对，两单分别过账。
       parameters:
       - description: 销售单ID
         in: path
