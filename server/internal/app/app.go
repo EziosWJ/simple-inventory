@@ -18,6 +18,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformhttp "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
+	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
@@ -42,6 +43,7 @@ type Dependencies struct {
 	Partner      *partner.Service
 	Warehouse    *warehouse.Service
 	Inventory    *inventory.Service
+	PrintProfile *printprofile.Service
 }
 
 // Application is the assembled HTTP application and its process logger.
@@ -154,6 +156,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	warehouse.RegisterRoutes(apiV1, warehouse.NewHandler(deps.Warehouse))
 	if deps.Inventory != nil {
 		inventory.RegisterRoutes(apiV1, inventory.NewHandler(deps.Inventory))
+	}
+	if deps.PrintProfile != nil {
+		printprofile.RegisterRoutes(apiV1, printprofile.NewHandler(deps.PrintProfile))
 	}
 
 	if cfg.Environment == config.EnvironmentDev && cfg.Swagger.Enabled {

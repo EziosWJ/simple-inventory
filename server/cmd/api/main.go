@@ -23,6 +23,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
@@ -124,6 +125,7 @@ func main() {
 		Partner:      partnerService,
 		Warehouse:    warehouseService,
 		Inventory:    inventory.NewService(inventory.NewRepository(database.GORM)),
+		PrintProfile: printprofile.NewService(printprofile.NewRepository(database.GORM)),
 	})
 	if err != nil {
 		slog.Error("build application", "error", err)

@@ -541,6 +541,23 @@ definitions:
       status:
         type: integer
     type: object
+  internal_printprofile.Profile:
+    properties:
+      address:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  internal_printprofile.envelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
   internal_product.ApiEnvelope:
     properties:
       code:
@@ -3599,6 +3616,38 @@ paths:
       summary: 设置往来单位状态
       tags:
       - 往来单位
+  /api/v1/print-profile:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_printprofile.envelope'
+      security:
+      - BearerAuth: []
+      summary: 查询经营者打印资料
+      tags:
+      - 经营者打印资料
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 经营者名称、电话和地址
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_printprofile.Profile'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_printprofile.envelope'
+      security:
+      - BearerAuth: []
+      summary: 更新经营者打印资料
+      tags:
+      - 经营者打印资料
   /api/v1/products:
     get:
       parameters:

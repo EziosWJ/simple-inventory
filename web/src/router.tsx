@@ -30,6 +30,7 @@ import { WarehousePage } from "@/pages/business/warehouse";
 import { InventoryAdjustmentsPage } from "@/pages/business/inventory-adjustments";
 import { InventoryBalancesPage } from "@/pages/business/inventory-balances";
 import { InventoryEntriesPage } from "@/pages/business/inventory-entries";
+import { PrintProfilePage } from "@/pages/business/print-profile";
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: "business/inventory-adjustments", element: <InventoryAdjustmentsPage /> },
       { path: "business/inventory-balances", element: <InventoryBalancesPage /> },
       { path: "business/inventory-entries", element: <InventoryEntriesPage /> },
+      { path: "business/print-profile", element: <PrintProfilePage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,

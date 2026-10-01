@@ -32,6 +32,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
@@ -1125,6 +1126,7 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 		Log:          logService,
 		Notification: mustNotificationService(t, notificationRepository),
 		Inventory:    inventory.NewService(inventory.NewRepository(database.GORM)),
+		PrintProfile: printprofile.NewService(printprofile.NewRepository(database.GORM)),
 		Product:      product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }
