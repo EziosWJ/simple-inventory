@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import {
   createInventoryAdjustment,
   cancelInventoryAdjustment,
   getInventoryAdjustment,
   getProduct,
   inventoryAdjustmentPage,
+  postInventoryAdjustment,
   productPage,
   updateInventoryAdjustment,
   type AdjustmentReason,
@@ -22,16 +22,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +35,17 @@ import {
 import { useDictOptions } from "@/hooks/use-dict-options";
 import { businessDictLabel, missingBusinessDictValues } from "@/lib/business-dict-label";
 import { isApiError } from "@/lib/api-error";
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { X } from "lucide-react";
 import type { DataTableColumn } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -79,8 +81,10 @@ export function InventoryAdjustmentsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editAdjustment, setEditAdjustment] = useState<InventoryAdjustment | null>(null);
   const [cancelAdjustment, setCancelAdjustment] = useState<InventoryAdjustment | null>(null);
+  const [postAdjustment, setPostAdjustment] = useState<InventoryAdjustment | null>(null);
   const [detail, setDetail] = useState<InventoryAdjustment | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [postLoading, setPostLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
   useEffect(() => {
@@ -106,9 +110,15 @@ export function InventoryAdjustmentsPage() {
     { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(statusDict.options, value as AdjustmentStatus) },
     { title: "创建人", key: "creator", render: (_, record) => record.createdByName || `用户 ${record.createdBy}` },
     { title: "创建时间", dataIndex: "createTime", render: (value) => formatDateTime(String(value ?? "")) },
-    { title: "操作", key: "actions", render: (_, record) => <Button size="sm" variant="secondary" onClick={() => void openDetail(record.id)}>查看</Button> },
+    { title: "操作", key: "actions", render: (_, record) => <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => void openDetail(record.id)}>查看</Button>{record.status === "DRAFT" && <Button size="sm" onClick={() => void openDetailForPost(record.id)}>过账</Button>}</div> },
   ];
 
+  async function openDetailForPost(id: number) {
+    setPostLoading(true); setActionError("");
+    try { setPostAdjustment(await getInventoryAdjustment(id)); }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "读取库存调整单详情失败"); }
+    finally { setPostLoading(false); }
+  }
   async function openDetail(id: number) {
     setDetailLoading(true); setDetail(null); setActionError("");
     try { setDetail(await getInventoryAdjustment(id)); }
@@ -135,6 +145,14 @@ export function InventoryAdjustmentsPage() {
     setDetail(null);
     setCancelAdjustment(adjustment);
   }
+  function openPost(adjustment: InventoryAdjustment) {
+    setDetail(null);
+    setPostAdjustment(adjustment);
+  }
+  function openCancelPosted(adjustment: InventoryAdjustment) {
+    setDetail(null);
+    setCancelAdjustment(adjustment);
+  }
   function finishEdit(adjustment: InventoryAdjustment) {
     setEditAdjustment(null);
     setDetail(adjustment);
@@ -147,10 +165,17 @@ export function InventoryAdjustmentsPage() {
     setPage(1);
     setReload((value) => value + 1);
   }
+  function finishPost(adjustment: InventoryAdjustment) {
+    setPostAdjustment(null);
+    setDetail(adjustment);
+    setPage(1);
+    setReload((value) => value + 1);
+  }
   async function reloadLatest(id: number) {
     const latest = await getInventoryAdjustment(id);
     setEditAdjustment(null);
     setCancelAdjustment(null);
+    setPostAdjustment(null);
     setDetail(latest);
     setReload((value) => value + 1);
   }
@@ -180,9 +205,10 @@ export function InventoryAdjustmentsPage() {
     </DataTableCard>
     {createOpen && <AdjustmentItemsDialog reasons={reasonOptions} reasonError={reasonDict.error || (missingReasons.length ? "原因选项暂不可用，当前显示默认选项。" : "")} onRetryReasons={reasonDict.reload} onCancel={() => setCreateOpen(false)} onSave={saveDraft} />}
     {editAdjustment && <AdjustmentItemsDialog key={`edit-${editAdjustment.id}-${editAdjustment.version}`} adjustment={editAdjustment} reasons={reasonOptions} reasonError={reasonDict.error || (missingReasons.length ? "原因选项暂不可用，当前显示默认选项。" : "")} onRetryReasons={reasonDict.reload} onCancel={() => { setEditAdjustment(null); setDetail(editAdjustment); }} onSave={(items) => updateInventoryAdjustment(editAdjustment.id, { version: editAdjustment.version, items })} onSaved={finishEdit} onReloadLatest={() => reloadLatest(editAdjustment.id)} />}
-    {cancelAdjustment && <CancelAdjustmentDialog key={`cancel-${cancelAdjustment.id}-${cancelAdjustment.version}`} adjustment={cancelAdjustment} onCancel={() => { setCancelAdjustment(null); setDetail(cancelAdjustment); }} onSave={async (reason) => cancelInventoryAdjustment(cancelAdjustment.id, { version: cancelAdjustment.version, reason })} onSaved={finishCancel} onReloadLatest={() => reloadLatest(cancelAdjustment.id)} />}
-    {detailLoading && <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="rounded-admin bg-surface p-6">正在加载调整单详情…</div></div>}
-    {detail && <AdjustmentDetailDialog adjustment={detail} statusOptions={statusOptions} reasonOptions={reasonOptions} onClose={() => setDetail(null)} onEdit={() => openEdit(detail)} onCancelDraft={() => openCancel(detail)} />}
+    {cancelAdjustment && <CancelAdjustmentDialog key={`cancel-${cancelAdjustment.id}-${cancelAdjustment.version}`} adjustment={cancelAdjustment} onCancel={() => { setCancelAdjustment(null); setDetail(cancelAdjustment); }} reasonOptions={reasonOptions} onSave={async (reason) => cancelInventoryAdjustment(cancelAdjustment.id, { version: cancelAdjustment.version, reason })} onSaved={finishCancel} onReloadLatest={() => reloadLatest(cancelAdjustment.id)} />}
+    {postAdjustment && <PostAdjustmentDialog key={`post-${postAdjustment.id}-${postAdjustment.version}`} adjustment={postAdjustment} reasonOptions={reasonOptions} onCancel={() => { setPostAdjustment(null); setDetail(postAdjustment); }} onSave={() => postInventoryAdjustment(postAdjustment.id, { version: postAdjustment.version })} onSaved={finishPost} onReloadLatest={() => reloadLatest(postAdjustment.id)} />}
+    {(detailLoading || postLoading) && <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="rounded-admin bg-surface p-6">{postLoading ? "正在加载待过账单据…" : "正在加载调整单详情…"}</div></div>}
+    {detail && <AdjustmentDetailDialog adjustment={detail} statusOptions={statusOptions} reasonOptions={reasonOptions} onClose={() => setDetail(null)} onEdit={() => openEdit(detail)} onCancelDraft={() => openCancel(detail)} onPost={() => openPost(detail)} onCancelPosted={() => openCancelPosted(detail)} />}
   </>;
 }
 
@@ -392,8 +418,73 @@ function isVersionConflict(error: unknown) {
   return isApiError(error) && (error.status === 409 || error.code === 409);
 }
 
-function CancelAdjustmentDialog({ adjustment, onCancel, onSave, onSaved, onReloadLatest }: {
+// Posting is the irreversible step of the whole document: the dialog states the
+// confirmed version and every line impact before the operator commits it.
+function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onSaved, onReloadLatest }: {
   adjustment: InventoryAdjustment;
+  reasonOptions: readonly DictSelectOption<AdjustmentReason>[];
+  onCancel: () => void;
+  onSave: () => Promise<InventoryAdjustment>;
+  onSaved: (adjustment: InventoryAdjustment) => void;
+  onReloadLatest: () => Promise<void>;
+}) {
+  const items = adjustment.items ?? [];
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [versionConflict, setVersionConflict] = useState(false);
+  const [confirmReload, setConfirmReload] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const increases = items.filter((item) => !item.quantity.startsWith("-"));
+  const decreases = items.filter((item) => item.quantity.startsWith("-"));
+  async function submit() {
+    if (!confirmed) { setError("请先确认整单影响。"); return; }
+    setError(""); setLoading(true);
+    try { onSaved(await onSave()); }
+    catch (submitError) {
+      if (isVersionConflict(submitError)) {
+        setVersionConflict(true); setConfirmReload(false);
+        setError("单据状态或版本已变化，本次过账没有生效。请查看最新版本后再处理。");
+      } else setError(submitError instanceof Error ? submitError.message : "过账失败，本次过账没有生效，请检查后重试。");
+    } finally { setLoading(false); }
+  }
+  async function reloadLatest() {
+    setReloading(true);
+    try { await onReloadLatest(); }
+    catch (reloadError) { setError(reloadError instanceof Error ? reloadError.message : "重新加载失败；当前确认状态已取消。"); setConfirmReload(false); }
+    finally { setReloading(false); }
+  }
+  return <FormDialog
+    open title="过账库存调整单"
+    description={`单号 ${adjustment.documentNo} · 确认版本 ${adjustment.version}。过账会在同一事务内写入库存余额和不可变库存流水，成功后单据不可编辑、不可取消。`}
+    loading={loading || reloading}
+    submitText="确认并过账"
+    submitDisabled={!confirmed || versionConflict || items.length === 0}
+    onCancel={onCancel} onSubmit={submit}
+    contentClassName="w-[min(900px,96vw)]" bodyClassName="overflow-auto"
+  >
+    <ul className="mb-3 grid gap-1 text-sm">
+      <li>增加明细 {increases.length} 条</li>
+      <li>减少明细 {decreases.length} 条</li>
+    </ul>
+    {items.length === 0 ? <p role="alert" className="text-sm text-danger">该单据没有明细，无法过账。请返回编辑草稿后重试。</p> : (
+      <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm">
+        <thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">型号 / 规格</th><th className="p-2">单位</th><th className="p-2">调整数量</th><th className="p-2">原因</th><th className="p-2">说明</th></tr></thead>
+        <tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} impact={false} />)}</tbody>
+      </table></div>
+    )}
+    <label className="mt-3 flex items-start gap-2 text-sm">
+      <Checkbox className="mt-1" checked={confirmed} onChange={(event) => { setConfirmed(event.target.checked); setError(""); }} />
+      <span>我已核对整单明细：正数增加库存、负数减少库存，任一商品减少后小于 0 或超出可表示范围时整单不会过账。</span>
+    </label>
+    {versionConflict && (confirmReload ? <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm"><span>重新加载会放弃本次确认。是否继续？</span><span className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(false)}>继续查看</Button><Button type="button" size="sm" variant="danger" disabled={reloading} onClick={() => void reloadLatest()}>{reloading ? "正在加载…" : "放弃确认并重新加载"}</Button></span></div> : <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => setConfirmReload(true)}>重新加载最新单据</Button>)}
+    {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
+  </FormDialog>;
+}
+
+function CancelAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onSaved, onReloadLatest }: {
+  adjustment: InventoryAdjustment;
+  reasonOptions: readonly DictSelectOption<AdjustmentReason>[];
   onCancel: () => void;
   onSave: (reason: string) => Promise<InventoryAdjustment>;
   onSaved: (adjustment: InventoryAdjustment) => void;
@@ -405,6 +496,11 @@ function CancelAdjustmentDialog({ adjustment, onCancel, onSave, onSaved, onReloa
   const [versionConflict, setVersionConflict] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
   const [reloading, setReloading] = useState(false);
+  // A posted document is cancelled by reversing every line, so the dialog has to
+  // state the opposite movement the whole document will apply.
+  const posted = adjustment.status === "POSTED";
+  const items = adjustment.items ?? [];
+  const reversals = items.map((item) => ({ item, reversed: negateQuantity(item.quantity) }));
   async function submit() {
     const value = reason.trim();
     const length = Array.from(value).length;
@@ -415,7 +511,9 @@ function CancelAdjustmentDialog({ adjustment, onCancel, onSave, onSaved, onReloa
     catch (submitError) {
       if (isVersionConflict(submitError)) {
         setVersionConflict(true); setConfirmReload(false);
-        setError("草稿状态或版本已变化，本次取消没有生效。请查看最新版本后再处理。");
+        setError(posted ? "单据状态或版本已变化，本次取消没有生效。请查看最新版本后再处理。" : "草稿状态或版本已变化，本次取消没有生效。请查看最新版本后再处理。");
+      } else if (posted) {
+        setError(submitError instanceof Error ? submitError.message : "取消已过账单据失败，单据仍为已过账，库存没有变化。如因冲销会导致负库存，请按实物核对结果新建调整并在说明中注明原单号。");
       } else setError(submitError instanceof Error ? submitError.message : "取消草稿失败；原因已保留，请检查后重试。");
     } finally { setLoading(false); }
   }
@@ -426,28 +524,43 @@ function CancelAdjustmentDialog({ adjustment, onCancel, onSave, onSaved, onReloa
     finally { setReloading(false); }
   }
   return <FormDialog
-    open title="取消库存调整草稿"
-    description={`单号 ${adjustment.documentNo} · 当前版本 ${adjustment.version}。取消后保留记录，不改变库存。`}
+    open
+    title={posted ? "取消已过账库存调整单" : "取消库存调整草稿"}
+    description={posted
+      ? `单号 ${adjustment.documentNo} · 确认版本 ${adjustment.version}。取消会按原明细生成反向库存流水，原流水和过账记录保留；任一商品冲销后小于 0 时整单取消失败。`
+      : `单号 ${adjustment.documentNo} · 当前版本 ${adjustment.version}。取消后保留记录，不改变库存。`}
     loading={loading || reloading}
-    submitText="确认取消草稿"
+    submitText={posted ? "确认冲销并取消" : "确认取消草稿"}
     submitDisabled={versionConflict || !reason.trim() || Array.from(reason.trim()).length > 500}
     onCancel={onCancel} onSubmit={submit}
+    contentClassName={posted ? "w-[min(900px,96vw)]" : undefined}
+    bodyClassName={posted ? "overflow-auto" : undefined}
   >
+    {posted && (items.length === 0
+      ? <p role="alert" className="mb-3 text-sm text-danger">该单据没有明细，无法冲销。请核查数据后处理。</p>
+      : <div className="mb-3 overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm">
+        <thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">单位</th><th className="p-2">过账数量</th><th className="p-2">取消冲销数量</th><th className="p-2">原因</th></tr></thead>
+        <tbody>{reversals.map(({ item, reversed }) => <tr key={item.id} className="border-b border-border"><td className="p-2"><div>{item.productName}</div><div className="text-xs text-text-tertiary">{item.productCode}</div></td><td className="p-2">{item.unit}</td><td className="p-2 tabular-nums">{item.quantity}</td><td className="p-2 tabular-nums">{reversed}</td><td className="p-2">{businessDictLabel(reasonOptions, item.reason)}</td></tr>)}</tbody>
+      </table></div>)}
     <label className="grid gap-1 text-sm font-medium">取消原因（必填）
-      <Textarea maxLength={1000} rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="说明取消这张草稿的原因" />
+      <Textarea maxLength={1000} rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={posted ? "说明取消这张已过账单据的原因" : "说明取消这张草稿的原因"} />
     </label>
-    <p className="mt-1 text-xs text-text-tertiary">最多 500 个字。</p>
+    <p className="mt-1 text-xs text-text-tertiary">最多 500 个字。{posted && "冲销数量为过账数量的相反数，使用过账时的商品资料快照。"}</p>
+    {posted && <p className="mt-2 text-xs text-text-tertiary">因负库存无法取消时，不要强制冲销：请按实物核对结果新建调整单，并在说明中注明原单号 {adjustment.documentNo}。</p>}
     {versionConflict && (confirmReload ? <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm"><span>重新加载会放弃当前填写的取消原因。是否继续？</span><span className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(false)}>继续填写</Button><Button type="button" size="sm" variant="danger" disabled={reloading} onClick={() => void reloadLatest()}>{reloading ? "正在加载…" : "放弃原因并重新加载"}</Button></span></div> : <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => setConfirmReload(true)}>重新加载最新草稿</Button>)}
     {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
   </FormDialog>;
 }
 
-function AdjustmentDetailDialog({ adjustment, statusOptions, reasonOptions, onClose, onEdit, onCancelDraft }: {
+function AdjustmentDetailDialog({ adjustment, statusOptions, reasonOptions, onClose, onEdit, onCancelDraft, onPost, onCancelPosted }: {
   adjustment: InventoryAdjustment; statusOptions: readonly DictSelectOption<AdjustmentStatus>[];
   reasonOptions: readonly DictSelectOption<AdjustmentReason>[]; onClose: () => void;
-  onEdit: () => void; onCancelDraft: () => void;
+  onEdit: () => void; onCancelDraft: () => void; onPost: () => void; onCancelPosted: () => void;
 }) {
   const items = adjustment.items ?? [];
+  // Only lines that were actually posted carry a stored balance impact, which
+  // includes a posted document that was later cancelled by reversal.
+  const posted = items.some((item) => item.balanceBefore != null && item.balanceAfter != null);
   return <Dialog
     open
     onOpenChange={(open) => { if (!open) onClose(); }}
@@ -462,21 +575,35 @@ function AdjustmentDetailDialog({ adjustment, statusOptions, reasonOptions, onCl
         <DialogClose aria-label="关闭库存调整单详情"><X className="h-4 w-4" aria-hidden /></DialogClose>
       </DialogHeader>
       <DialogBody className="min-h-0 overflow-auto">
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Detail label="调整单号" value={adjustment.documentNo} /><Detail label="状态" value={businessDictLabel(statusOptions, adjustment.status)} /><Detail label="版本" value={String(adjustment.version)} /><Detail label="创建人" value={adjustment.createdByName || `用户 ${adjustment.createdBy}`} /><Detail label="创建时间" value={formatDateTime(adjustment.createTime)} />{adjustment.status === "CANCELLED" && <><Detail label="取消人" value={adjustment.cancelledBy === null ? "-" : adjustment.cancelledByName || `用户 ${adjustment.cancelledBy}`} /><Detail label="取消时间" value={adjustment.cancelledAt ? formatDateTime(adjustment.cancelledAt) : "-"} /><Detail label="取消原因" value={adjustment.cancelReason || "-"} /></>}</dl>
-        <h3 className="mb-2 mt-5 font-medium">调整明细（{items.length}）</h3>
-        <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm"><thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">型号 / 规格</th><th className="p-2">单位</th><th className="p-2">调整数量</th><th className="p-2">原因</th><th className="p-2">说明</th></tr></thead><tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} />)}</tbody></table></div>
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Detail label="调整单号" value={adjustment.documentNo} /><Detail label="状态" value={businessDictLabel(statusOptions, adjustment.status)} /><Detail label="版本" value={String(adjustment.version)} /><Detail label="创建人" value={adjustment.createdByName || `用户 ${adjustment.createdBy}`} /><Detail label="创建时间" value={formatDateTime(adjustment.createTime)} />{adjustment.postedBy !== null && <><Detail label="过账人" value={adjustment.postedByName || `用户 ${adjustment.postedBy}`} /><Detail label="过账时间" value={adjustment.postedAt ? formatDateTime(adjustment.postedAt) : "-"} /></>}{adjustment.status === "CANCELLED" && <><Detail label="取消人" value={adjustment.cancelledBy === null ? "-" : adjustment.cancelledByName || `用户 ${adjustment.cancelledBy}`} /><Detail label="取消时间" value={adjustment.cancelledAt ? formatDateTime(adjustment.cancelledAt) : "-"} /><Detail label="取消原因" value={adjustment.cancelReason || "-"} /></>}</dl>
+        {adjustment.status === "POSTED" && <p className="mt-4 text-sm text-text-secondary">该单据已过账，明细内容与过账时的库存影响已固化，不可再编辑；取消只能整单冲销，原流水保留。</p>}
+        {adjustment.status === "CANCELLED" && adjustment.postedBy !== null && <p className="mt-4 text-sm text-text-secondary">该单据曾过账并已整单冲销：下表为过账时的库存影响，冲销记录保留在库存流水中。</p>}
+        {adjustment.status === "CANCELLED" && adjustment.postedBy === null && <p className="mt-4 text-sm text-text-secondary">该草稿已取消，从未过账，库存未发生变化。</p>}
+        <h3 className="mb-2 mt-5 font-medium">{adjustment.postedBy !== null ? "过账明细" : "调整明细"}（{items.length}）</h3>
+        <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm"><thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">型号 / 规格</th><th className="p-2">单位</th><th className="p-2">调整数量</th><th className="p-2">原因</th>{posted && <th className="p-2">调整前 → 调整后</th>}<th className="p-2">说明</th></tr></thead><tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} impact={posted} />)}</tbody></table></div>
       </DialogBody>
       <DialogFooter>
         {adjustment.status === "DRAFT" && <>
           <Button variant="secondary" onClick={onEdit}>编辑草稿</Button>
           <Button variant="danger" onClick={onCancelDraft}>取消草稿</Button>
+          <Button onClick={onPost}>过账</Button>
         </>}
+        {adjustment.status === "POSTED" && <Button variant="danger" onClick={onCancelPosted}>取消并冲销</Button>}
         <Button variant="secondary" onClick={onClose}>关闭</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;
 }
-function AdjustmentItemRow({ item, reasonOptions }: { item: InventoryAdjustmentItem; reasonOptions: readonly DictSelectOption<AdjustmentReason>[] }) {
-  return <tr className="border-b border-border"><td className="p-2"><div>{item.productName}</div><div className="text-xs text-text-tertiary">{item.productCode}</div></td><td className="p-2">{item.productModel || "-"} / {item.productSpecification || "-"}</td><td className="p-2">{item.unit}</td><td className="p-2 tabular-nums">{item.quantity}</td><td className="p-2">{businessDictLabel(reasonOptions, item.reason)}</td><td className="max-w-56 whitespace-pre-wrap p-2">{item.remark || "-"}</td></tr>;
-}
 function Detail({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-text-tertiary">{label}</dt><dd className="break-words">{value}</dd></div>; }
+function AdjustmentItemRow({ item, reasonOptions, impact }: { item: InventoryAdjustmentItem; reasonOptions: readonly DictSelectOption<AdjustmentReason>[]; impact: boolean }) {
+  const balance = item.balanceBefore != null && item.balanceAfter != null ? `${item.balanceBefore} → ${item.balanceAfter}` : "-";
+  return <tr className="border-b border-border"><td className="p-2"><div>{item.productName}</div><div className="text-xs text-text-tertiary">{item.productCode}</div></td><td className="p-2">{item.productModel || "-"} / {item.productSpecification || "-"}</td><td className="p-2">{item.unit}</td><td className="p-2 tabular-nums">{item.quantity}</td><td className="p-2">{businessDictLabel(reasonOptions, item.reason)}</td>{impact && <td className="p-2 tabular-nums">{balance}</td>}<td className="max-w-56 whitespace-pre-wrap p-2">{item.remark || "-"}</td></tr>;
+}
+
+// The reversal of a stored decimal quantity is its sign flip, done on the digit
+// string so no float rounding can reach the API.
+function negateQuantity(quantity: string) {
+  const value = quantity.trim();
+  if (!/^[+-]?\d+(?:\.\d{1,3})?$/.test(value)) return value;
+  return value.startsWith("-") ? value.slice(1) : value.startsWith("+") ? `-${value.slice(1)}` : `-${value}`;
+}

@@ -9,14 +9,20 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct{ db *gorm.DB }
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
+
+// lockedSelect reports whether the product already has inventory history, which
+// permanently freezes its type and base unit (ADR-0012).
+const lockedSelect = "product.*,EXISTS(SELECT 1 FROM inventory_entry e WHERE e.product_id=product.id) AS inventory_locked"
+
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Product{}, Page: q.Page, PageSize: q.PageSize}
-	d := r.db.WithContext(ctx).Model(&Product{})
+	d := r.db.WithContext(ctx).Model(&Product{}).Select(lockedSelect)
 	if q.Keyword != "" {
 		like := "%" + q.Keyword + "%"
 		d = d.Where("code LIKE ? OR name LIKE ? OR brand LIKE ? OR model LIKE ? OR specification LIKE ?", like, like, like, like, like)
@@ -41,7 +47,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 }
 func (r *Repository) Find(ctx context.Context, id int64) (*Product, error) {
 	var v Product
-	e := r.db.WithContext(ctx).First(&v, id).Error
+	e := r.db.WithContext(ctx).Model(&Product{}).Select(lockedSelect).Where("product.id=?", id).Take(&v).Error
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
@@ -79,6 +85,29 @@ func (r *Repository) Save(ctx context.Context, v Product, create bool, event aud
 			}
 			event.ResourceID = v.ID
 		} else {
+			// Read the stored identity inside the transaction and hold the row, so
+			// a concurrent first posting cannot insert ledger lines between this
+			// check and the update below.
+			var stored Product
+			d := tx.Model(&Product{}).Where("id=?", v.ID)
+			if tx.Dialector.Name() == "postgres" {
+				d = d.Clauses(clause.Locking{Strength: "UPDATE"})
+			}
+			if e := d.Take(&stored).Error; e != nil {
+				if errors.Is(e, gorm.ErrRecordNotFound) {
+					return ErrNotFound
+				}
+				return e
+			}
+			if stored.Type != v.Type || stored.Unit != v.Unit {
+				var lines int64
+				if e := tx.Table("inventory_entry").Where("product_id=?", v.ID).Count(&lines).Error; e != nil {
+					return e
+				}
+				if lines > 0 {
+					return ErrIdentityLocked
+				}
+			}
 			v.UpdateTime = time.Now().UTC()
 			result := tx.Model(&Product{}).Where("id=?", v.ID).Updates(map[string]any{"code": v.Code, "name": v.Name, "type": v.Type, "brand": v.Brand, "model": v.Model, "specification": v.Specification, "category": v.Category, "unit": v.Unit, "purchase_price_cents": v.PurchasePrice, "sale_price_cents": v.SalePrice, "remark": v.Remark, "update_time": v.UpdateTime})
 			if result.Error != nil {

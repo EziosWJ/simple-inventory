@@ -153,6 +153,8 @@ func fail(c *gin.Context, e error) {
 		status, code, msg = http.StatusNotFound, 404, "资料不存在"
 	} else if errors.Is(e, ErrConflict) {
 		status, code, msg = http.StatusConflict, 409, "编码已存在"
+	} else if errors.Is(e, ErrIdentityLocked) {
+		status, code, msg = http.StatusConflict, 409, e.Error()
 	}
 	platform.WriteError(c, status, code, msg, nil)
 }

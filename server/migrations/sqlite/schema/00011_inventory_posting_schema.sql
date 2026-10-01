@@ -1,0 +1,46 @@
+-- +goose Up
+ALTER TABLE inventory_adjustment ADD COLUMN posted_at DATETIME;
+ALTER TABLE inventory_adjustment ADD COLUMN posted_by BIGINT REFERENCES sys_user(id) CHECK ((status='DRAFT' AND posted_by IS NULL AND posted_at IS NULL) OR (status='POSTED' AND posted_by IS NOT NULL AND posted_at IS NOT NULL) OR (status='CANCELLED' AND ((posted_by IS NULL AND posted_at IS NULL) OR (posted_by IS NOT NULL AND posted_at IS NOT NULL))));
+ALTER TABLE inventory_adjustment_item ADD COLUMN product_code VARCHAR(50);
+ALTER TABLE inventory_adjustment_item ADD COLUMN product_name VARCHAR(200);
+ALTER TABLE inventory_adjustment_item ADD COLUMN product_model VARCHAR(100);
+ALTER TABLE inventory_adjustment_item ADD COLUMN product_specification VARCHAR(200);
+CREATE TABLE inventory_balance (
+ id INTEGER PRIMARY KEY,
+ product_id BIGINT NOT NULL UNIQUE REFERENCES product(id),
+ quantity_milli BIGINT NOT NULL CHECK(quantity_milli >= 0 AND typeof(quantity_milli)='integer'),
+ update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE inventory_entry (
+ id INTEGER PRIMARY KEY,
+ product_id BIGINT NOT NULL REFERENCES product(id),
+ adjustment_id BIGINT NOT NULL REFERENCES inventory_adjustment(id),
+ adjustment_item_id BIGINT NOT NULL REFERENCES inventory_adjustment_item(id),
+ entry_type VARCHAR(20) NOT NULL CHECK(entry_type IN ('ORIGINAL','REVERSAL')),
+ quantity_milli BIGINT NOT NULL CHECK(quantity_milli <> 0 AND typeof(quantity_milli)='integer'),
+ balance_before_milli BIGINT NOT NULL CHECK(balance_before_milli >= 0 AND typeof(balance_before_milli)='integer'),
+ balance_after_milli BIGINT NOT NULL CHECK(balance_after_milli >= 0 AND typeof(balance_after_milli)='integer'),
+ reason VARCHAR(20) NOT NULL CHECK(reason IN ('OPENING','SURPLUS','SHORTAGE','DAMAGE','OTHER')),
+ remark VARCHAR(500),
+ product_code VARCHAR(50) NOT NULL,
+ product_name VARCHAR(200) NOT NULL,
+ product_model VARCHAR(100),
+ product_specification VARCHAR(200),
+ unit VARCHAR(50) NOT NULL CHECK(length(trim(unit)) > 0),
+ operator_id BIGINT NOT NULL REFERENCES sys_user(id),
+ occurred_at DATETIME NOT NULL,
+ create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(adjustment_item_id, entry_type)
+);
+CREATE INDEX idx_inventory_entry_product ON inventory_entry(product_id, occurred_at, id);
+CREATE INDEX idx_inventory_entry_occurred ON inventory_entry(occurred_at, id);
+CREATE INDEX idx_inventory_entry_adjustment ON inventory_entry(adjustment_id, id);
+-- +goose Down
+DROP TABLE IF EXISTS inventory_entry;
+DROP TABLE IF EXISTS inventory_balance;
+ALTER TABLE inventory_adjustment_item DROP COLUMN product_specification;
+ALTER TABLE inventory_adjustment_item DROP COLUMN product_model;
+ALTER TABLE inventory_adjustment_item DROP COLUMN product_name;
+ALTER TABLE inventory_adjustment_item DROP COLUMN product_code;
+ALTER TABLE inventory_adjustment DROP COLUMN posted_by;
+ALTER TABLE inventory_adjustment DROP COLUMN posted_at;

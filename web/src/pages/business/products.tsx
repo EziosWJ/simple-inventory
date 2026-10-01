@@ -219,7 +219,8 @@ function productDetails(
   return [
     ["编码", record.code], ["名称", record.name], ["类型", businessDictLabel(typeOptions, record.type)],
     ["品牌", record.brand], ["型号", record.model], ["规格", record.specification], ["分类", record.category],
-    ["基本单位", record.unit], ["参考采购价", record.purchasePrice], ["参考销售价", record.salePrice],
+    ["基本单位", record.inventoryLocked ? `${record.unit}（已锁定，类型和基本单位不可修改）` : record.unit],
+    ["参考采购价", record.purchasePrice], ["参考销售价", record.salePrice],
     ["状态", businessDictLabel(statusOptions, record.status)], ["备注", record.remark],
   ];
 }
@@ -242,6 +243,9 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
     unit: record.unit, purchasePrice: record.purchasePrice, salePrice: record.salePrice, remark: record.remark,
   }));
   const [error, setError] = useState("");
+  // Type and base unit identify a product for inventory purposes: once any
+  // ledger line exists the API locks them, so the form does the same.
+  const identityLocked = Boolean(record.id) && Boolean(record.inventoryLocked);
   const textFields: [keyof ProductDraft, string, number][] = [
     ["code", "编码", 50], ["name", "名称", 200], ["brand", "品牌", 100], ["model", "型号", 100],
     ["specification", "规格", 200], ["category", "分类", 100], ["unit", "基本单位", 50], ["remark", "备注", 500],
@@ -270,16 +274,20 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
       bodyClassName="overflow-auto"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        {textFields.map(([key, label, maxLength]) => (
-          <label key={key} className="grid gap-1 text-sm">{label}
-            <Input maxLength={maxLength} required={key === "name"} value={String(values[key] ?? "")} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />
-          </label>
-        ))}
-        <label className="grid gap-1 text-sm">类型
-          <Select value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as ProductRecord["type"] })}>
+        {textFields.map(([key, label, maxLength]) => {
+          const lockedField = identityLocked && key === "unit";
+          return (
+            <label key={key} className="grid gap-1 text-sm">{lockedField ? `${label}（已锁定）` : label}
+              <Input maxLength={maxLength} required={key === "name"} disabled={lockedField} value={String(values[key] ?? "")} onChange={(event) => setValues({ ...values, [key]: event.target.value })} />
+            </label>
+          );
+        })}
+        <label className="grid gap-1 text-sm">类型{identityLocked ? "（已锁定）" : ""}
+          <Select disabled={identityLocked} value={values.type} onChange={(event) => setValues({ ...values, type: event.target.value as ProductRecord["type"] })}>
             {preserveCurrentDictOption(typeOptions, values.type).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </Select>
         </label>
+        {identityLocked && <p className="col-span-full text-xs text-text-tertiary">该商品已产生库存流水，类型和基本单位不可修改；编码、名称、型号、规格等描述仍可编辑。</p>}
         {(["purchasePrice", "salePrice"] as const).map((key) => (
           <label key={key} className="grid gap-1 text-sm">{key === "purchasePrice" ? "参考采购价（元）" : "参考销售价（元）"}
             <Input maxLength={20} inputMode="decimal" value={values[key] ?? ""} onChange={(event) => setValues({ ...values, [key]: event.target.value || null })} />
