@@ -935,6 +935,163 @@ definitions:
       transactionNo:
         type: string
     type: object
+  sale.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  sale.CancelInput:
+    properties:
+      reason:
+        type: string
+      version:
+        type: integer
+    type: object
+  sale.Draft:
+    properties:
+      businessDate:
+        type: string
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledBy:
+        type: integer
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/sale.Line'
+        type: array
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      remark:
+        type: string
+      status:
+        type: string
+      totalAmount:
+        type: string
+      version:
+        type: integer
+    type: object
+  sale.EditInput:
+    properties:
+      businessDate:
+        type: string
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/sale.LineInput'
+        type: array
+      partnerId:
+        type: integer
+      remark:
+        type: string
+      version:
+        type: integer
+    type: object
+  sale.Input:
+    properties:
+      businessDate:
+        type: string
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/sale.LineInput'
+        type: array
+      partnerId:
+        type: integer
+      remark:
+        type: string
+    type: object
+  sale.Line:
+    properties:
+      amount:
+        type: string
+      id:
+        type: integer
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      productType:
+        type: string
+      quantity:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  sale.LineInput:
+    properties:
+      id:
+        type: integer
+      productId:
+        type: integer
+      productType:
+        type: string
+      quantity:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  sale.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/sale.Draft'
+        type: array
+      total:
+        type: integer
+    type: object
   sysconfig.ApiEnvelope:
     properties:
       code:
@@ -4490,6 +4647,193 @@ paths:
       summary: 过账采购入库单
       tags:
       - 采购入库
+  /api/v1/sales:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，上限500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 客户ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Page'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 销售出库草稿分页
+      tags:
+      - 销售出库
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 销售客户、业务日期和实物/服务明细
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sale.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 新建销售出库草稿
+      tags:
+      - 销售出库
+  /api/v1/sales/{id}:
+    get:
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 销售出库单详情
+      tags:
+      - 销售出库
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 带版本的草稿内容
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sale.EditInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 编辑销售出库草稿
+      tags:
+      - 销售出库
+  /api/v1/sales/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本和必填原因
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sale.CancelInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 取消销售出库草稿
+      tags:
+      - 销售出库
   /api/v1/warehouse:
     get:
       responses:

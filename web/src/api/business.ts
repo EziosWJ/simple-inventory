@@ -61,6 +61,15 @@ export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api
 export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>http.put<PurchaseDraft>(`/api/v1/purchases/${id}`,data);
 export const cancelPurchase=(id:number,data:{version:number;reason:string})=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/cancel`,data);
 export const postPurchase=(id:number,version:number)=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/post`,{version});
+export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"SERVICE"};
+export type SaleDraft = Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
+export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {id?:number;productType:"GOODS"|"SERVICE"};
+export type SaleInput = Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};
+export const salePage=(query:Record<string,string|number>)=>http.get<BusinessPage<SaleDraft>>("/api/v1/sales",{query});
+export const getSale=(id:number)=>http.get<SaleDraft>(`/api/v1/sales/${id}`);
+export const createSale=(data:SaleInput)=>http.post<SaleDraft>("/api/v1/sales",data);
+export const updateSale=(id:number,data:SaleInput&{version:number})=>http.put<SaleDraft>(`/api/v1/sales/${id}`,data);
+export const cancelSale=(id:number,data:{version:number;reason:string})=>http.post<SaleDraft>(`/api/v1/sales/${id}/cancel`,data);
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};

@@ -36,6 +36,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
+	"github.com/EziosWJ/simple-inventory/server/internal/sale"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
@@ -1129,6 +1130,7 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 		Inventory:    inventory.NewService(inventory.NewRepository(database.GORM)),
 		PrintProfile: printprofile.NewService(printprofile.NewRepository(database.GORM)),
 		Purchase:     purchase.NewService(purchase.NewRepository(database.GORM)),
+		Sale:         sale.NewService(sale.NewRepository(database.GORM)),
 		Product:      product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }

@@ -142,6 +142,7 @@ export const staticRouteTitleMap: Record<string, string> = {
   "/business/inventory-balances": "当前库存",
   "/business/inventory-entries": "库存流水",
   "/business/purchases": "采购入库",
+  "/business/sales": "销售出库",
   "/notifications": "我的通知",
   "/forms/basic": "标准表单 Demo",
   "/examples": "页面示例",
