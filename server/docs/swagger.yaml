@@ -269,6 +269,12 @@ definitions:
         items:
           $ref: '#/definitions/internal_inventory.Item'
         type: array
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
+        type: string
       status:
         type: string
       version:
@@ -307,6 +313,10 @@ definitions:
     type: object
   internal_inventory.Item:
     properties:
+      balanceAfter:
+        type: string
+      balanceBefore:
+        type: string
       id:
         type: integer
       productCode:
@@ -356,6 +366,11 @@ definitions:
           $ref: '#/definitions/internal_inventory.Adjustment'
         type: array
       total:
+        type: integer
+    type: object
+  internal_inventory.PostInput:
+    properties:
+      version:
         type: integer
     type: object
   internal_logmgmt.ApiEnvelope:
@@ -3203,6 +3218,59 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消库存调整草稿
+      tags:
+      - 库存调整
+  /api/v1/inventory/adjustments/{id}/post:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 调整单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 核对的版本；仅DRAFT可过账，成功版本加1并写入库存余额与流水
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_inventory.PostInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.Adjustment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 过账库存调整单
       tags:
       - 库存调整
   /api/v1/partners:

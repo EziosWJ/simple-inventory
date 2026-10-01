@@ -4107,6 +4107,93 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/inventory/adjustments/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "库存调整"
+                ],
+                "summary": "过账库存调整单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "调整单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "核对的版本；仅DRAFT可过账，成功版本加1并写入库存余额与流水",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_inventory.Adjustment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partners": {
             "get": {
                 "security": [
@@ -4972,6 +5059,15 @@ const docTemplate = `{
                         "$ref": "#/definitions/internal_inventory.Item"
                     }
                 },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedBy": {
+                    "type": "integer"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -5031,6 +5127,12 @@ const docTemplate = `{
         "internal_inventory.Item": {
             "type": "object",
             "properties": {
+                "balanceAfter": {
+                    "type": "string"
+                },
+                "balanceBefore": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -5105,6 +5207,14 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_inventory.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
                     "type": "integer"
                 }
             }

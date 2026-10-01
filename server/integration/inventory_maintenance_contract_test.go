@@ -73,21 +73,32 @@ func prepareInventorySchema9Upgrade(t *testing.T, db *platformdatabase.Database,
 	for _, up := range []bool{true, false, true} {
 		var e error
 		if up {
-			e = goose.UpToContext(context.Background(), db.SQL, schema, 10)
+			e = goose.UpToContext(context.Background(), db.SQL, schema, 11)
 		} else {
-			e = goose.DownToContext(context.Background(), db.SQL, schema, 9)
+			e = goose.DownToContext(context.Background(), db.SQL, schema, 10)
 		}
 		if e != nil {
-			t.Fatalf("schema10 up=%v: %v", up, e)
+			t.Fatalf("schema11 up=%v: %v", up, e)
 		}
 		for _, column := range []string{"cancelled_by", "cancelled_at", "cancel_reason"} {
+			// Added by schema 10, so this column set survives the 11 → 10 rollback.
+			if !db.GORM.Migrator().HasColumn("inventory_adjustment", column) {
+				t.Fatalf("schema11 up=%v column %s is missing", up, column)
+			}
+		}
+		for _, column := range []string{"posted_by", "posted_at"} {
 			if got := db.GORM.Migrator().HasColumn("inventory_adjustment", column); got != up {
-				t.Fatalf("schema10 up=%v column %s exists=%v", up, column, got)
+				t.Fatalf("schema11 up=%v column %s exists=%v", up, column, got)
+			}
+		}
+		for _, table := range []string{"inventory_balance", "inventory_entry"} {
+			if got := db.GORM.Migrator().HasTable(table); got != up {
+				t.Fatalf("schema11 up=%v table %s exists=%v", up, table, got)
 			}
 		}
 		var preserved int64
 		if e := db.GORM.Table("inventory_adjustment a").Joins("JOIN inventory_adjustment_item i ON i.adjustment_id=a.id").Where("a.document_no='SCHEMA9-DRAFT' AND a.status='DRAFT' AND a.version=1 AND a.created_by=1 AND i.quantity_milli=1234 AND i.unit='台'").Count(&preserved).Error; e != nil || preserved != 1 {
-			t.Fatalf("schema10 up=%v lost existing draft count=%d err=%v", up, preserved, e)
+			t.Fatalf("schema11 up=%v lost existing draft count=%d err=%v", up, preserved, e)
 		}
 	}
 }
@@ -360,19 +371,34 @@ func assertInventoryMaintenanceContract(t *testing.T, router http.Handler, db *p
 	if cancelledPage.Total != 1 || cancelledPage.Records[0].CancelledBy == nil || *cancelledPage.Records[0].CancelledBy != actor || cancelledPage.Records[0].CancelReason == nil {
 		t.Fatalf("cancelled state query=%+v", cancelledPage)
 	}
-	// POSTED is not exposed yet; a persisted future state still cannot be edited
-	// or cancelled through this draft-only endpoint.
-	posted := create(b)
-	if e := db.GORM.Table("inventory_adjustment").Where("id=?", posted.ID).Update("status", "POSTED").Error; e != nil {
-		t.Fatal(e)
+	// A posted document is locked against edits and version-stale operations.
+	// Posting itself is covered by the posting contract test; here the real
+	// endpoint is used because the schema rejects a status written alone.
+	postProduct := inventoryData[struct {
+		ID int64 `json:"id"`
+	}](t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":"EDIT-POSTED","name":"已过账商品","type":"GOODS","unit":"台"}`, token), 200)
+	posted := create(adjustmentItemInput{ProductID: postProduct.ID, ProductType: "GOODS", Unit: "台", Quantity: "2", Reason: "OPENING"})
+	postedPath := adjustmentPath + "/" + itoa(posted.ID)
+	postedResult := inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodPost, postedPath+"/post", `{"version":1}`, token), 200)
+	if postedResult.Status != "POSTED" || postedResult.Version != 2 {
+		t.Fatalf("posted document=%+v", postedResult)
 	}
-	inventoryData[any](t, serveJSON(router, http.MethodPut, adjustmentPath+"/"+itoa(posted.ID), editBody(1, b), token), 409)
-	inventoryData[any](t, serveJSON(router, http.MethodPost, adjustmentPath+"/"+itoa(posted.ID)+"/cancel", cancelBody(1, "不能取消已过账"), token), 409)
-	for _, table := range []string{"inventory_balance", "inventory_entry", "inventory_balances", "inventory_entries"} {
-		if db.GORM.Migrator().HasTable(table) {
-			t.Fatalf("draft maintenance creates stock table %s", table)
-		}
+	inventoryData[any](t, serveJSON(router, http.MethodPut, postedPath, editBody(2, b), token), 409)
+	inventoryData[any](t, serveJSON(router, http.MethodPost, postedPath+"/post", `{"version":2}`, token), 409)
+	// A posted document cannot be cancelled through the draft-cancel path at any
+	// version: only the confirmed version matches a state, and it is POSTED.
+	// Reversing it is the posted-cancel task's concern.
+	for _, version := range []int64{1, 2, 3} {
+		inventoryData[any](t, serveJSON(router, http.MethodPost, postedPath+"/cancel", cancelBody(version, "已过账不可仅取消"), token), 409)
+	}
+	sameDraft(t, postedResult, detail(posted.ID))
+	var entries int64
+	if e := db.GORM.Table("inventory_entry").Where("adjustment_id=?", posted.ID).Count(&entries).Error; e != nil || entries != 1 {
+		t.Fatalf("posted document ledger entries=%d err=%v", entries, e)
 	}
 	inventoryData[any](t, serveJSON(router, http.MethodDelete, path, "", token), 404)
-	inventoryData[any](t, serveJSON(router, http.MethodPost, path+"/post", `{"version":3}`, token), 404)
+	// A cancelled document cannot be posted either, whatever version is claimed.
+	for _, version := range []int64{3, 4} {
+		inventoryData[any](t, serveJSON(router, http.MethodPost, path+"/post", fmt.Sprintf(`{"version":%d}`, version), token), 409)
+	}
 }

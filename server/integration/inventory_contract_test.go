@@ -32,17 +32,19 @@ type adjustmentItemInput struct {
 	Remark      string `json:"remark,omitempty"`
 }
 type adjustmentItemDTO struct {
-	ID                   int64  `json:"id"`
-	ProductID            int64  `json:"productId"`
-	ProductCode          string `json:"productCode"`
-	ProductName          string `json:"productName"`
-	ProductModel         string `json:"productModel"`
-	ProductSpecification string `json:"productSpecification"`
-	ProductType          string `json:"productType"`
-	Unit                 string `json:"unit"`
-	Quantity             string `json:"quantity"`
-	Reason               string `json:"reason"`
-	Remark               string `json:"remark"`
+	ID                   int64   `json:"id"`
+	ProductID            int64   `json:"productId"`
+	ProductCode          string  `json:"productCode"`
+	ProductName          string  `json:"productName"`
+	ProductModel         string  `json:"productModel"`
+	ProductSpecification string  `json:"productSpecification"`
+	ProductType          string  `json:"productType"`
+	Unit                 string  `json:"unit"`
+	Quantity             string  `json:"quantity"`
+	Reason               string  `json:"reason"`
+	Remark               string  `json:"remark"`
+	BalanceBefore        *string `json:"balanceBefore"`
+	BalanceAfter         *string `json:"balanceAfter"`
 }
 type adjustmentDTO struct {
 	ID              int64               `json:"id"`
@@ -52,6 +54,9 @@ type adjustmentDTO struct {
 	CreatedBy       int64               `json:"createdBy"`
 	CreatedByName   string              `json:"createdByName"`
 	CreateTime      time.Time           `json:"createTime"`
+	PostedBy        *int64              `json:"postedBy"`
+	PostedByName    string              `json:"postedByName"`
+	PostedAt        *time.Time          `json:"postedAt"`
 	CancelledBy     *int64              `json:"cancelledBy"`
 	CancelledByName string              `json:"cancelledByName"`
 	CancelledAt     *time.Time          `json:"cancelledAt"`
@@ -162,15 +167,25 @@ func assertInventoryUpgrade(t *testing.T, db *platformdatabase.Database) {
 			t.Fatalf("upgrade lost %s data count=%d error=%v", test.table, n, e)
 		}
 	}
-	for _, table := range []string{"inventory_adjustment", "inventory_adjustment_item"} {
+	for _, table := range []string{"inventory_adjustment", "inventory_adjustment_item", "inventory_balance", "inventory_entry"} {
 		if !db.GORM.Migrator().HasTable(table) {
 			t.Fatalf("upgrade missing %s", table)
+		}
+	}
+	for _, column := range []string{"posted_by", "posted_at"} {
+		if !db.GORM.Migrator().HasColumn("inventory_adjustment", column) {
+			t.Fatalf("upgrade missing inventory_adjustment.%s", column)
+		}
+	}
+	for _, column := range []string{"product_code", "product_name", "product_model", "product_specification"} {
+		if !db.GORM.Migrator().HasColumn("inventory_adjustment_item", column) {
+			t.Fatalf("upgrade missing inventory_adjustment_item.%s", column)
 		}
 	}
 	for _, test := range []struct {
 		table string
 		want  int64
-	}{{"goose_schema_db_version", 10}, {"goose_seed_db_version", 7}} {
+	}{{"goose_schema_db_version", 11}, {"goose_seed_db_version", 7}} {
 		var version int64
 		if e := db.GORM.Table(test.table).Select("MAX(version_id)").Scan(&version).Error; e != nil || version != test.want {
 			t.Fatalf("upgrade version %s=%d want=%d err=%v", test.table, version, test.want, e)
@@ -273,9 +288,10 @@ func assertInventoryDraftContract(t *testing.T, router http.Handler, db *platfor
 		inventoryData[any](t, serveJSON(router, http.MethodGet, adjustmentPath+"/"+id, "", token), 400)
 	}
 	inventoryData[any](t, serveJSON(router, http.MethodGet, adjustmentPath+"/999999", "", token), 404)
-	for _, test := range []struct{ method, suffix string }{{http.MethodDelete, ""}, {http.MethodPost, "/post"}} {
-		inventoryData[any](t, serveJSON(router, test.method, detailPath+test.suffix, `{"version":1}`, token), 404)
-	}
+	// Drafts have no delete entry point. Posting is added by the posting task and
+	// keeps its own contract test; here only a missing document is rejected.
+	inventoryData[any](t, serveJSON(router, http.MethodDelete, detailPath, `{"version":1}`, token), 404)
+	inventoryData[any](t, serveJSON(router, http.MethodPost, adjustmentPath+"/999999/post", `{"version":1}`, token), 404)
 	page := func(query string) adjustmentPageDTO {
 		return inventoryData[adjustmentPageDTO](t, serveJSON(router, http.MethodGet, adjustmentPath+query, "", token), 200)
 	}
@@ -362,10 +378,17 @@ func assertInventoryDraftContract(t *testing.T, router http.Handler, db *platfor
 	if docsFinal != docsConcurrent+1 || itemsFinal != itemsConcurrent+2 || logsFinal != logsConcurrent+1 {
 		t.Fatal("draft creation did not recover after audit trigger removal")
 	}
-	for _, table := range []string{"inventory_balance", "inventory_entry", "inventory_balances", "inventory_entries"} {
-		if db.GORM.Migrator().HasTable(table) {
-			t.Fatalf("draft task unexpectedly creates stock table %s", table)
-		}
+	// Creating drafts is the only write of this task; posting is covered by its
+	// own contract test. No draft path may move stock or write the ledger.
+	var balances, entries int64
+	if e := db.GORM.Table("inventory_balance").Count(&balances).Error; e != nil {
+		t.Fatal(e)
+	}
+	if e := db.GORM.Table("inventory_entry").Count(&entries).Error; e != nil {
+		t.Fatal(e)
+	}
+	if balances != 0 || entries != 0 {
+		t.Fatalf("draft-only paths changed stock balances=%d entries=%d", balances, entries)
 	}
 	// An enabled account without ADMIN menu assignments may access all drafts;
 	// creating a draft records the authenticated actor, never a supplied owner.

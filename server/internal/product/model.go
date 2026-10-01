@@ -19,26 +19,33 @@ var (
 	ErrNotFound = errors.New("资料不存在")
 	ErrInvalid  = errors.New("参数错误")
 	ErrConflict = errors.New("编码已存在")
+	// ErrIdentityLocked guards the permanent inventory identity rule of
+	// ADR-0012: once a product has any inventory ledger line, its type and base
+	// unit can never be edited again, not even after the stock returns to zero.
+	ErrIdentityLocked = errors.New("商品已产生库存流水，类型和基本单位不可修改")
 )
 
 type Product struct {
-	ID                int64     `json:"id"`
-	Code              string    `json:"code"`
-	Name              string    `json:"name"`
-	Type              string    `json:"type"`
-	Brand             *string   `json:"brand"`
-	Model             *string   `json:"model"`
-	Specification     *string   `json:"specification"`
-	Category          *string   `json:"category"`
-	Unit              string    `json:"unit"`
-	PurchasePrice     *int64    `json:"-" gorm:"column:purchase_price_cents"`
-	SalePrice         *int64    `json:"-" gorm:"column:sale_price_cents"`
-	PurchasePriceText *string   `json:"purchasePrice" gorm:"-"`
-	SalePriceText     *string   `json:"salePrice" gorm:"-"`
-	Remark            *string   `json:"remark"`
-	Status            int       `json:"status"`
-	CreateTime        time.Time `json:"createTime" gorm:"autoCreateTime"`
-	UpdateTime        time.Time `json:"updateTime" gorm:"autoUpdateTime"`
+	ID                int64   `json:"id"`
+	Code              string  `json:"code"`
+	Name              string  `json:"name"`
+	Type              string  `json:"type"`
+	Brand             *string `json:"brand"`
+	Model             *string `json:"model"`
+	Specification     *string `json:"specification"`
+	Category          *string `json:"category"`
+	Unit              string  `json:"unit"`
+	PurchasePrice     *int64  `json:"-" gorm:"column:purchase_price_cents"`
+	SalePrice         *int64  `json:"-" gorm:"column:sale_price_cents"`
+	PurchasePriceText *string `json:"purchasePrice" gorm:"-"`
+	SalePriceText     *string `json:"salePrice" gorm:"-"`
+	Remark            *string `json:"remark"`
+	Status            int     `json:"status"`
+	// InventoryLocked reports that the product already has inventory history,
+	// so the interface can explain why type and unit are read-only.
+	InventoryLocked bool      `json:"inventoryLocked" gorm:"->;-:migration"`
+	CreateTime      time.Time `json:"createTime" gorm:"autoCreateTime"`
+	UpdateTime      time.Time `json:"updateTime" gorm:"autoUpdateTime"`
 }
 
 func (Product) TableName() string { return "product" }
