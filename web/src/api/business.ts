@@ -51,5 +51,14 @@ export type InventoryEntry = {
 };
 export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryBalance>>("/api/v1/inventory/balances",{query});
 export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
+export type PurchaseLine = {id:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS";unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
+export type PurchaseDraft = {id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
+export type PurchaseLineInput = {productId:number;productType:"GOODS";unit:string;quantity:string;unitPrice:string;remark?:string};
+export type PurchaseInput = {partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
+export const purchasePage=(query:Record<string,string|number>)=>http.get<BusinessPage<PurchaseDraft>>("/api/v1/purchases",{query});
+export const getPurchase=(id:number)=>http.get<PurchaseDraft>(`/api/v1/purchases/${id}`);
+export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api/v1/purchases",data);
+export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>http.put<PurchaseDraft>(`/api/v1/purchases/${id}`,data);
+export const cancelPurchase=(id:number,data:{version:number;reason:string})=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/cancel`,data);
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);

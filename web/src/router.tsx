@@ -31,6 +31,7 @@ import { InventoryAdjustmentsPage } from "@/pages/business/inventory-adjustments
 import { InventoryBalancesPage } from "@/pages/business/inventory-balances";
 import { InventoryEntriesPage } from "@/pages/business/inventory-entries";
 import { PrintProfilePage } from "@/pages/business/print-profile";
+import { PurchasesPage } from "@/pages/business/purchases";
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
       { path: "business/inventory-balances", element: <InventoryBalancesPage /> },
       { path: "business/inventory-entries", element: <InventoryEntriesPage /> },
       { path: "business/print-profile", element: <PrintProfilePage /> },
+      { path: "business/purchases", element: <PurchasesPage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,
