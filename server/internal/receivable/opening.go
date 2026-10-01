@@ -347,6 +347,9 @@ func (s *Repository) Page(ctx context.Context, partner int64, direction string, 
 	return s.FilterPage(ctx, EntryFilter{PartnerID: partner, Direction: direction, Page: page, PageSize: size})
 }
 func fromRow(r entryRow) Entry {
+	if len(r.BusinessDate) > 10 {
+		r.BusinessDate = r.BusinessDate[:10]
+	}
 	return Entry{PartnerName: r.PartnerName, OperatorName: r.OperatorName, PurchaseReturnID: r.PurchaseReturnID, SaleReturnID: r.SaleReturnID, ReversedDocumentNo: r.ReversedDocumentNo, ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
 }
 
