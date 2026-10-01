@@ -104,11 +104,11 @@ func prepareInventorySchema9Upgrade(t *testing.T, db *platformdatabase.Database,
 	// The legacy #9 → #11 round-trip above proves old inventory state survives;
 	// bring the fixture to the current schema before wiring the current API,
 	// whose shared ledger now also carries purchase, sale and purchase-return sources.
-	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "schema"), 19); e != nil {
+	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "schema"), 20); e != nil {
 		t.Fatalf("upgrade phase 3 schema to current: %v", e)
 	}
 	goose.SetTableName("goose_seed_db_version")
-	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "seed"), 17); e != nil {
+	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "seed"), 18); e != nil {
 		t.Fatalf("upgrade phase 3 seed to current: %v", e)
 	}
 	goose.SetTableName("goose_schema_db_version")

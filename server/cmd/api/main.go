@@ -30,6 +30,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/receivable"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
+	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
@@ -133,6 +134,7 @@ func main() {
 		Purchase:       purchase.NewService(purchase.NewRepository(database.GORM)),
 		PurchaseReturn: purchasereturn.NewService(purchasereturn.NewRepository(database.GORM)),
 		Sale:           sale.NewService(sale.NewRepository(database.GORM)),
+		SaleReturn:     salereturn.NewService(salereturn.NewRepository(database.GORM)),
 		Receivable:     receivable.NewService(receivable.NewRepository(database.GORM)),
 	})
 	if err != nil {

@@ -1275,6 +1275,155 @@ definitions:
       version:
         type: integer
     type: object
+  salereturn.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  salereturn.CancelInput:
+    properties:
+      reason:
+        type: string
+      version:
+        type: integer
+    type: object
+  salereturn.Document:
+    properties:
+      businessDate:
+        type: string
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledBy:
+        type: integer
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/salereturn.Item'
+        type: array
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
+        type: string
+      remark:
+        type: string
+      saleId:
+        type: integer
+      saleNo:
+        type: string
+      status:
+        type: string
+      totalAmount:
+        type: string
+      version:
+        type: integer
+    type: object
+  salereturn.EditInput:
+    properties:
+      businessDate:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/salereturn.ItemInput'
+        type: array
+      remark:
+        type: string
+      saleId:
+        type: integer
+      version:
+        type: integer
+    type: object
+  salereturn.Input:
+    properties:
+      businessDate:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/salereturn.ItemInput'
+        type: array
+      remark:
+        type: string
+      saleId:
+        type: integer
+    type: object
+  salereturn.Item:
+    properties:
+      amount:
+        type: string
+      id:
+        type: integer
+      originalQuantity:
+        type: string
+      priorReturnAmount:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      quantity:
+        type: string
+      remainingQuantity:
+        type: string
+      remark:
+        type: string
+      returnedQuantity:
+        type: string
+      saleItemId:
+        type: integer
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  salereturn.ItemInput:
+    properties:
+      quantity:
+        type: string
+      remark:
+        type: string
+      saleItemId:
+        type: integer
+    type: object
+  salereturn.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/salereturn.Document'
+        type: array
+      total:
+        type: integer
+    type: object
   sysconfig.ApiEnvelope:
     properties:
       code:
@@ -5039,6 +5188,184 @@ paths:
       summary: 过账采购入库单
       tags:
       - 采购入库
+  /api/v1/sale-returns:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 原销售单ID
+        in: query
+        name: saleId
+        type: integer
+      - description: 客户ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Page'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 销售退货分页
+      tags:
+      - 销售退货
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 原销售单与退货明细
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/salereturn.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 新建销售退货草稿
+      tags:
+      - 销售退货
+  /api/v1/sale-returns/{id}:
+    get:
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 销售退货详情
+      tags:
+      - 销售退货
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 带版本草稿
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/salereturn.EditInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 编辑销售退货草稿
+      tags:
+      - 销售退货
+  /api/v1/sale-returns/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本和原因
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/salereturn.CancelInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 取消销售退货草稿
+      tags:
+      - 销售退货
+  /api/v1/sale-returns/source/{saleId}:
+    get:
+      parameters:
+      - description: 原销售单ID
+        in: path
+        name: saleId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 读取可退货的已过账销售单明细
+      tags:
+      - 销售退货
   /api/v1/sales:
     get:
       parameters:

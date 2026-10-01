@@ -92,3 +92,13 @@ export const createPurchaseReturn=(data:{purchaseId:number;businessDate:string;r
 export const updatePurchaseReturn=(id:number,data:{version:number;purchaseId:number;businessDate:string;remark?:string;items:{purchaseItemId:number;quantity:string;remark?:string}[]})=>http.put<PurchaseReturn>(`/api/v1/purchase-returns/${id}`,data);
 export const postPurchaseReturn=(id:number,data:{version:number})=>http.post<PurchaseReturn>(`/api/v1/purchase-returns/${id}/post`,data);
 export const cancelPurchaseReturn=(id:number,data:{version:number;reason:string})=>http.post<PurchaseReturn>(`/api/v1/purchase-returns/${id}/cancel`,data);
+
+export type SaleReturnItem = {id:number;saleItemId:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;unit:string;originalQuantity:string;returnedQuantity:string;remainingQuantity:string;quantity:string;unitPrice:string;amount:string;priorReturnAmount:string;remark?:string|null};
+export type SaleReturn = {id:number;documentNo:string;saleId:number;saleNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;postedBy?:number|null;postedByName?:string;postedAt?:string|null;remark?:string|null;createdBy:number;createdByName:string;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:SaleReturnItem[];totalAmount:string};
+export type SaleReturnSource = Omit<SaleReturn,"id"|"documentNo"|"createdBy"|"createdByName"|"cancelledBy"|"cancelledByName"|"cancelReason"|"createTime"|"cancelledAt"|"remark">;
+export const saleReturnPage=(query:Record<string,string|number>)=>http.get<BusinessPage<SaleReturn>>("/api/v1/sale-returns",{query});
+export const getSaleReturn=(id:number)=>http.get<SaleReturn>(`/api/v1/sale-returns/${id}`);
+export const getSaleReturnSource=(saleId:number)=>http.get<SaleReturnSource>(`/api/v1/sale-returns/source/${saleId}`);
+export const createSaleReturn=(data:{saleId:number;businessDate:string;remark?:string;items:{saleItemId:number;quantity:string;remark?:string}[]})=>http.post<SaleReturn>("/api/v1/sale-returns",data);
+export const updateSaleReturn=(id:number,data:{version:number;saleId:number;businessDate:string;remark?:string;items:{saleItemId:number;quantity:string;remark?:string}[]})=>http.put<SaleReturn>(`/api/v1/sale-returns/${id}`,data);
+export const cancelSaleReturn=(id:number,data:{version:number;reason:string})=>http.post<SaleReturn>(`/api/v1/sale-returns/${id}/cancel`,data);

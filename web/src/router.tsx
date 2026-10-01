@@ -33,6 +33,7 @@ import { InventoryEntriesPage } from "@/pages/business/inventory-entries";
 import { PrintProfilePage } from "@/pages/business/print-profile";
 import { PurchasesPage } from "@/pages/business/purchases";
 import { PurchaseReturnsPage } from "@/pages/business/purchase-returns";
+import { SaleReturnsPage } from "@/pages/business/sale-returns";
 import { SalesPage } from "@/pages/business/sales";
 import { PartnerBalancesPage } from "@/pages/business/partner-balances";
 
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
       { path: "business/print-profile", element: <PrintProfilePage /> },
       { path: "business/purchases", element: <PurchasesPage /> },
       { path: "business/purchase-returns", element: <PurchaseReturnsPage /> },
+      { path: "business/sale-returns", element: <SaleReturnsPage /> },
       { path: "business/sales", element: <SalesPage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
       {

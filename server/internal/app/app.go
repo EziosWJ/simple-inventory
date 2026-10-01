@@ -25,6 +25,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/receivable"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
+	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
@@ -50,6 +51,7 @@ type Dependencies struct {
 	PrintProfile   *printprofile.Service
 	Purchase       *purchase.Service
 	PurchaseReturn *purchasereturn.Service
+	SaleReturn     *salereturn.Service
 	Sale           *sale.Service
 	Receivable     *receivable.Service
 }
@@ -173,6 +175,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	}
 	if deps.PurchaseReturn != nil {
 		purchasereturn.RegisterRoutes(apiV1, purchasereturn.NewHandler(deps.PurchaseReturn))
+	}
+	if deps.SaleReturn != nil {
+		salereturn.RegisterRoutes(apiV1, salereturn.NewHandler(deps.SaleReturn))
 	}
 	if deps.Sale != nil {
 		sale.RegisterRoutes(apiV1, sale.NewHandler(deps.Sale))
