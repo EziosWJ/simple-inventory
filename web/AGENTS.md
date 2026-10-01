@@ -22,3 +22,5 @@
 
 ## 经验与注意事项
 详见 `experience/LESSONS.md`
+
+打印页变更时，使用隔离测试数据生成真实 PDF，核对 A4 物理页数、页码、页面边界及末页合计或签收；复跑入口见 `tests/phase4-acceptance.md`。
