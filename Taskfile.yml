@@ -59,6 +59,14 @@ tasks:
     cmds:
       - go run ./cmd/api
 
+  api:docs:
+    desc: Generate Swagger with the version and options used by the repository
+    dir: server
+    env:
+      GOFLAGS: -mod=mod
+    cmds:
+      - go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/api/main.go -o docs -d .
+
   web:
     desc: Start the React development server
     dir: web
