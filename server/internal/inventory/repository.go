@@ -21,10 +21,10 @@ type Repository struct{ db *gorm.DB }
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
 
-// The description a document line shows is the live catalog text until the line
-// is posted; posting freezes the confirmed text on the line and in the ledger.
-// NULLIF keeps a stored empty value meaning "not frozen yet".
-const itemSnapshotSelect = "i.*,COALESCE(NULLIF(i.product_code,''),p.code) AS product_code,COALESCE(NULLIF(i.product_name,''),p.name) AS product_name,COALESCE(NULLIF(i.product_model,''),p.model) AS product_model,COALESCE(NULLIF(i.product_specification,''),p.specification) AS product_specification"
+// Draft lines show the current catalog text. Once posted, the line itself is the
+// snapshot, including NULL/empty model and specification values. A cancelled
+// posted document retains posted_at, so it continues to read the frozen values.
+const itemSnapshotSelect = "i.*,CASE WHEN a.posted_at IS NULL THEN p.code ELSE i.product_code END AS product_code,CASE WHEN a.posted_at IS NULL THEN p.name ELSE i.product_name END AS product_name,CASE WHEN a.posted_at IS NULL THEN p.model ELSE i.product_model END AS product_model,CASE WHEN a.posted_at IS NULL THEN p.specification ELSE i.product_specification END AS product_specification"
 
 func (r *Repository) Create(ctx context.Context, v Adjustment, event audit.Event, validate func(Item, ProductReference) error) (Adjustment, error) {
 	bytes := make([]byte, 16)
@@ -96,7 +96,7 @@ func itemsOn(db *gorm.DB, v *Adjustment) error {
 func loadItems(db *gorm.DB, id int64) ([]Item, error) {
 	items := []Item{}
 	e := db.Table("inventory_adjustment_item i").Select(itemSnapshotSelect).
-		Joins("JOIN product p ON p.id=i.product_id").Where("i.adjustment_id=?", id).Order("i.id ASC").Find(&items).Error
+		Joins("JOIN product p ON p.id=i.product_id").Joins("JOIN inventory_adjustment a ON a.id=i.adjustment_id").Where("i.adjustment_id=?", id).Order("i.id ASC").Find(&items).Error
 	if e != nil {
 		return nil, e
 	}

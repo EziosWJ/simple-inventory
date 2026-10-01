@@ -290,4 +290,49 @@ func assertInventoryPhase3Journey(t *testing.T, router http.Handler, db *platfor
 			t.Fatalf("unstable ledger order at %d", i)
 		}
 	}
+	assertNullDescriptionSnapshot(t, router)
+}
+
+// assertNullDescriptionSnapshot covers the distinction between an editable
+// draft, whose description is live, and a posted document, whose NULL values
+// are frozen. The detail request is also the source-document view opened from
+// the ledger, so it verifies that source tracing preserves the same snapshot.
+func assertNullDescriptionSnapshot(t *testing.T, router http.Handler) {
+	t.Helper()
+	token := loginAdmin(t, router)
+	product := inventoryData[struct {
+		ID int64 `json:"id"`
+	}](t, serveJSON(router, http.MethodPost, "/api/v1/products", `{"code":"PH-NULL-SNAPSHOT","name":"空描述快照","type":"GOODS","unit":"个"}`, token), 200)
+	created := inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodPost, adjustmentPath, inventoryBody(adjustmentItemInput{
+		ProductID: product.ID, ProductType: "GOODS", Unit: "个", Quantity: "2", Reason: "OPENING",
+	}), token), 200)
+	if len(created.Items) != 1 || created.Items[0].ProductModel != "" || created.Items[0].ProductSpecification != "" {
+		t.Fatalf("new draft should show empty live model/specification: %+v", created.Items)
+	}
+	posted := inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodPost, adjustmentPath+"/"+itoa(created.ID)+"/post", `{"version":1}`, token), 200)
+	if len(posted.Items) != 1 || posted.Items[0].ProductModel != "" || posted.Items[0].ProductSpecification != "" {
+		t.Fatalf("posted line did not preserve empty model/specification: %+v", posted.Items)
+	}
+	inventoryData[any](t, serveJSON(router, http.MethodPut, "/api/v1/products/"+itoa(product.ID), `{"name":"后来补全","type":"GOODS","unit":"个","model":"后来型号","specification":"后来规格"}`, token), 200)
+	detail := inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodGet, adjustmentPath+"/"+itoa(created.ID), "", token), 200)
+	if detail.Status != "POSTED" || len(detail.Items) != 1 || detail.Items[0].ProductModel != "" || detail.Items[0].ProductSpecification != "" || detail.PostedBy == nil || detail.PostedAt == nil {
+		t.Fatalf("source document detail changed its empty posting snapshot: %+v", detail)
+	}
+	ledger := inventoryData[entryPageDTO](t, serveJSON(router, http.MethodGet, "/api/v1/inventory/entries?productId="+itoa(product.ID), "", token), 200)
+	if ledger.Total != 1 || len(ledger.Records) != 1 || ledger.Records[0].ProductModel != nil || ledger.Records[0].ProductSpecification != nil {
+		t.Fatalf("ledger snapshot differs from posted source: %+v", ledger)
+	}
+	cancelled := inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodPost, adjustmentPath+"/"+itoa(created.ID)+"/cancel", cancelBody(2, "验收空快照取消"), token), 200)
+	if cancelled.Status != "CANCELLED" || len(cancelled.Items) != 1 || cancelled.Items[0].ProductModel != "" || cancelled.Items[0].ProductSpecification != "" || cancelled.CancelledBy == nil || cancelled.CancelledAt == nil {
+		t.Fatalf("cancelled source document changed its empty posting snapshot: %+v", cancelled)
+	}
+	ledger = inventoryData[entryPageDTO](t, serveJSON(router, http.MethodGet, "/api/v1/inventory/entries?productId="+itoa(product.ID)+"&pageSize=10", "", token), 200)
+	if ledger.Total != 2 {
+		t.Fatalf("expected original and reversal after cancellation, got %+v", ledger)
+	}
+	for _, row := range ledger.Records {
+		if row.ProductModel != nil || row.ProductSpecification != nil || row.ProductName != "空描述快照" || row.ProductCode != "PH-NULL-SNAPSHOT" {
+			t.Fatalf("ledger snapshot changed after catalog edit/cancellation: %+v", row)
+		}
+	}
 }

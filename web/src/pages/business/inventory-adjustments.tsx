@@ -446,7 +446,7 @@ function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onS
   }
   return <FormDialog
     open title="过账库存调整单"
-    description={`单号 ${adjustment.documentNo} · 确认版本 ${adjustment.version}。过账会在同一事务内写入库存余额和不可变库存流水，成功后单据不可编辑、不可取消。`}
+    description={`单号 ${adjustment.documentNo} · 确认版本 ${adjustment.version}。过账会在同一事务内写入库存余额和不可变库存流水，成功后单据不可编辑；需要纠错时，可按库存约束整单取消并生成冲销流水。`}
     loading={loading || reloading}
     submitText="确认并过账"
     submitDisabled={!confirmed || versionConflict || items.length === 0}
