@@ -754,6 +754,149 @@ definitions:
       version:
         type: integer
     type: object
+  purchasereturn.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  purchasereturn.CancelInput:
+    properties:
+      reason:
+        type: string
+      version:
+        type: integer
+    type: object
+  purchasereturn.Document:
+    properties:
+      businessDate:
+        type: string
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledBy:
+        type: integer
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/purchasereturn.Item'
+        type: array
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      purchaseId:
+        type: integer
+      purchaseNo:
+        type: string
+      remark:
+        type: string
+      status:
+        type: string
+      totalAmount:
+        type: string
+      version:
+        type: integer
+    type: object
+  purchasereturn.EditInput:
+    properties:
+      businessDate:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/purchasereturn.ItemInput'
+        type: array
+      purchaseId:
+        type: integer
+      remark:
+        type: string
+      version:
+        type: integer
+    type: object
+  purchasereturn.Input:
+    properties:
+      businessDate:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/purchasereturn.ItemInput'
+        type: array
+      purchaseId:
+        type: integer
+      remark:
+        type: string
+    type: object
+  purchasereturn.Item:
+    properties:
+      amount:
+        type: string
+      id:
+        type: integer
+      originalQuantity:
+        type: string
+      priorReturnAmount:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      purchaseItemId:
+        type: integer
+      quantity:
+        type: string
+      remainingQuantity:
+        type: string
+      remark:
+        type: string
+      returnedQuantity:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  purchasereturn.ItemInput:
+    properties:
+      purchaseItemId:
+        type: integer
+      quantity:
+        type: string
+      remark:
+        type: string
+    type: object
+  purchasereturn.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/purchasereturn.Document'
+        type: array
+      total:
+        type: integer
+    type: object
   rbac.ApiEnvelope:
     properties:
       code:
@@ -4448,6 +4591,184 @@ paths:
       summary: 设置商品状态
       tags:
       - 商品与服务
+  /api/v1/purchase-returns:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 原采购单ID
+        in: query
+        name: purchaseId
+        type: integer
+      - description: 供应商ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Page'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 采购退货分页
+      tags:
+      - 采购退货
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 原采购单与退货明细
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/purchasereturn.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 新建采购退货草稿
+      tags:
+      - 采购退货
+  /api/v1/purchase-returns/{id}:
+    get:
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 采购退货详情
+      tags:
+      - 采购退货
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 带版本草稿
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/purchasereturn.EditInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 编辑采购退货草稿
+      tags:
+      - 采购退货
+  /api/v1/purchase-returns/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本和原因
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/purchasereturn.CancelInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 取消采购退货草稿
+      tags:
+      - 采购退货
+  /api/v1/purchase-returns/source/{purchaseId}:
+    get:
+      parameters:
+      - description: 原采购单ID
+        in: path
+        name: purchaseId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 读取可退货的已过账采购单明细
+      tags:
+      - 采购退货
   /api/v1/purchases:
     get:
       parameters:

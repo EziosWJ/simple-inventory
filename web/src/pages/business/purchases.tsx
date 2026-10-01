@@ -15,7 +15,7 @@ import {
   type PurchaseLineInput,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { DetailDialog } from "@/components/common/detail-dialog";
 import { Field } from "@/components/common/field";
@@ -60,6 +60,7 @@ const blankLine = (): LineForm => ({
 const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
+  const navigate=useNavigate();
   const [searchParams] = useSearchParams();
   const [records, setRecords] = useState<PurchaseDraft[]>([]);
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
@@ -258,7 +259,7 @@ export function PurchasesPage() {
               <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>取消</Button>
             </>
           )}
-          {record.status === "POSTED" && <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button>}
+          {record.status === "POSTED" && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => navigate(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}
         </div>
       ),
     },

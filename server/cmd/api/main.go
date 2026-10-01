@@ -26,6 +26,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
+	"github.com/EziosWJ/simple-inventory/server/internal/purchasereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/receivable"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
@@ -115,23 +116,24 @@ func main() {
 	warehouseService := warehouse.NewService(warehouse.NewRepository(database.GORM))
 
 	application, err := app.New(*cfg, database, app.Dependencies{
-		Auth:         authService,
-		RBAC:         rbacService,
-		Department:   deptService,
-		User:         userService,
-		Dictionary:   dictionaryService,
-		SysConfig:    configService,
-		File:         fileService,
-		Log:          logService,
-		Notification: notificationService,
-		Product:      productService,
-		Partner:      partnerService,
-		Warehouse:    warehouseService,
-		Inventory:    inventory.NewService(inventory.NewRepository(database.GORM)),
-		PrintProfile: printprofile.NewService(printprofile.NewRepository(database.GORM)),
-		Purchase:     purchase.NewService(purchase.NewRepository(database.GORM)),
-		Sale:         sale.NewService(sale.NewRepository(database.GORM)),
-		Receivable:   receivable.NewService(receivable.NewRepository(database.GORM)),
+		Auth:           authService,
+		RBAC:           rbacService,
+		Department:     deptService,
+		User:           userService,
+		Dictionary:     dictionaryService,
+		SysConfig:      configService,
+		File:           fileService,
+		Log:            logService,
+		Notification:   notificationService,
+		Product:        productService,
+		Partner:        partnerService,
+		Warehouse:      warehouseService,
+		Inventory:      inventory.NewService(inventory.NewRepository(database.GORM)),
+		PrintProfile:   printprofile.NewService(printprofile.NewRepository(database.GORM)),
+		Purchase:       purchase.NewService(purchase.NewRepository(database.GORM)),
+		PurchaseReturn: purchasereturn.NewService(purchasereturn.NewRepository(database.GORM)),
+		Sale:           sale.NewService(sale.NewRepository(database.GORM)),
+		Receivable:     receivable.NewService(receivable.NewRepository(database.GORM)),
 	})
 	if err != nil {
 		slog.Error("build application", "error", err)

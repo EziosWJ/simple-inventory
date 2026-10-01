@@ -35,6 +35,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
+	"github.com/EziosWJ/simple-inventory/server/internal/purchasereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
@@ -1118,20 +1119,21 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 		t.Fatalf("create log service: %v", err)
 	}
 	return app.Dependencies{
-		Auth:         authService,
-		RBAC:         rbacService,
-		Department:   deptService,
-		User:         userService,
-		Dictionary:   dictionaryService,
-		SysConfig:    configService,
-		File:         fileService,
-		Log:          logService,
-		Notification: mustNotificationService(t, notificationRepository),
-		Inventory:    inventory.NewService(inventory.NewRepository(database.GORM)),
-		PrintProfile: printprofile.NewService(printprofile.NewRepository(database.GORM)),
-		Purchase:     purchase.NewService(purchase.NewRepository(database.GORM)),
-		Sale:         sale.NewService(sale.NewRepository(database.GORM)),
-		Product:      product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
+		Auth:           authService,
+		RBAC:           rbacService,
+		Department:     deptService,
+		User:           userService,
+		Dictionary:     dictionaryService,
+		SysConfig:      configService,
+		File:           fileService,
+		Log:            logService,
+		Notification:   mustNotificationService(t, notificationRepository),
+		Inventory:      inventory.NewService(inventory.NewRepository(database.GORM)),
+		PrintProfile:   printprofile.NewService(printprofile.NewRepository(database.GORM)),
+		Purchase:       purchase.NewService(purchase.NewRepository(database.GORM)),
+		PurchaseReturn: purchasereturn.NewService(purchasereturn.NewRepository(database.GORM)),
+		Sale:           sale.NewService(sale.NewRepository(database.GORM)),
+		Product:        product.NewService(product.NewRepository(database.GORM)), Partner: partner.NewService(partner.NewRepository(database.GORM)), Warehouse: warehouse.NewService(warehouse.NewRepository(database.GORM)),
 	}
 }
 

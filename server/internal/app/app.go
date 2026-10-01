@@ -21,6 +21,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/printprofile"
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
+	"github.com/EziosWJ/simple-inventory/server/internal/purchasereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/receivable"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
@@ -33,23 +34,24 @@ import (
 // Core management services are required; notification routes are enabled when
 // the optional Notification service is supplied.
 type Dependencies struct {
-	Auth         *auth.Service
-	RBAC         *rbac.Service
-	Department   *dept.Service
-	User         *usermgmt.Service
-	Dictionary   *dictionary.Service
-	SysConfig    *sysconfig.Service
-	File         *filemgmt.Service
-	Log          *logmgmt.Service
-	Notification *notification.Service
-	Product      *product.Service
-	Partner      *partner.Service
-	Warehouse    *warehouse.Service
-	Inventory    *inventory.Service
-	PrintProfile *printprofile.Service
-	Purchase     *purchase.Service
-	Sale         *sale.Service
-	Receivable   *receivable.Service
+	Auth           *auth.Service
+	RBAC           *rbac.Service
+	Department     *dept.Service
+	User           *usermgmt.Service
+	Dictionary     *dictionary.Service
+	SysConfig      *sysconfig.Service
+	File           *filemgmt.Service
+	Log            *logmgmt.Service
+	Notification   *notification.Service
+	Product        *product.Service
+	Partner        *partner.Service
+	Warehouse      *warehouse.Service
+	Inventory      *inventory.Service
+	PrintProfile   *printprofile.Service
+	Purchase       *purchase.Service
+	PurchaseReturn *purchasereturn.Service
+	Sale           *sale.Service
+	Receivable     *receivable.Service
 }
 
 // Application is the assembled HTTP application and its process logger.
@@ -168,6 +170,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	}
 	if deps.Purchase != nil {
 		purchase.RegisterRoutes(apiV1, purchase.NewHandler(deps.Purchase))
+	}
+	if deps.PurchaseReturn != nil {
+		purchasereturn.RegisterRoutes(apiV1, purchasereturn.NewHandler(deps.PurchaseReturn))
 	}
 	if deps.Sale != nil {
 		sale.RegisterRoutes(apiV1, sale.NewHandler(deps.Sale))
