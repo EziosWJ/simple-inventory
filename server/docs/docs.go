@@ -4194,6 +4194,187 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/inventory/balances": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "库存"
+                ],
+                "summary": "当前库存分页查询",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认10，最大500",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品编码、名称、品牌、型号或规格子串",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "启用状态：1启用，0停用",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "nonzero",
+                            "all",
+                            "zero"
+                        ],
+                        "type": "string",
+                        "description": "库存范围，默认nonzero",
+                        "name": "stock",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_inventory.BalancePage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inventory/entries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "库存"
+                ],
+                "summary": "库存流水分页查询",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认10，最大500",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品内部ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ORIGINAL",
+                            "REVERSAL"
+                        ],
+                        "type": "string",
+                        "description": "流水类型",
+                        "name": "entryType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发生时间下界，包含，RFC3339",
+                        "name": "occurredFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发生时间上界，不包含，RFC3339",
+                        "name": "occurredTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_inventory.EntryPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partners": {
             "get": {
                 "security": [
@@ -5088,6 +5269,58 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_inventory.Balance": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "specification": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_inventory.BalancePage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_inventory.Balance"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_inventory.CancelInput": {
             "type": "object",
             "properties": {
@@ -5109,6 +5342,92 @@ const docTemplate = `{
                     }
                 },
                 "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_inventory.Entry": {
+            "type": "object",
+            "properties": {
+                "adjustmentId": {
+                    "type": "integer"
+                },
+                "adjustmentItemId": {
+                    "type": "integer"
+                },
+                "balanceAfter": {
+                    "type": "string"
+                },
+                "balanceBefore": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "entryType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "occurredAt": {
+                    "type": "string"
+                },
+                "operatorId": {
+                    "type": "integer"
+                },
+                "operatorName": {
+                    "description": "OperatorName and DocumentNo are read-only joins, so a ledger row is\ntraceable back to its source document and its actual operator.",
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productModel": {
+                    "type": "string"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productSpecification": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_inventory.EntryPage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_inventory.Entry"
+                    }
+                },
+                "total": {
                     "type": "integer"
                 }
             }

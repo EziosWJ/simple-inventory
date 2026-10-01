@@ -21,6 +21,11 @@ export type InventoryAdjustmentDraftItem = {
   productId: number; productType: "GOODS" | "SERVICE"; unit: string; quantity: string;
   reason: AdjustmentReason; remark?: string;
 };
+export type InventoryBalance = {
+  productId: number; code: string; name: string;
+  model?: string | null; specification?: string | null; category?: string | null;
+  unit: string; status: number; quantity: string;
+};
 export const productPage=(query:Record<string,string|number>)=>http.get<BusinessPage<ProductRecord>>("/api/v1/products",{query});
 export const getProduct=(id:number)=>http.get<ProductRecord>(`/api/v1/products/${id}`);
 export const saveProduct=(data:Omit<ProductRecord,"id"|"status">,id?:number)=>id?http.put<ProductRecord>(`/api/v1/products/${id}`,data):http.post<ProductRecord>("/api/v1/products",data);
@@ -34,5 +39,17 @@ export const createInventoryAdjustment=(data:{items:InventoryAdjustmentDraftItem
 export const updateInventoryAdjustment=(id:number,data:{version:number;items:InventoryAdjustmentDraftItem[]})=>http.put<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}`,data);
 export const postInventoryAdjustment=(id:number,data:{version:number})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/post`,data);
 export const cancelInventoryAdjustment=(id:number,data:{version:number;reason:string})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/cancel`,data);
+export type InventoryEntryType = "ORIGINAL" | "REVERSAL";
+export type InventoryEntry = {
+  id: number; productId: number; adjustmentId: number; adjustmentItemId: number;
+  entryType: InventoryEntryType; quantity: string; balanceBefore: string; balanceAfter: string;
+  reason: AdjustmentReason; remark?: string | null;
+  productCode: string; productName: string;
+  productModel?: string | null; productSpecification?: string | null;
+  unit: string; operatorId: number; operatorName?: string; documentNo: string;
+  occurredAt: string; createTime: string;
+};
+export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryBalance>>("/api/v1/inventory/balances",{query});
+export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);

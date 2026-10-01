@@ -32,6 +32,8 @@ type Store interface {
 	Create(context.Context, Adjustment, audit.Event, func(Item, ProductReference) error) (Adjustment, error)
 	Edit(context.Context, int64, int64, []Item, audit.Event, func(Item, ProductReference) error) (Adjustment, error)
 	Post(context.Context, int64, int64, audit.Event, func(Item, ProductReference) error) (Adjustment, error)
+	BalancePage(context.Context, BalanceQuery) (BalancePage, error)
+	EntryPage(context.Context, EntryQuery) (EntryPage, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Adjustment, error)
 	Find(context.Context, int64) (*Adjustment, error)
 	Page(context.Context, Query) (Page, error)
@@ -138,6 +140,61 @@ func (s *Service) Cancel(ctx context.Context, meta audit.Metadata, id int64, in 
 		return Adjustment{}, invalid("取消原因必填且最多500字")
 	}
 	return s.store.Cancel(ctx, id, in.Version, reason, audit.Event{Action: "inventory.adjustment.cancel", Resource: "inventory", ResourceID: id, Summary: "取消库存调整单", Metadata: meta})
+}
+
+// BalancePage lists current stock. It only reads balances produced by posting;
+// a product without a balance row is zero stock and gets no row just for being
+// displayed.
+func (s *Service) BalancePage(ctx context.Context, q BalanceQuery) (BalancePage, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 {
+		q.PageSize = 10
+	}
+	if q.PageSize > 500 {
+		q.PageSize = 500
+	}
+	if q.Page > int(^uint(0)>>1)/q.PageSize {
+		return BalancePage{}, ErrInvalid
+	}
+	if q.Stock == "" {
+		q.Stock = "nonzero"
+	}
+	if q.Stock != "nonzero" && q.Stock != "all" && q.Stock != "zero" {
+		return BalancePage{}, invalid("库存筛选仅支持nonzero、all或zero")
+	}
+	if utf8.RuneCountInString(q.Keyword) > 100 || utf8.RuneCountInString(q.Category) > 100 {
+		return BalancePage{}, invalid("查询条件过长")
+	}
+	return s.store.BalancePage(ctx, q)
+}
+
+// EntryPage lists ledger lines. It is read-only: there is no endpoint that
+// writes, edits or deletes an entry, so the history cannot be rewritten.
+func (s *Service) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 {
+		q.PageSize = 10
+	}
+	if q.PageSize > 500 {
+		q.PageSize = 500
+	}
+	if q.Page > int(^uint(0)>>1)/q.PageSize {
+		return EntryPage{}, ErrInvalid
+	}
+	if q.EntryType != "" && q.EntryType != "ORIGINAL" && q.EntryType != "REVERSAL" {
+		return EntryPage{}, invalid("流水类型仅支持ORIGINAL或REVERSAL")
+	}
+	if q.ProductID < 0 {
+		return EntryPage{}, ErrInvalid
+	}
+	if q.OccurredFrom != nil && q.OccurredTo != nil && !q.OccurredFrom.Before(*q.OccurredTo) {
+		return EntryPage{}, invalid("发生时间范围无效")
+	}
+	return s.store.EntryPage(ctx, q)
 }
 
 func (s *Service) Detail(ctx context.Context, id int64) (*Adjustment, error) {

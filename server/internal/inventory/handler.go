@@ -23,6 +23,8 @@ type ApiEnvelope struct {
 func NewHandler(s *Service) *Handler { return &Handler{s} }
 func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/inventory")
+	g.GET("/balances", h.balancePage)
+	g.GET("/entries", h.entryPage)
 	a := g.Group("/adjustments")
 	a.POST("", h.create)
 	a.GET("", h.page)
@@ -129,6 +131,101 @@ func (h *Handler) page(c *gin.Context) {
 		}
 	}
 	v, e := h.s.Page(c.Request.Context(), q)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 当前库存分页查询
+// @Tags 库存
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码，默认1"
+// @Param pageSize query int false "每页条数，默认10，最大500"
+// @Param keyword query string false "商品编码、名称、品牌、型号或规格子串"
+// @Param category query string false "商品分类"
+// @Param status query int false "启用状态：1启用，0停用"
+// @Param stock query string false "库存范围，默认nonzero" Enums(nonzero,all,zero)
+// @Success 200 {object} ApiEnvelope{data=BalancePage}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/inventory/balances [get]
+func (h *Handler) balancePage(c *gin.Context) {
+	q := BalanceQuery{Page: 1, PageSize: 10, Keyword: c.Query("keyword"), Category: c.Query("category"), Stock: c.Query("stock")}
+	for name, target := range map[string]*int{"page": &q.Page, "pageSize": &q.PageSize} {
+		if x, ok := c.GetQuery(name); ok {
+			n, e := strconv.Atoi(x)
+			if e != nil || n < 1 {
+				fail(c, ErrInvalid)
+				return
+			}
+			*target = n
+		}
+	}
+	if x, ok := c.GetQuery("status"); ok {
+		n, e := strconv.Atoi(x)
+		if e != nil || n < 0 || n > 1 {
+			fail(c, ErrInvalid)
+			return
+		}
+		q.Status = &n
+	}
+	v, e := h.s.BalancePage(c.Request.Context(), q)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 库存流水分页查询
+// @Tags 库存
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码，默认1"
+// @Param pageSize query int false "每页条数，默认10，最大500"
+// @Param productId query int false "商品内部ID"
+// @Param entryType query string false "流水类型" Enums(ORIGINAL,REVERSAL)
+// @Param occurredFrom query string false "发生时间下界，包含，RFC3339"
+// @Param occurredTo query string false "发生时间上界，不包含，RFC3339"
+// @Success 200 {object} ApiEnvelope{data=EntryPage}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/inventory/entries [get]
+func (h *Handler) entryPage(c *gin.Context) {
+	q := EntryQuery{Page: 1, PageSize: 10, EntryType: c.Query("entryType")}
+	for name, target := range map[string]*int{"page": &q.Page, "pageSize": &q.PageSize} {
+		if x, ok := c.GetQuery(name); ok {
+			n, e := strconv.Atoi(x)
+			if e != nil || n < 1 {
+				fail(c, ErrInvalid)
+				return
+			}
+			*target = n
+		}
+	}
+	if x, ok := c.GetQuery("productId"); ok {
+		n, e := strconv.ParseInt(x, 10, 64)
+		if e != nil || n <= 0 {
+			fail(c, ErrInvalid)
+			return
+		}
+		q.ProductID = n
+	}
+	for name, target := range map[string]**time.Time{"occurredFrom": &q.OccurredFrom, "occurredTo": &q.OccurredTo} {
+		if x, ok := c.GetQuery(name); ok {
+			v, e := time.Parse(time.RFC3339Nano, x)
+			if e != nil {
+				fail(c, invalid("发生时间必须为RFC3339"))
+				return
+			}
+			v = v.UTC()
+			*target = &v
+		}
+	}
+	v, e := h.s.EntryPage(c.Request.Context(), q)
 	if e != nil {
 		fail(c, e)
 		return
