@@ -47,24 +47,29 @@ type balanceRow struct {
 func (balanceRow) TableName() string { return "partner_balance" }
 
 type Entry struct {
-	ID            int64     `json:"id"`
-	PartnerID     int64     `json:"partnerId"`
-	Direction     string    `json:"direction"`
-	EntryType     string    `json:"entryType"`
-	Amount        string    `json:"amount"`
-	BalanceBefore string    `json:"balanceBefore"`
-	BalanceAfter  string    `json:"balanceAfter"`
-	BusinessDate  string    `json:"businessDate"`
-	EffectiveAt   time.Time `json:"effectiveAt"`
-	Description   string    `json:"description"`
-	DocumentNo    string    `json:"documentNo"`
-	OperatorID    int64     `json:"operatorId"`
-	ReversesID    *int64    `json:"reversesId"`
-	ReversedByID  *int64    `json:"reversedById"`
-	PaymentMethod string    `json:"paymentMethod,omitempty"`
-	TransactionNo string    `json:"transactionNo,omitempty"`
-	PurchaseID    *int64    `json:"purchaseId,omitempty"`
-	SaleID        *int64    `json:"saleId,omitempty"`
+	PartnerName        string    `json:"partnerName"`
+	OperatorName       string    `json:"operatorName"`
+	PurchaseReturnID   *int64    `json:"purchaseReturnId,omitempty"`
+	SaleReturnID       *int64    `json:"saleReturnId,omitempty"`
+	ReversedDocumentNo string    `json:"reversedDocumentNo,omitempty"`
+	ID                 int64     `json:"id"`
+	PartnerID          int64     `json:"partnerId"`
+	Direction          string    `json:"direction"`
+	EntryType          string    `json:"entryType"`
+	Amount             string    `json:"amount"`
+	BalanceBefore      string    `json:"balanceBefore"`
+	BalanceAfter       string    `json:"balanceAfter"`
+	BusinessDate       string    `json:"businessDate"`
+	EffectiveAt        time.Time `json:"effectiveAt"`
+	Description        string    `json:"description"`
+	DocumentNo         string    `json:"documentNo"`
+	OperatorID         int64     `json:"operatorId"`
+	ReversesID         *int64    `json:"reversesId"`
+	ReversedByID       *int64    `json:"reversedById"`
+	PaymentMethod      string    `json:"paymentMethod,omitempty"`
+	TransactionNo      string    `json:"transactionNo,omitempty"`
+	PurchaseID         *int64    `json:"purchaseId,omitempty"`
+	SaleID             *int64    `json:"saleId,omitempty"`
 }
 
 func (Entry) TableName() string { return "partner_balance_entry" }
@@ -94,6 +99,8 @@ type Page struct {
 	PageSize int     `json:"pageSize"`
 }
 type Store interface {
+	FilterPage(context.Context, EntryFilter) (Page, error)
+	Statement(context.Context, EntryFilter) (Statement, error)
 	Create(context.Context, audit.Metadata, Input) (Entry, error)
 	Find(context.Context, int64) (Entry, error)
 	Page(context.Context, int64, string, int, int) (Page, error)
@@ -306,6 +313,8 @@ func (s *Repository) Create(ctx context.Context, meta audit.Metadata, in Input) 
 }
 
 type entryRow struct {
+	PartnerName, OperatorName, ReversedDocumentNo      string `gorm:"->"`
+	PurchaseReturnID, SaleReturnID                     *int64
 	ID                                                 int64 `gorm:"primaryKey"`
 	PartnerID                                          int64
 	Direction, EntryType                               string
@@ -322,45 +331,23 @@ type entryRow struct {
 
 func (entryRow) TableName() string { return "partner_balance_entry" }
 func (s *Repository) Find(ctx context.Context, id int64) (Entry, error) {
-	var r entryRow
-	if e := s.db.WithContext(ctx).First(&r, id).Error; e != nil {
-		if errors.Is(e, gorm.ErrRecordNotFound) {
-			return Entry{}, ErrNotFound
-		}
+	rows, e := s.ledgerRows(ctx, EntryFilter{EntryID: id}, false)
+	if e != nil {
 		return Entry{}, e
 	}
-	return fromRow(r), nil
-}
-func (s *Repository) Page(ctx context.Context, partner int64, direction string, page, size int) (Page, error) {
-	if page < 1 || size < 1 || size > 500 {
-		return Page{}, ErrInvalid
-	}
-	q := s.db.WithContext(ctx).Model(&entryRow{})
-	if partner > 0 {
-		q = q.Where("partner_id=?", partner)
-	}
-	if direction != "" {
-		if direction != "CUSTOMER" && direction != "SUPPLIER" {
-			return Page{}, ErrInvalid
-		}
-		q = q.Where("direction=?", direction)
-	}
-	var total int64
-	if e := q.Count(&total).Error; e != nil {
-		return Page{}, e
-	}
-	var rows []entryRow
-	if e := q.Order("effective_at,id").Offset((page - 1) * size).Limit(size).Find(&rows).Error; e != nil {
-		return Page{}, e
-	}
-	out := Page{Records: []Entry{}, Total: total, Page: page, PageSize: size}
 	for _, r := range rows {
-		out.Records = append(out.Records, fromRow(r))
+		if r.ID == id {
+			return fromRow(r), nil
+		}
 	}
-	return out, nil
+	return Entry{}, ErrNotFound
+}
+
+func (s *Repository) Page(ctx context.Context, partner int64, direction string, page, size int) (Page, error) {
+	return s.FilterPage(ctx, EntryFilter{PartnerID: partner, Direction: direction, Page: page, PageSize: size})
 }
 func fromRow(r entryRow) Entry {
-	return Entry{ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
+	return Entry{PartnerName: r.PartnerName, OperatorName: r.OperatorName, PurchaseReturnID: r.PurchaseReturnID, SaleReturnID: r.SaleReturnID, ReversedDocumentNo: r.ReversedDocumentNo, ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
 }
 
 func (s *Repository) Balances(ctx context.Context, partnerID int64, page, size int, direction string) (BalancePage, error) {

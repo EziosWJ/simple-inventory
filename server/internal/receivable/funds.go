@@ -40,7 +40,11 @@ func (r *Repository) recordFunds(ctx context.Context, meta audit.Metadata, in Se
 	}
 	key, remark, transaction := strings.TrimSpace(in.RequestKey), strings.TrimSpace(in.Remark), strings.TrimSpace(in.TransactionNo)
 	if remark == "" {
-		remark = summary
+		if refund {
+			remark = summary
+		} else {
+			remark = "往来结算"
+		}
 	}
 	var out Entry
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -58,7 +62,7 @@ func (r *Repository) recordFunds(ctx context.Context, meta audit.Metadata, in Se
 			if len(previousDate) > 10 {
 				previousDate = previousDate[:10]
 			}
-			if previous.PartnerID != in.PartnerID || previous.Direction != in.Direction || previous.EntryType != typ || previous.AmountCents != delta || previousDate != in.BusinessDate || previous.Description != remark || previous.PaymentMethod != in.PaymentMethod || previous.TransactionNo != transaction {
+			if previous.PartnerID != in.PartnerID || previous.Direction != in.Direction || previous.EntryType != typ || previous.AmountCents != delta || previousDate != in.BusinessDate || (previous.Description != remark && !(!refund && strings.TrimSpace(in.Remark) == "" && previous.Description == "")) || previous.PaymentMethod != in.PaymentMethod || previous.TransactionNo != transaction {
 				return ErrConflict
 			}
 			out = fromRow(previous)

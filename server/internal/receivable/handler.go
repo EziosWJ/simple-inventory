@@ -24,6 +24,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("", h.balances)
 	g.GET("/entries", h.page)
 	g.GET("/entries/:id", h.detail)
+	g.GET("/statement", h.statement)
 	g.POST("/opening", h.create)
 	g.POST("/settlements", h.settle)
 	g.POST("/refunds", h.refund)
@@ -143,7 +144,7 @@ func (h *Handler) balances(c *gin.Context) {
 	platform.OK(c, v)
 }
 
-// @Summary 分页查询往来金额流水
+// @Summary 按实际生效时间分页查询完整来源往来明细
 // @Tags 往来余额
 // @Security BearerAuth
 // @Produce json
@@ -153,6 +154,8 @@ func (h *Handler) balances(c *gin.Context) {
 // @Param pageSize query int false "每页条数"
 // @Success 200 {object} ApiEnvelope{data=Page}
 // @Failure 401 {object} ApiEnvelope
+// @Param from query string false "RFC3339生效起点（包含）"
+// @Param to query string false "RFC3339生效终点（不包含）"
 // @Router /api/v1/partner-balances/entries [get]
 func (h *Handler) page(c *gin.Context) {
 	p, e := paramInt(c, "page", 1)
@@ -173,7 +176,7 @@ func (h *Handler) page(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.Page(c.Request.Context(), partner, c.Query("direction"), p, size)
+	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, Direction: c.Query("direction"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
 	if e != nil {
 		platform.WriteError(c, 400, 400, e.Error(), nil)
 		return
@@ -276,4 +279,36 @@ func paramInt(c *gin.Context, key string, def int) (int, error) {
 		return v, nil
 	}
 	return def, nil
+}
+
+// @Summary 查询完整期间往来对账单（含历史期初与完整流水）
+// @Tags 往来余额
+// @Security BearerAuth
+// @Produce json
+// @Param partnerId query int true "往来单位ID"
+// @Param direction query string true "方向" Enums(CUSTOMER,SUPPLIER)
+// @Param from query string true "RFC3339生效起点（包含）"
+// @Param to query string true "RFC3339生效终点（不包含）"
+// @Success 200 {object} ApiEnvelope{data=Statement}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 401 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/statement [get]
+func (h *Handler) statement(c *gin.Context) {
+	id, e := strconv.ParseInt(c.Query("partnerId"), 10, 64)
+	if e != nil || id <= 0 {
+		platform.WriteError(c, 400, 400, "往来单位无效", nil)
+		return
+	}
+	v, e := h.s.Statement(c.Request.Context(), EntryFilter{PartnerID: id, Direction: c.Query("direction"), From: c.Query("from"), To: c.Query("to")})
+	if e != nil {
+		if errors.Is(e, ErrInvalid) {
+			platform.WriteError(c, 400, 400, "期间或方向无效，请使用RFC3339且开始早于结束", nil)
+		} else if errors.Is(e, ErrNotFound) {
+			platform.WriteError(c, 404, 404, e.Error(), nil)
+		} else {
+			platform.WriteError(c, 500, 500, "读取对账单失败", nil)
+		}
+		return
+	}
+	platform.OK(c, v)
 }

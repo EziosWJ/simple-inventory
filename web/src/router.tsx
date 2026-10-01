@@ -36,6 +36,8 @@ import { PurchaseReturnsPage } from "@/pages/business/purchase-returns";
 import { SaleReturnsPage } from "@/pages/business/sale-returns";
 import { SalesPage } from "@/pages/business/sales";
 import { DeliveryNotePage } from "@/pages/business/delivery-note";
+import { PartnerLedgerPage } from "@/pages/business/partner-ledger";
+import { PartnerStatementPage } from "@/pages/business/partner-statement";
 import { PartnerBalancesPage } from "@/pages/business/partner-balances";
 
 export const router = createBrowserRouter([
@@ -77,6 +79,8 @@ export const router = createBrowserRouter([
       { path: "business/sales/:id/delivery-note", element: <DeliveryNotePage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
       { path: "business/refunds", element: <PartnerBalancesPage refundOnly /> },
+      { path: "business/partner-ledger", element: <PartnerLedgerPage /> },
+      { path: "business/partner-statements", element: <PartnerStatementPage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,
