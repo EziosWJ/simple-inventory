@@ -54,7 +54,7 @@ func prepareInventorySchema9Upgrade(t *testing.T, db *platformdatabase.Database,
 		t.Fatal(e)
 	}
 	goose.SetTableName("goose_seed_db_version")
-	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "seed"), 7); e != nil {
+	if e := goose.UpToContext(context.Background(), db.SQL, filepath.Join(root, "seed"), 8); e != nil {
 		t.Fatal(e)
 	}
 	goose.SetTableName("goose_schema_db_version")

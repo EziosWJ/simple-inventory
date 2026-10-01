@@ -288,6 +288,40 @@ definitions:
       message:
         type: string
     type: object
+  internal_inventory.Balance:
+    properties:
+      category:
+        type: string
+      code:
+        type: string
+      model:
+        type: string
+      name:
+        type: string
+      productId:
+        type: integer
+      quantity:
+        type: string
+      specification:
+        type: string
+      status:
+        type: integer
+      unit:
+        type: string
+    type: object
+  internal_inventory.BalancePage:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/internal_inventory.Balance'
+        type: array
+      total:
+        type: integer
+    type: object
   internal_inventory.CancelInput:
     properties:
       reason:
@@ -3273,6 +3307,62 @@ paths:
       summary: 过账库存调整单
       tags:
       - 库存调整
+  /api/v1/inventory/balances:
+    get:
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认10，最大500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 商品编码、名称、品牌、型号或规格子串
+        in: query
+        name: keyword
+        type: string
+      - description: 商品分类
+        in: query
+        name: category
+        type: string
+      - description: 启用状态：1启用，0停用
+        in: query
+        name: status
+        type: integer
+      - description: 库存范围，默认nonzero
+        enum:
+        - nonzero
+        - all
+        - zero
+        in: query
+        name: stock
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.BalancePage'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 当前库存分页查询
+      tags:
+      - 库存
   /api/v1/partners:
     get:
       parameters:

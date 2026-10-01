@@ -111,3 +111,35 @@ type Page struct {
 	Page     int          `json:"page"`
 	PageSize int          `json:"pageSize"`
 }
+
+// Balance is one row of the current-stock view. It reports the live catalog
+// description, not a posting snapshot: renaming a product changes this list
+// while the stored quantity stays. Stock is exposed as a decimal string for the
+// same reason document quantities are.
+type Balance struct {
+	ProductID     int64   `json:"productId"`
+	Code          string  `json:"code"`
+	Name          string  `json:"name"`
+	Model         *string `json:"model"`
+	Specification *string `json:"specification"`
+	Category      *string `json:"category"`
+	Unit          string  `json:"unit"`
+	Status        int     `json:"status"`
+	QuantityMilli int64   `json:"-"`
+	Quantity      string  `json:"quantity" gorm:"-"`
+}
+
+// BalanceQuery filters the current-stock view. Stock selects the non-zero view
+// by default; "all" also lists products that never had a posting, "zero" lists
+// exactly the products whose stock is zero or absent.
+type BalanceQuery struct {
+	Page, PageSize           int
+	Keyword, Category, Stock string
+	Status                   *int
+}
+type BalancePage struct {
+	Records  []Balance `json:"records"`
+	Total    int64     `json:"total"`
+	Page     int       `json:"page"`
+	PageSize int       `json:"pageSize"`
+}

@@ -4,6 +4,7 @@ import {
   Boxes,
   Building2,
   CircleDot,
+  ClipboardList,
   ContactRound,
   Database,
   FileText,
@@ -62,6 +63,8 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   "contact-round": ContactRound,
   warehouse: Warehouse,
   module: Boxes,
+  boxes: Boxes,
+  "clipboard-list": ClipboardList,
   branch: GitBranch,
   monitor: MonitorCog,
 };

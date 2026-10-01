@@ -28,6 +28,7 @@ import { ProductsPage } from "@/pages/business/products";
 import { PartnersPage } from "@/pages/business/partners";
 import { WarehousePage } from "@/pages/business/warehouse";
 import { InventoryAdjustmentsPage } from "@/pages/business/inventory-adjustments";
+import { InventoryBalancesPage } from "@/pages/business/inventory-balances";
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       { path: "business/partners", element: <PartnersPage /> },
       { path: "business/warehouse", element: <WarehousePage /> },
       { path: "business/inventory-adjustments", element: <InventoryAdjustmentsPage /> },
+      { path: "business/inventory-balances", element: <InventoryBalancesPage /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,

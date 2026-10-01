@@ -163,6 +163,48 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	return p, e
 }
 
+// balanceQuery joins the live catalog with the stored balance. The LEFT JOIN is
+// what makes "zero stock" mean both "a stored zero" and "never had a balance";
+// services are excluded everywhere because they never take part in stock.
+func balanceQuery(db *gorm.DB) *gorm.DB {
+	return db.Table("product p").
+		Select("p.id AS product_id,p.code,p.name,p.model,p.specification,p.category,p.unit,p.status,COALESCE(b.quantity_milli,0) AS quantity_milli").
+		Joins("LEFT JOIN inventory_balance b ON b.product_id=p.id").
+		Where("p.type='GOODS'")
+}
+
+// BalancePage reads the current-stock view. Records and total share one
+// predicate, so a page never contradicts its own count.
+func (r *Repository) BalancePage(ctx context.Context, q BalanceQuery) (BalancePage, error) {
+	p := BalancePage{Records: []Balance{}, Page: q.Page, PageSize: q.PageSize}
+	d := balanceQuery(r.db.WithContext(ctx))
+	if q.Keyword != "" {
+		like := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.Keyword) + "%"
+		d = d.Where("(p.code LIKE ? ESCAPE '\\' OR p.name LIKE ? ESCAPE '\\' OR p.brand LIKE ? ESCAPE '\\' OR p.model LIKE ? ESCAPE '\\' OR p.specification LIKE ? ESCAPE '\\')", like, like, like, like, like)
+	}
+	if q.Category != "" {
+		d = d.Where("p.category=?", q.Category)
+	}
+	if q.Status != nil {
+		d = d.Where("p.status=?", *q.Status)
+	}
+	switch q.Stock {
+	case "all":
+	case "zero":
+		d = d.Where("COALESCE(b.quantity_milli,0)=0")
+	default:
+		d = d.Where("COALESCE(b.quantity_milli,0)>0")
+	}
+	if e := d.Count(&p.Total).Error; e != nil {
+		return p, e
+	}
+	e := d.Order("p.id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
+	for i := range p.Records {
+		p.Records[i].Quantity = quantityText(p.Records[i].QuantityMilli)
+	}
+	return p, e
+}
+
 func insertItems(tx *gorm.DB, id int64, items []Item, validate func(Item, ProductReference) error) error {
 	for i := range items {
 		item := &items[i]
