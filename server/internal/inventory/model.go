@@ -62,6 +62,8 @@ type Entry struct {
 	SaleItemID           *int64  `json:"saleItemId,omitempty"`
 	PurchaseReturnID     *int64  `json:"purchaseReturnId,omitempty"`
 	PurchaseReturnItemID *int64  `json:"purchaseReturnItemId,omitempty"`
+	SaleReturnID         *int64  `json:"saleReturnId,omitempty"`
+	SaleReturnItemID     *int64  `json:"saleReturnItemId,omitempty"`
 	SourceType           string  `json:"sourceType" gorm:"->;-:migration"`
 	EntryType            string  `json:"entryType"`
 	QuantityMilli        int64   `json:"-"`

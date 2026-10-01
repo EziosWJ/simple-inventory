@@ -76,6 +76,9 @@ type CancelInput struct {
 	Version int64  `json:"version"`
 	Reason  string `json:"reason"`
 }
+type PostInput struct {
+	Version int64 `json:"version"`
+}
 type Query struct {
 	Page, PageSize           int
 	DocumentNo, Status       string

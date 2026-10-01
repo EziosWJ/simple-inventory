@@ -393,6 +393,10 @@ definitions:
         type: integer
       saleItemId:
         type: integer
+      saleReturnId:
+        type: integer
+      saleReturnItemId:
+        type: integer
       sourceType:
         type: string
       unit:
@@ -1422,6 +1426,11 @@ definitions:
           $ref: '#/definitions/salereturn.Document'
         type: array
       total:
+        type: integer
+    type: object
+  salereturn.PostInput:
+    properties:
+      version:
         type: integer
     type: object
   sysconfig.ApiEnvelope:
@@ -5341,6 +5350,37 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消销售退货草稿
+      tags:
+      - 销售退货
+  /api/v1/sale-returns/{id}/post:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/salereturn.PostInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/salereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/salereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 整单过账销售退货
       tags:
       - 销售退货
   /api/v1/sale-returns/source/{saleId}:

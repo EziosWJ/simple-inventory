@@ -25,6 +25,7 @@ type Store interface {
 	Create(context.Context, Document, []Item, audit.Event) (Document, error)
 	Edit(context.Context, int64, int64, Document, []Item, audit.Event) (Document, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Document, error)
+	Post(context.Context, int64, int64, audit.Event) (Document, error)
 	Find(context.Context, int64) (*Document, error)
 	Page(context.Context, Query) (Page, error)
 }
@@ -61,6 +62,12 @@ func (s *Service) Cancel(ctx context.Context, m audit.Metadata, id int64, in Can
 		return Document{}, ErrInvalid
 	}
 	return s.store.Cancel(ctx, id, in.Version, r, audit.Event{Action: "sale_return.cancel", Resource: "sale_return", ResourceID: id, Summary: "取消销售退货单", Metadata: m})
+}
+func (s *Service) Post(ctx context.Context, m audit.Metadata, id int64, in PostInput) (Document, error) {
+	if id < 1 || in.Version < 1 || in.Version == math.MaxInt64 {
+		return Document{}, ErrInvalid
+	}
+	return s.store.Post(ctx, id, in.Version, audit.Event{Action: "sale_return.post", Resource: "sale_return", ResourceID: id, Summary: "过账销售退货单", Metadata: m})
 }
 func (s *Service) Detail(ctx context.Context, id int64) (*Document, error) {
 	if id < 1 {

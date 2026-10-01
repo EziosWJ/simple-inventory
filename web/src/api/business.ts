@@ -101,4 +101,5 @@ export const getSaleReturn=(id:number)=>http.get<SaleReturn>(`/api/v1/sale-retur
 export const getSaleReturnSource=(saleId:number)=>http.get<SaleReturnSource>(`/api/v1/sale-returns/source/${saleId}`);
 export const createSaleReturn=(data:{saleId:number;businessDate:string;remark?:string;items:{saleItemId:number;quantity:string;remark?:string}[]})=>http.post<SaleReturn>("/api/v1/sale-returns",data);
 export const updateSaleReturn=(id:number,data:{version:number;saleId:number;businessDate:string;remark?:string;items:{saleItemId:number;quantity:string;remark?:string}[]})=>http.put<SaleReturn>(`/api/v1/sale-returns/${id}`,data);
+export const postSaleReturn=(id:number,data:{version:number})=>http.post<SaleReturn>(`/api/v1/sale-returns/${id}/post`,data);
 export const cancelSaleReturn=(id:number,data:{version:number;reason:string})=>http.post<SaleReturn>(`/api/v1/sale-returns/${id}/cancel`,data);

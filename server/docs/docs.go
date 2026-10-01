@@ -6265,6 +6265,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/sale-returns/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售退货"
+                ],
+                "summary": "整单过账销售退货",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "退货单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/salereturn.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/salereturn.Document"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/sales": {
             "get": {
                 "security": [
@@ -7297,6 +7351,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "saleItemId": {
+                    "type": "integer"
+                },
+                "saleReturnId": {
+                    "type": "integer"
+                },
+                "saleReturnItemId": {
                     "type": "integer"
                 },
                 "sourceType": {
@@ -8869,6 +8929,14 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "salereturn.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
                     "type": "integer"
                 }
             }
