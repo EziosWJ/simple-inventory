@@ -209,6 +209,10 @@ func reversePurchase(tx *gorm.DB, h Draft, id int64, now time.Time, actor int64)
 	if b.AmountCents < math.MinInt64+total {
 		return ErrInvalid
 	}
+	if total == 0 {
+		return nil
+	}
+
 	after := b.AmountCents - total
 	res := tx.Table("partner_balance").Where("id=?", b.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
 	if res.Error != nil {
@@ -327,16 +331,18 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		if changed.RowsAffected != 1 {
 			return ErrConflict
 		}
-		res := tx.Table("partner_balance").Where("id=?", payable.ID).Updates(map[string]any{"amount_cents": balanceBefore + total, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected != 1 {
-			return ErrConflict
-		}
-		financial := map[string]any{"partner_id": h.PartnerID, "direction": "SUPPLIER", "entry_type": "PURCHASE", "amount_cents": total, "balance_before_cents": balanceBefore, "balance_after_cents": balanceBefore + total, "business_date": h.BusinessDate, "effective_at": now, "description": "采购入库 " + h.DocumentNo, "document_no": h.DocumentNo, "operator_id": event.Metadata.ActorID, "purchase_id": id, "create_time": now}
-		if e = tx.Table("partner_balance_entry").Create(financial).Error; e != nil {
-			return e
+		if total > 0 {
+			res := tx.Table("partner_balance").Where("id=?", payable.ID).Updates(map[string]any{"amount_cents": balanceBefore + total, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected != 1 {
+				return ErrConflict
+			}
+			financial := map[string]any{"partner_id": h.PartnerID, "direction": "SUPPLIER", "entry_type": "PURCHASE", "amount_cents": total, "balance_before_cents": balanceBefore, "balance_after_cents": balanceBefore + total, "business_date": h.BusinessDate, "effective_at": now, "description": "采购入库 " + h.DocumentNo, "document_no": h.DocumentNo, "operator_id": event.Metadata.ActorID, "purchase_id": id, "create_time": now}
+			if e = tx.Table("partner_balance_entry").Create(financial).Error; e != nil {
+				return e
+			}
 		}
 		event.ResourceID = id
 		if e = audit.RecordOn(ctx, tx, event); e != nil {

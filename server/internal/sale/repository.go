@@ -363,16 +363,18 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 			return ErrConflict
 		}
 		after := balance.AmountCents + total
-		res := tx.Table("partner_balance").Where("id=?", balance.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected != 1 {
-			return ErrConflict
-		}
-		financial := map[string]any{"partner_id": h.PartnerID, "direction": "CUSTOMER", "entry_type": "SALE", "amount_cents": total, "balance_before_cents": balance.AmountCents, "balance_after_cents": after, "business_date": h.BusinessDate, "effective_at": now, "description": "销售出库 " + h.DocumentNo, "document_no": h.DocumentNo, "operator_id": event.Metadata.ActorID, "sale_id": id, "create_time": now}
-		if e = tx.Table("partner_balance_entry").Create(financial).Error; e != nil {
-			return e
+		if total > 0 {
+			res := tx.Table("partner_balance").Where("id=?", balance.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected != 1 {
+				return ErrConflict
+			}
+			financial := map[string]any{"partner_id": h.PartnerID, "direction": "CUSTOMER", "entry_type": "SALE", "amount_cents": total, "balance_before_cents": balance.AmountCents, "balance_after_cents": after, "business_date": h.BusinessDate, "effective_at": now, "description": "销售出库 " + h.DocumentNo, "document_no": h.DocumentNo, "operator_id": event.Metadata.ActorID, "sale_id": id, "create_time": now}
+			if e = tx.Table("partner_balance_entry").Create(financial).Error; e != nil {
+				return e
+			}
 		}
 		event.ResourceID = id
 		if e = audit.RecordOn(ctx, tx, event); e != nil {
@@ -527,6 +529,10 @@ func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, now time.Time, a
 	if b.AmountCents < math.MinInt64+total {
 		return ErrInvalid
 	}
+	if total == 0 {
+		return nil
+	}
+
 	after := b.AmountCents - total
 	res := tx.Table("partner_balance").Where("id=?", b.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
 	if res.Error != nil {
