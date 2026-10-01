@@ -150,6 +150,7 @@ func (h *Handler) balances(c *gin.Context) {
 // @Produce json
 // @Param partnerId query int false "往来单位ID"
 // @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
+// @Param category query string false "原始记录分类" Enums(OPENING,SETTLEMENT,REFUND)
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
 // @Success 200 {object} ApiEnvelope{data=Page}
@@ -176,7 +177,7 @@ func (h *Handler) page(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, Direction: c.Query("direction"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
+	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
 	if e != nil {
 		platform.WriteError(c, 400, 400, e.Error(), nil)
 		return

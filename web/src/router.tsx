@@ -39,6 +39,8 @@ import { DeliveryNotePage } from "@/pages/business/delivery-note";
 import { PartnerLedgerPage } from "@/pages/business/partner-ledger";
 import { PartnerStatementPage } from "@/pages/business/partner-statement";
 import { PartnerBalancesPage } from "@/pages/business/partner-balances";
+import { PartnerFundsPage } from "@/pages/business/partner-funds";
+import { OpeningBalancesPage } from "@/pages/business/opening-balances";
 
 export const router = createBrowserRouter([
   {
@@ -78,7 +80,9 @@ export const router = createBrowserRouter([
       { path: "business/sales", element: <SalesPage /> },
       { path: "business/sales/:id/delivery-note", element: <DeliveryNotePage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
-      { path: "business/refunds", element: <PartnerBalancesPage refundOnly /> },
+      { path: "business/settlements", element: <PartnerFundsPage key="settlement" kind="SETTLEMENT" /> },
+      { path: "business/refunds", element: <PartnerFundsPage key="refund" kind="REFUND" /> },
+      { path: "business/opening-balances", element: <OpeningBalancesPage /> },
       { path: "business/partner-ledger", element: <PartnerLedgerPage /> },
       { path: "business/partner-statements", element: <PartnerStatementPage /> },
       {

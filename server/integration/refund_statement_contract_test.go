@@ -139,6 +139,18 @@ func assertRefundHTTPContract(t *testing.T, router http.Handler, db *platformdat
 	if first.ID != retry.ID || first.Amount != "30.00" || first.BalanceBefore != "-80.00" || first.BalanceAfter != "-50.00" || first.EntryType != "CUSTOMER_REFUND" || first.OperatorID <= 0 || first.EffectiveAt.IsZero() {
 		t.Fatalf("refund data=%+v retry=%+v", first, retry)
 	}
+	for category, expectedType := range map[string]string{"REFUND": "CUSTOMER_REFUND", "SETTLEMENT": "RECEIPT"} {
+		path := fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&category=%s&page=1&pageSize=1", f.partner, category)
+		page := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, path, "", f.token), 200)
+		if page.Total != 1 || len(page.Records) != 1 || page.Records[0].EntryType != expectedType {
+			t.Fatalf("%s category page=%+v, want one %s", category, page, expectedType)
+		}
+	}
+	openingPage := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&category=OPENING", f.partner), "", f.token), 200)
+	if openingPage.Total != 0 {
+		t.Fatalf("opening category includes other records: %+v", openingPage)
+	}
+	inventoryData[any](t, serveJSON(router, http.MethodGet, "/api/v1/partner-balances/entries?category=UNKNOWN", "", f.token), 400)
 	for _, changed := range []string{strings.Replace(body, "2026-01-01", "2026-01-02", 1), strings.Replace(body, "真实资金", "其他说明", 1), strings.Replace(body, "BANK-1", "BANK-2", 1), strings.Replace(body, "CASH", "WECHAT", 1), strings.Replace(body, "30.00", "30.01", 1)} {
 		inventoryData[any](t, serveJSON(router, http.MethodPost, refundPath, changed, f.token), 409)
 	}

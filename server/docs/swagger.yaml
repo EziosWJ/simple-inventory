@@ -4560,6 +4560,14 @@ paths:
         in: query
         name: direction
         type: string
+      - description: 原始记录分类
+        enum:
+        - OPENING
+        - SETTLEMENT
+        - REFUND
+        in: query
+        name: category
+        type: string
       - description: 页码
         in: query
         name: page

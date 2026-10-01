@@ -36,9 +36,9 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchasereturn"
-	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
+	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
@@ -66,8 +66,8 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	if err := database.GORM.Table("warehouse").Count(&warehouses).Error; err != nil {
 		t.Fatalf("count seeded warehouse: %v", err)
 	}
-	if users != 1 || menus != 31 || configs != 4 || warehouses != 1 {
-		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 31, 4, 1", users, menus, configs, warehouses)
+	if users != 1 || menus != 38 || configs != 4 || warehouses != 1 {
+		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 38, 4, 1", users, menus, configs, warehouses)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatalf("close SQLite database: %v", err)

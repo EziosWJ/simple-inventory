@@ -11,6 +11,7 @@ type EntryFilter struct {
 	EntryID        int64
 	PartnerID      int64
 	Direction      string
+	Category       string
 	From, To       string
 	Page, PageSize int
 }
@@ -29,7 +30,8 @@ type Statement struct {
 }
 
 func normalizeFilter(q EntryFilter, statement bool) (EntryFilter, error) {
-	if q.PartnerID < 0 || (q.Direction != "" && q.Direction != "CUSTOMER" && q.Direction != "SUPPLIER") {
+	if q.PartnerID < 0 || (q.Direction != "" && q.Direction != "CUSTOMER" && q.Direction != "SUPPLIER") ||
+		(q.Category != "" && q.Category != "OPENING" && q.Category != "SETTLEMENT" && q.Category != "REFUND") {
 		return q, ErrInvalid
 	}
 	if !statement && (q.Page < 1 || q.PageSize < 1 || q.PageSize > 500) {
@@ -88,6 +90,14 @@ func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly b
 	}
 	if q.Direction != "" {
 		query = query.Where("e.direction=?", q.Direction)
+	}
+	switch q.Category {
+	case "OPENING":
+		query = query.Where("e.entry_type=?", "OPENING")
+	case "SETTLEMENT":
+		query = query.Where("e.entry_type IN ?", []string{"RECEIPT", "PAYMENT"})
+	case "REFUND":
+		query = query.Where("e.entry_type IN ?", []string{"CUSTOMER_REFUND", "SUPPLIER_REFUND"})
 	}
 	if q.From != "" && !beforeOnly {
 		from, _ := time.Parse(time.RFC3339Nano, q.From)

@@ -4492,6 +4492,17 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "OPENING",
+                            "SETTLEMENT",
+                            "REFUND"
+                        ],
+                        "type": "string",
+                        "description": "原始记录分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "页码",
                         "name": "page",

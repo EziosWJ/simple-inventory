@@ -85,6 +85,7 @@ export const partnerBalanceEntries=(query:Record<string,string|number>)=>http.ge
 export const createOpeningBalance=(data:{requestKey:string;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";amount:string;businessDate:string;description:string})=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/opening",data);
 export const partnerBalanceEntry=(id:number)=>http.get<PartnerBalanceEntry>(`/api/v1/partner-balances/entries/${id}`);
 export const reverseOpeningBalance=(id:number,reason:string)=>http.post<PartnerBalanceEntry>(`/api/v1/partner-balances/entries/${id}/reverse`,{reason});
+export const reversePartnerEntry=reverseOpeningBalance;
 export const createSettlement=(data:{requestKey:string;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";amount:string;businessDate:string;paymentMethod:string;transactionNo:string;remark:string})=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/settlements",data);
 
 export type PurchaseReturnItem = {id:number;purchaseItemId:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;unit:string;originalQuantity:string;returnedQuantity:string;remainingQuantity:string;quantity:string;unitPrice:string;amount:string;priorReturnAmount:string;remark?:string|null};

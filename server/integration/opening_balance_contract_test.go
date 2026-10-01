@@ -90,6 +90,13 @@ func assertOpeningBalanceContract(t *testing.T, router http.Handler, db *platfor
 	if supplier["balanceAfter"] != "100.00" {
 		t.Fatal(supplier)
 	}
+	for _, pageNo := range []int{1, 2} {
+		path := fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&direction=CUSTOMER&category=OPENING&page=%d&pageSize=1", partnerID, pageNo)
+		page := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, path, "", token), 200)
+		if page.Total != 2 || len(page.Records) != 1 || page.Records[0].EntryType != "OPENING" {
+			t.Fatalf("opening page %d does not preserve filtered total: %+v", pageNo, page)
+		}
+	}
 	var wg sync.WaitGroup
 	errors := make(chan string, 2)
 	for _, amount := range []string{"1.00", "2.00"} {

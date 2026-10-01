@@ -147,14 +147,15 @@ async function saleUI(p = null) {
     return posted;
 }
 async function funds(direction, amount, type = 'SETTLEMENT', pid = partner.id) {
-    await goto('/business/partner-balances');
-    await page.getByLabel('结算方向', { exact: true }).selectOption(direction);
-    await page.getByLabel('结算往来单位').selectOption(String(pid));
-    await page.getByLabel('资金记录类型').selectOption(type);
-    await page.getByLabel('收付款金额').fill(amount);
-    await page.getByLabel('收付款备注').fill('真实浏览器验收资金');
+    await goto(type === 'REFUND' ? '/business/refunds' : '/business/settlements');
+    await page.getByLabel('资金方向', { exact: true }).selectOption(direction);
+    await page.getByLabel('资金往来单位').selectOption(String(pid));
+    await page.getByLabel('资金金额').fill(amount);
+    await page.getByLabel('备注（选填）').fill('真实浏览器验收资金');
     await page.waitForTimeout(250);
-    return action(`/partner-balances/${type === 'REFUND' ? 'refunds' : 'settlements'}`, () => page.getByRole('button', { name: '确认并保存' }).click());
+    const operation = type === 'REFUND' ? direction === 'CUSTOMER' ? '向客户退款' : '收到供应商退款' : direction === 'CUSTOMER' ? '客户收款' : '供应商付款';
+    await page.getByRole('button', { name: `确认${operation}` }).click();
+    return action(`/partner-balances/${type === 'REFUND' ? 'refunds' : 'settlements'}`, () => page.getByRole('dialog').getByRole('button', { name: `确认${operation}` }).click());
 }
 async function returnUI(kind, source, qty) {
     const saleKind = kind === 'sale';
@@ -182,11 +183,13 @@ async function cancelReturn(kind, ret) {
     await action(`/${kind}-returns/${ret.id}/cancel`, () => d.getByRole('button', { name: '确认取消' }).click());
 }
 async function reverseFunds(entry, pid = partner.id) {
-    await goto('/business/partner-balances');
-    await page.getByLabel('明细方向').selectOption(entry.direction);
-    await page.getByLabel('明细往来单位').selectOption(String(pid));
+    const path = entry.entryType === 'OPENING' ? '/business/opening-balances' : ['CUSTOMER_REFUND', 'SUPPLIER_REFUND'].includes(entry.entryType) ? '/business/refunds' : '/business/settlements';
+    await goto(`${path}?partnerId=${pid}&direction=${entry.direction}`);
     await page.waitForTimeout(250);
-    await action(`/entries/${entry.id}/reverse`, () => page.getByRole('row').filter({ hasText: entry.documentNo }).getByRole('button', { name: '冲销', exact: true }).click());
+    await page.getByRole('row').filter({ hasText: entry.documentNo }).getByRole('button', { name: '查看详情' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '冲销此记录' }).click();
+    await page.getByRole('dialog').getByRole('textbox', { name: '冲销原因（必填）' }).fill('真实浏览器验收取消/冲销原因');
+    await action(`/entries/${entry.id}/reverse`, () => page.getByRole('dialog').getByRole('button', { name: '确认冲销' }).click());
 }
 try {
     await stage('真实登录与基础夹具', async () => {
@@ -204,6 +207,35 @@ try {
         service = await api('/api/v1/products', 'POST', { code: `UI-S-${suffix}`, name: 'UI验收安装服务', type: 'SERVICE', unit: '次', salePrice: '30.00' });
         report.fixtures = { partner, openingPartner, goods, service };
         await shot('01-authenticated-menu');
+    });
+    await stage('业务侧栏五类目录展开搜索与原路由', async () => {
+        const nav = page.getByRole('navigation', { name: '主导航' });
+        const categories = [
+            ['基础资料', ['商品与服务', '往来单位', '仓库', '经营者打印资料']],
+            ['采购管理', ['采购入库', '采购退货']],
+            ['销售管理', ['销售出库', '销售退货']],
+            ['库存管理', ['当前库存', '库存流水', '库存调整']],
+            ['往来管理', ['往来余额', '往来明细', '收付款', '退款', '期初录入']],
+        ];
+        for (const [category, leaves] of categories) {
+            const directory = nav.getByRole('button', { name: category, exact: true });
+            await directory.click();
+            assert.equal(await directory.getAttribute('aria-expanded'), 'true', `${category} should expand`);
+            for (const leaf of leaves)
+                await nav.getByRole('link', { name: leaf, exact: true }).waitFor();
+        }
+        await nav.getByRole('link', { name: '销售出库', exact: true }).click();
+        await page.waitForURL('**/business/sales');
+        assert.ok((await page.locator('main').innerText()).includes('销售出库'));
+        await goto('/business/inventory-balances');
+        assert.equal(await nav.getByRole('button', { name: '库存管理', exact: true }).getAttribute('aria-expanded'), 'true');
+        await page.getByRole('button', { name: '菜单搜索' }).first().click();
+        await page.getByRole('combobox', { name: '搜索菜单' }).fill('当前库存');
+        const result = page.getByRole('option').filter({ hasText: '当前库存' });
+        await result.waitFor();
+        assert.equal(await page.getByRole('status').filter({ hasText: /找到 1 个页面/ }).count(), 1);
+        await page.getByRole('button', { name: '关闭菜单搜索' }).click();
+        await shot('01a-business-menu-groups');
     });
     await stage('UI普通采购销售同商品分价零价服务', async () => {
         purchase = await purchaseUI();
@@ -263,18 +295,21 @@ try {
         report.fixtures.openingPartner = openingPartner;
         const openings = [];
         for (const amount of ['100.00', '50.00']) {
-            await goto('/business/partner-balances');
-            await page.getByLabel('往来单位', { exact: true }).selectOption(String(openingPartner.id));
+            await goto('/business/opening-balances');
+            await page.getByLabel('期初往来单位', { exact: true }).selectOption(String(openingPartner.id));
             await page.getByLabel('期初金额').fill(amount);
-            await page.getByLabel('说明', { exact: true }).fill('分次期初验收');
-            openings.push(await action('/partner-balances/opening', () => page.getByRole('button', { name: '保存并生效' }).click()));
+            await page.getByLabel('期初说明', { exact: true }).fill('分次期初验收');
+            await page.getByRole('button', { name: '确认录入期初' }).click();
+            openings.push(await action('/partner-balances/opening', () => page.getByRole('dialog').getByRole('button', { name: '保存并生效' }).click()));
         }
         ;
         const settlements = [await funds('CUSTOMER', '60.00', 'SETTLEMENT', openingPartner.id), await funds('CUSTOMER', '90.00', 'SETTLEMENT', openingPartner.id)];
-        await goto('/business/partner-balances');
-        await page.getByLabel('明细往来单位').selectOption(String(openingPartner.id));
+        await goto(`/business/opening-balances?partnerId=${openingPartner.id}&direction=CUSTOMER`);
         const rejected = page.waitForResponse(r => r.url().includes(`/entries/${openings[0].id}/reverse`) && r.request().method() === 'POST');
-        await page.getByRole('row').filter({ hasText: openings[0].documentNo }).getByRole('button', { name: '冲销', exact: true }).click();
+        await page.getByRole('row').filter({ hasText: openings[0].documentNo }).getByRole('button', { name: '查看详情' }).click();
+        await page.getByRole('dialog').getByRole('button', { name: '冲销此记录' }).click();
+        await page.getByRole('dialog').getByRole('textbox', { name: '冲销原因（必填）' }).fill('金额录错');
+        await page.getByRole('dialog').getByRole('button', { name: '确认冲销' }).click();
         assert.equal((await (await rejected).json()).code, 409);
         for (const e of [...settlements, ...openings])
             await reverseFunds(e, openingPartner.id);
@@ -374,7 +409,7 @@ try {
         await page.waitForTimeout(200);
         assert.equal(await page.locator('table').last().locator('tbody tr').count(), 20);
         await shot('09-ledger-second-page');
-        await page.getByRole('button', { name: '期间对账 / A4打印' }).click();
+        await page.getByRole('button', { name: '打印期间对账单' }).click();
         await page.locator('.statement-page').nth(3).waitFor();
         assert.equal(await page.locator('.statement-page').count(), 4);
         assert.equal(await page.locator('.statement-table tbody tr').count(), 43);
