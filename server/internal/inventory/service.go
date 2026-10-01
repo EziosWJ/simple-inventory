@@ -33,6 +33,7 @@ type Store interface {
 	Edit(context.Context, int64, int64, []Item, audit.Event, func(Item, ProductReference) error) (Adjustment, error)
 	Post(context.Context, int64, int64, audit.Event, func(Item, ProductReference) error) (Adjustment, error)
 	BalancePage(context.Context, BalanceQuery) (BalancePage, error)
+	EntryPage(context.Context, EntryQuery) (EntryPage, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Adjustment, error)
 	Find(context.Context, int64) (*Adjustment, error)
 	Page(context.Context, Query) (Page, error)
@@ -167,6 +168,33 @@ func (s *Service) BalancePage(ctx context.Context, q BalanceQuery) (BalancePage,
 		return BalancePage{}, invalid("查询条件过长")
 	}
 	return s.store.BalancePage(ctx, q)
+}
+
+// EntryPage lists ledger lines. It is read-only: there is no endpoint that
+// writes, edits or deletes an entry, so the history cannot be rewritten.
+func (s *Service) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 {
+		q.PageSize = 10
+	}
+	if q.PageSize > 500 {
+		q.PageSize = 500
+	}
+	if q.Page > int(^uint(0)>>1)/q.PageSize {
+		return EntryPage{}, ErrInvalid
+	}
+	if q.EntryType != "" && q.EntryType != "ORIGINAL" && q.EntryType != "REVERSAL" {
+		return EntryPage{}, invalid("流水类型仅支持ORIGINAL或REVERSAL")
+	}
+	if q.ProductID < 0 {
+		return EntryPage{}, ErrInvalid
+	}
+	if q.OccurredFrom != nil && q.OccurredTo != nil && !q.OccurredFrom.Before(*q.OccurredTo) {
+		return EntryPage{}, invalid("发生时间范围无效")
+	}
+	return s.store.EntryPage(ctx, q)
 }
 
 func (s *Service) Detail(ctx context.Context, id int64) (*Adjustment, error) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   inventoryBalancePage,
   type InventoryBalance,
@@ -31,6 +32,7 @@ type Filters = { keyword: string; category: string; status: string; stock: Stock
 const blankFilters: Filters = { keyword: "", category: "", status: "", stock: "nonzero" };
 
 export function InventoryBalancesPage() {
+  const navigate = useNavigate();
   const businessStatusDict = useDictOptions<ApiStatus>(DICT_CODES.BUSINESS_STATUS, {
     allowedValues: BUSINESS_STATUS_VALUES,
     valueType: "number",
@@ -80,6 +82,11 @@ export function InventoryBalancesPage() {
     { title: "基本单位", dataIndex: "unit" },
     { title: "当前数量", dataIndex: "quantity", render: (value) => <span className="tabular-nums font-medium">{String(value ?? "")}</span> },
     { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(businessStatusDict.options, value) },
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, record) => <Button size="sm" variant="secondary" onClick={() => navigate(`/business/inventory-entries?productId=${record.productId}`)}>查看流水</Button>,
+    },
   ];
 
   function applyFilters(next: Filters) {

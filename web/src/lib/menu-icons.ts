@@ -12,6 +12,7 @@ import {
   Home,
   KeyRound,
   Link,
+  ListOrdered,
   ListTree,
   LockKeyhole,
   Menu,
@@ -65,6 +66,7 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   module: Boxes,
   boxes: Boxes,
   "clipboard-list": ClipboardList,
+  "list-ordered": ListOrdered,
   branch: GitBranch,
   monitor: MonitorCog,
 };

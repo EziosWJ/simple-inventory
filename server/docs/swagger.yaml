@@ -338,6 +338,65 @@ definitions:
       version:
         type: integer
     type: object
+  internal_inventory.Entry:
+    properties:
+      adjustmentId:
+        type: integer
+      adjustmentItemId:
+        type: integer
+      balanceAfter:
+        type: string
+      balanceBefore:
+        type: string
+      createTime:
+        type: string
+      documentNo:
+        type: string
+      entryType:
+        type: string
+      id:
+        type: integer
+      occurredAt:
+        type: string
+      operatorId:
+        type: integer
+      operatorName:
+        description: |-
+          OperatorName and DocumentNo are read-only joins, so a ledger row is
+          traceable back to its source document and its actual operator.
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      quantity:
+        type: string
+      reason:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+    type: object
+  internal_inventory.EntryPage:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/internal_inventory.Entry'
+        type: array
+      total:
+        type: integer
+    type: object
   internal_inventory.Input:
     properties:
       items:
@@ -3361,6 +3420,61 @@ paths:
       security:
       - BearerAuth: []
       summary: 当前库存分页查询
+      tags:
+      - 库存
+  /api/v1/inventory/entries:
+    get:
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认10，最大500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 商品内部ID
+        in: query
+        name: productId
+        type: integer
+      - description: 流水类型
+        enum:
+        - ORIGINAL
+        - REVERSAL
+        in: query
+        name: entryType
+        type: string
+      - description: 发生时间下界，包含，RFC3339
+        in: query
+        name: occurredFrom
+        type: string
+      - description: 发生时间上界，不包含，RFC3339
+        in: query
+        name: occurredTo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_inventory.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_inventory.EntryPage'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_inventory.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 库存流水分页查询
       tags:
       - 库存
   /api/v1/partners:

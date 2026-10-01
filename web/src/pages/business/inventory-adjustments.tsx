@@ -35,17 +35,7 @@ import {
 import { useDictOptions } from "@/hooks/use-dict-options";
 import { businessDictLabel, missingBusinessDictValues } from "@/lib/business-dict-label";
 import { isApiError } from "@/lib/api-error";
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { X } from "lucide-react";
+import { InventoryAdjustmentDetail } from "@/pages/business/inventory-adjustment-detail";
 import type { DataTableColumn } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -208,7 +198,7 @@ export function InventoryAdjustmentsPage() {
     {cancelAdjustment && <CancelAdjustmentDialog key={`cancel-${cancelAdjustment.id}-${cancelAdjustment.version}`} adjustment={cancelAdjustment} onCancel={() => { setCancelAdjustment(null); setDetail(cancelAdjustment); }} reasonOptions={reasonOptions} onSave={async (reason) => cancelInventoryAdjustment(cancelAdjustment.id, { version: cancelAdjustment.version, reason })} onSaved={finishCancel} onReloadLatest={() => reloadLatest(cancelAdjustment.id)} />}
     {postAdjustment && <PostAdjustmentDialog key={`post-${postAdjustment.id}-${postAdjustment.version}`} adjustment={postAdjustment} reasonOptions={reasonOptions} onCancel={() => { setPostAdjustment(null); setDetail(postAdjustment); }} onSave={() => postInventoryAdjustment(postAdjustment.id, { version: postAdjustment.version })} onSaved={finishPost} onReloadLatest={() => reloadLatest(postAdjustment.id)} />}
     {(detailLoading || postLoading) && <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="rounded-admin bg-surface p-6">{postLoading ? "正在加载待过账单据…" : "正在加载调整单详情…"}</div></div>}
-    {detail && <AdjustmentDetailDialog adjustment={detail} statusOptions={statusOptions} reasonOptions={reasonOptions} onClose={() => setDetail(null)} onEdit={() => openEdit(detail)} onCancelDraft={() => openCancel(detail)} onPost={() => openPost(detail)} onCancelPosted={() => openCancelPosted(detail)} />}
+    {detail && <AdjustmentDetailDialog adjustment={detail} onClose={() => setDetail(null)} onEdit={() => openEdit(detail)} onCancelDraft={() => openCancel(detail)} onPost={() => openPost(detail)} onCancelPosted={() => openCancelPosted(detail)} />}
   </>;
 }
 
@@ -552,49 +542,22 @@ function CancelAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, o
   </FormDialog>;
 }
 
-function AdjustmentDetailDialog({ adjustment, statusOptions, reasonOptions, onClose, onEdit, onCancelDraft, onPost, onCancelPosted }: {
-  adjustment: InventoryAdjustment; statusOptions: readonly DictSelectOption<AdjustmentStatus>[];
-  reasonOptions: readonly DictSelectOption<AdjustmentReason>[]; onClose: () => void;
+function AdjustmentDetailDialog({ adjustment, onClose, onEdit, onCancelDraft, onPost, onCancelPosted }: {
+  adjustment: InventoryAdjustment; onClose: () => void;
   onEdit: () => void; onCancelDraft: () => void; onPost: () => void; onCancelPosted: () => void;
 }) {
-  const items = adjustment.items ?? [];
-  // Only lines that were actually posted carry a stored balance impact, which
-  // includes a posted document that was later cancelled by reversal.
-  const posted = items.some((item) => item.balanceBefore != null && item.balanceAfter != null);
-  return <Dialog
-    open
-    onOpenChange={(open) => { if (!open) onClose(); }}
-    trapFocus
-    restoreFocus
-    lockScroll
-  >
-    <DialogOverlay />
-    <DialogContent className="flex max-h-[90vh] w-[min(900px,96vw)] flex-col p-0">
-      <DialogHeader>
-        <DialogTitle>库存调整单详情</DialogTitle>
-        <DialogClose aria-label="关闭库存调整单详情"><X className="h-4 w-4" aria-hidden /></DialogClose>
-      </DialogHeader>
-      <DialogBody className="min-h-0 overflow-auto">
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Detail label="调整单号" value={adjustment.documentNo} /><Detail label="状态" value={businessDictLabel(statusOptions, adjustment.status)} /><Detail label="版本" value={String(adjustment.version)} /><Detail label="创建人" value={adjustment.createdByName || `用户 ${adjustment.createdBy}`} /><Detail label="创建时间" value={formatDateTime(adjustment.createTime)} />{adjustment.postedBy !== null && <><Detail label="过账人" value={adjustment.postedByName || `用户 ${adjustment.postedBy}`} /><Detail label="过账时间" value={adjustment.postedAt ? formatDateTime(adjustment.postedAt) : "-"} /></>}{adjustment.status === "CANCELLED" && <><Detail label="取消人" value={adjustment.cancelledBy === null ? "-" : adjustment.cancelledByName || `用户 ${adjustment.cancelledBy}`} /><Detail label="取消时间" value={adjustment.cancelledAt ? formatDateTime(adjustment.cancelledAt) : "-"} /><Detail label="取消原因" value={adjustment.cancelReason || "-"} /></>}</dl>
-        {adjustment.status === "POSTED" && <p className="mt-4 text-sm text-text-secondary">该单据已过账，明细内容与过账时的库存影响已固化，不可再编辑；取消只能整单冲销，原流水保留。</p>}
-        {adjustment.status === "CANCELLED" && adjustment.postedBy !== null && <p className="mt-4 text-sm text-text-secondary">该单据曾过账并已整单冲销：下表为过账时的库存影响，冲销记录保留在库存流水中。</p>}
-        {adjustment.status === "CANCELLED" && adjustment.postedBy === null && <p className="mt-4 text-sm text-text-secondary">该草稿已取消，从未过账，库存未发生变化。</p>}
-        <h3 className="mb-2 mt-5 font-medium">{adjustment.postedBy !== null ? "过账明细" : "调整明细"}（{items.length}）</h3>
-        <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm"><thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">型号 / 规格</th><th className="p-2">单位</th><th className="p-2">调整数量</th><th className="p-2">原因</th>{posted && <th className="p-2">调整前 → 调整后</th>}<th className="p-2">说明</th></tr></thead><tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} impact={posted} />)}</tbody></table></div>
-      </DialogBody>
-      <DialogFooter>
-        {adjustment.status === "DRAFT" && <>
-          <Button variant="secondary" onClick={onEdit}>编辑草稿</Button>
-          <Button variant="danger" onClick={onCancelDraft}>取消草稿</Button>
-          <Button onClick={onPost}>过账</Button>
-        </>}
-        {adjustment.status === "POSTED" && <Button variant="danger" onClick={onCancelPosted}>取消并冲销</Button>}
-        <Button variant="secondary" onClick={onClose}>关闭</Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>;
+  // The read-only body is shared with the ledger's source-document view; only
+  // the maintenance actions are specific to this page.
+  return <InventoryAdjustmentDetail
+    adjustment={adjustment}
+    onClose={onClose}
+    actions={adjustment.status === "DRAFT" ? <>
+      <Button variant="secondary" onClick={onEdit}>编辑草稿</Button>
+      <Button variant="danger" onClick={onCancelDraft}>取消草稿</Button>
+      <Button onClick={onPost}>过账</Button>
+    </> : adjustment.status === "POSTED" ? <Button variant="danger" onClick={onCancelPosted}>取消并冲销</Button> : undefined}
+  />;
 }
-function Detail({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-text-tertiary">{label}</dt><dd className="break-words">{value}</dd></div>; }
 function AdjustmentItemRow({ item, reasonOptions, impact }: { item: InventoryAdjustmentItem; reasonOptions: readonly DictSelectOption<AdjustmentReason>[]; impact: boolean }) {
   const balance = item.balanceBefore != null && item.balanceAfter != null ? `${item.balanceBefore} → ${item.balanceAfter}` : "-";
   return <tr className="border-b border-border"><td className="p-2"><div>{item.productName}</div><div className="text-xs text-text-tertiary">{item.productCode}</div></td><td className="p-2">{item.productModel || "-"} / {item.productSpecification || "-"}</td><td className="p-2">{item.unit}</td><td className="p-2 tabular-nums">{item.quantity}</td><td className="p-2">{businessDictLabel(reasonOptions, item.reason)}</td>{impact && <td className="p-2 tabular-nums">{balance}</td>}<td className="max-w-56 whitespace-pre-wrap p-2">{item.remark || "-"}</td></tr>;

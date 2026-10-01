@@ -205,6 +205,43 @@ func (r *Repository) BalancePage(ctx context.Context, q BalanceQuery) (BalancePa
 	return p, e
 }
 
+// entryQuery joins the ledger with the operator and the source document. The
+// description columns come from the entry itself, never from the product table:
+// a ledger line must keep showing the text it was written with.
+func entryQuery(db *gorm.DB) *gorm.DB {
+	return db.Table("inventory_entry e").
+		Select("e.*,COALESCE(NULLIF(u.nickname,''),u.username) AS operator_name,COALESCE(a.document_no,'') AS document_no").
+		Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").
+		Joins("LEFT JOIN inventory_adjustment a ON a.id=e.adjustment_id")
+}
+
+// EntryPage reads the ledger. Records and total use the same predicate, and the
+// ordering (occurred_at, id) is total, so identical queries never shuffle rows.
+func (r *Repository) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, error) {
+	p := EntryPage{Records: []Entry{}, Page: q.Page, PageSize: q.PageSize}
+	d := entryQuery(r.db.WithContext(ctx))
+	if q.ProductID > 0 {
+		d = d.Where("e.product_id=?", q.ProductID)
+	}
+	if q.EntryType != "" {
+		d = d.Where("e.entry_type=?", q.EntryType)
+	}
+	if q.OccurredFrom != nil {
+		d = d.Where("e.occurred_at>=?", *q.OccurredFrom)
+	}
+	if q.OccurredTo != nil {
+		d = d.Where("e.occurred_at<?", *q.OccurredTo)
+	}
+	if e := d.Count(&p.Total).Error; e != nil {
+		return p, e
+	}
+	e := d.Order("e.occurred_at DESC,e.id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
+	for i := range p.Records {
+		p.Records[i].present()
+	}
+	return p, e
+}
+
 func insertItems(tx *gorm.DB, id int64, items []Item, validate func(Item, ProductReference) error) error {
 	for i := range items {
 		item := &items[i]

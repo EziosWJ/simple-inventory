@@ -4277,6 +4277,96 @@
                 }
             }
         },
+        "/api/v1/inventory/entries": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "库存"
+                ],
+                "summary": "库存流水分页查询",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，默认10，最大500",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品内部ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ORIGINAL",
+                            "REVERSAL"
+                        ],
+                        "type": "string",
+                        "description": "流水类型",
+                        "name": "entryType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发生时间下界，包含，RFC3339",
+                        "name": "occurredFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发生时间上界，不包含，RFC3339",
+                        "name": "occurredTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_inventory.EntryPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_inventory.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partners": {
             "get": {
                 "security": [
@@ -5244,6 +5334,92 @@
                     }
                 },
                 "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_inventory.Entry": {
+            "type": "object",
+            "properties": {
+                "adjustmentId": {
+                    "type": "integer"
+                },
+                "adjustmentItemId": {
+                    "type": "integer"
+                },
+                "balanceAfter": {
+                    "type": "string"
+                },
+                "balanceBefore": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "entryType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "occurredAt": {
+                    "type": "string"
+                },
+                "operatorId": {
+                    "type": "integer"
+                },
+                "operatorName": {
+                    "description": "OperatorName and DocumentNo are read-only joins, so a ledger row is\ntraceable back to its source document and its actual operator.",
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productModel": {
+                    "type": "string"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productSpecification": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_inventory.EntryPage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_inventory.Entry"
+                    }
+                },
+                "total": {
                     "type": "integer"
                 }
             }
