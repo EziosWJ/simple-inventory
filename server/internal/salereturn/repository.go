@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -626,6 +627,10 @@ func find(db *gorm.DB, id int64) (*Document, error) {
 	}
 	h.Items = items
 	h.TotalAmount = moneyText(total)
+	h.DirectTrace, e = directdelivery.SaleTrace(db, h.SaleID)
+	if e != nil {
+		return nil, e
+	}
 	return &h, nil
 }
 func mapErr(e error) error {
@@ -683,6 +688,11 @@ func (r *Repository) Source(ctx context.Context, saleID int64) (*Document, error
 			if l.RemainingQuantityMilli > 0 {
 				out.Items = append(out.Items, l)
 			}
+		}
+		var traceError error
+		out.DirectTrace, traceError = directdelivery.SaleTrace(tx, saleID)
+		if traceError != nil {
+			return traceError
 		}
 		out.TotalAmount = "0.00"
 		if len(out.Items) == 0 {

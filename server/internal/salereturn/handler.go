@@ -42,6 +42,7 @@ func meta(c *gin.Context) audit.Metadata {
 	return m
 }
 
+// @Description 直送业务包含两边原单及退货的数量金额和操作记录追溯；先销售退货入库，再单独办理采购退货出库。
 // @Summary 新建销售退货草稿
 // @Tags 销售退货
 // @Security BearerAuth

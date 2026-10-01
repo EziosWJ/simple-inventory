@@ -498,6 +498,10 @@ func find(db *gorm.DB, id int64) (*Draft, error) {
 	}
 	h.Items = lines
 	h.TotalAmount = moneyText(total)
+	h.DirectTrace, e = directdelivery.PurchaseTrace(db, id)
+	if e != nil {
+		return nil, e
+	}
 	h.DirectDocuments, e = directdelivery.PurchaseSales(db, id)
 	if e != nil {
 		return nil, e

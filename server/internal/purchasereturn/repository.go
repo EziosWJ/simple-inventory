@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -116,8 +117,12 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Document, it
 func (r *Repository) Cancel(ctx context.Context, id, version int64, reason string, event audit.Event) (Document, error) {
 	var out Document
 	var originID int64
-	if e:=r.db.WithContext(ctx).Table("purchase_return_document").Select("purchase_id").Where("id=?", id).Scan(&originID).Error;e!=nil{return out,e}
-	if originID<1{return out,ErrNotFound}
+	if e := r.db.WithContext(ctx).Table("purchase_return_document").Select("purchase_id").Where("id=?", id).Scan(&originID).Error; e != nil {
+		return out, e
+	}
+	if originID < 1 {
+		return out, ErrNotFound
+	}
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if originID > 0 {
 			if e := lockOrigin(tx, originID); e != nil {
@@ -617,6 +622,10 @@ func find(db *gorm.DB, id int64) (*Document, error) {
 	}
 	h.Items = items
 	h.TotalAmount = moneyText(total)
+	h.DirectTrace, e = directdelivery.PurchaseTrace(db, h.PurchaseID)
+	if e != nil {
+		return nil, e
+	}
 	return &h, nil
 }
 func mapErr(e error) error {
@@ -671,6 +680,11 @@ func (r *Repository) Source(ctx context.Context, purchaseID int64) (*Document, e
 			if l.RemainingQuantityMilli > 0 {
 				out.Items = append(out.Items, l)
 			}
+		}
+		var traceError error
+		out.DirectTrace, traceError = directdelivery.PurchaseTrace(tx, purchaseID)
+		if traceError != nil {
+			return traceError
 		}
 		out.TotalAmount = "0.00"
 		if len(out.Items) == 0 {

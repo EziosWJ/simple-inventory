@@ -1,30 +1,34 @@
 package purchasereturn
 
-import "time"
+import (
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
+	"time"
+)
 
 type Document struct {
-	ID              int64      `json:"id"`
-	DocumentNo      string     `json:"documentNo"`
-	PurchaseID      int64      `json:"purchaseId"`
-	PurchaseNo      string     `json:"purchaseNo" gorm:"->"`
-	PartnerID       int64      `json:"partnerId"`
-	PartnerName     string     `json:"partnerName" gorm:"->"`
-	BusinessDate    string     `json:"businessDate"`
-	Status          string     `json:"status"`
-	Version         int64      `json:"version"`
-	PostedBy        *int64     `json:"postedBy"`
-	PostedByName    string     `json:"postedByName" gorm:"->"`
-	PostedAt        *time.Time `json:"postedAt"`
-	Remark          *string    `json:"remark"`
-	CreatedBy       int64      `json:"createdBy"`
-	CreatedByName   string     `json:"createdByName" gorm:"->"`
-	CancelledBy     *int64     `json:"cancelledBy"`
-	CancelledByName string     `json:"cancelledByName" gorm:"->"`
-	CancelReason    *string    `json:"cancelReason"`
-	CreateTime      time.Time  `json:"createTime"`
-	CancelledAt     *time.Time `json:"cancelledAt"`
-	Items           []Item     `json:"items" gorm:"-"`
-	TotalAmount     string     `json:"totalAmount" gorm:"-"`
+	DirectTrace     *directdelivery.Trace `json:"directTrace" gorm:"-"`
+	ID              int64                 `json:"id"`
+	DocumentNo      string                `json:"documentNo"`
+	PurchaseID      int64                 `json:"purchaseId"`
+	PurchaseNo      string                `json:"purchaseNo" gorm:"->"`
+	PartnerID       int64                 `json:"partnerId"`
+	PartnerName     string                `json:"partnerName" gorm:"->"`
+	BusinessDate    string                `json:"businessDate"`
+	Status          string                `json:"status"`
+	Version         int64                 `json:"version"`
+	PostedBy        *int64                `json:"postedBy"`
+	PostedByName    string                `json:"postedByName" gorm:"->"`
+	PostedAt        *time.Time            `json:"postedAt"`
+	Remark          *string               `json:"remark"`
+	CreatedBy       int64                 `json:"createdBy"`
+	CreatedByName   string                `json:"createdByName" gorm:"->"`
+	CancelledBy     *int64                `json:"cancelledBy"`
+	CancelledByName string                `json:"cancelledByName" gorm:"->"`
+	CancelReason    *string               `json:"cancelReason"`
+	CreateTime      time.Time             `json:"createTime"`
+	CancelledAt     *time.Time            `json:"cancelledAt"`
+	Items           []Item                `json:"items" gorm:"-"`
+	TotalAmount     string                `json:"totalAmount" gorm:"-"`
 }
 
 func (Document) TableName() string { return "purchase_return_document" }

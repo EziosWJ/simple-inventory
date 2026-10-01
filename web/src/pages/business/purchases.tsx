@@ -1,3 +1,4 @@
+import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelPurchase,
@@ -407,8 +408,9 @@ export function PurchasesPage() {
               {detail.postedByName && ` · 过账人：${detail.postedByName}`}
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
             </p>
+            <DirectDeliveryTrace trace={detail.directTrace}/>
             {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
-            <Button className="mt-space-3" variant="secondary" onClick={() => navigate(`/business/partner-balances?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
+            <Button className="mt-space-3" variant="secondary" onClick={() => navigate(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
           </>
         )}
       </DetailDialog>
