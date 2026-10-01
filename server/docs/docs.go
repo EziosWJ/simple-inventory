@@ -5904,6 +5904,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/sales/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售出库"
+                ],
+                "summary": "过账销售出库单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "销售单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "确认当前草稿版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sale.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sale.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/warehouse": {
             "get": {
                 "security": [
@@ -6545,6 +6608,12 @@ const docTemplate = `{
                 },
                 "remark": {
                     "type": "string"
+                },
+                "saleId": {
+                    "type": "integer"
+                },
+                "saleItemId": {
+                    "type": "integer"
                 },
                 "sourceType": {
                     "type": "string"
@@ -7304,10 +7373,16 @@ const docTemplate = `{
                 "paymentMethod": {
                     "type": "string"
                 },
+                "purchaseId": {
+                    "type": "integer"
+                },
                 "reversedById": {
                     "type": "integer"
                 },
                 "reversesId": {
+                    "type": "integer"
+                },
+                "saleId": {
                     "type": "integer"
                 },
                 "transactionNo": {
@@ -7458,10 +7533,28 @@ const docTemplate = `{
                         "$ref": "#/definitions/sale.Line"
                     }
                 },
+                "ownerAddress": {
+                    "type": "string"
+                },
+                "ownerName": {
+                    "type": "string"
+                },
+                "ownerPhone": {
+                    "type": "string"
+                },
                 "partnerId": {
                     "type": "integer"
                 },
                 "partnerName": {
+                    "type": "string"
+                },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedBy": {
+                    "type": "integer"
+                },
+                "postedByName": {
                     "type": "string"
                 },
                 "remark": {
@@ -7622,6 +7715,14 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sale.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
                     "type": "integer"
                 }
             }

@@ -385,6 +385,10 @@ definitions:
         type: string
       remark:
         type: string
+      saleId:
+        type: integer
+      saleItemId:
+        type: integer
       sourceType:
         type: string
       unit:
@@ -881,9 +885,13 @@ definitions:
         type: integer
       paymentMethod:
         type: string
+      purchaseId:
+        type: integer
       reversedById:
         type: integer
       reversesId:
+        type: integer
+      saleId:
         type: integer
       transactionNo:
         type: string
@@ -982,9 +990,21 @@ definitions:
         items:
           $ref: '#/definitions/sale.Line'
         type: array
+      ownerAddress:
+        type: string
+      ownerName:
+        type: string
+      ownerPhone:
+        type: string
       partnerId:
         type: integer
       partnerName:
+        type: string
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
         type: string
       remark:
         type: string
@@ -1090,6 +1110,11 @@ definitions:
           $ref: '#/definitions/sale.Draft'
         type: array
       total:
+        type: integer
+    type: object
+  sale.PostInput:
+    properties:
+      version:
         type: integer
     type: object
   sysconfig.ApiEnvelope:
@@ -4832,6 +4857,43 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消销售出库草稿
+      tags:
+      - 销售出库
+  /api/v1/sales/{id}/post:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 确认当前草稿版本
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sale.PostInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 过账销售出库单
       tags:
       - 销售出库
   /api/v1/warehouse:

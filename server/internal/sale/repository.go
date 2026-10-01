@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -152,11 +154,20 @@ func lineIDs(v []Line) []int64 {
 func (r *Repository) Cancel(ctx context.Context, id, version int64, reason string, event audit.Event) (Draft, error) {
 	var out Draft
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, e := lockDraft(tx, id, version); e != nil {
+		h, e := lockDocument(tx, id, version)
+		if e != nil {
 			return e
 		}
 		now := time.Now().UTC()
-		res := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"status": "CANCELLED", "version": version + 1, "cancelled_by": event.Metadata.ActorID, "cancelled_at": now, "cancel_reason": reason})
+		if h.Status == "POSTED" {
+			if err := rejectSaleWithReturns(tx, id); err != nil {
+				return err
+			}
+			if err := reverseSale(tx, h, id, reason, now, event.Metadata.ActorID); err != nil {
+				return err
+			}
+		}
+		res := tx.Model(&Draft{}).Where("id=? AND status=? AND version=?", id, h.Status, version).Updates(map[string]any{"status": "CANCELLED", "version": version + 1, "cancelled_by": event.Metadata.ActorID, "cancelled_at": now, "cancel_reason": reason})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -178,7 +189,7 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 	}
 	return out, nil
 }
-func lockDraft(tx *gorm.DB, id, version int64) (Draft, error) {
+func lockDocument(tx *gorm.DB, id, version int64) (Draft, error) {
 	var h Draft
 	q := tx.Where("id=?", id)
 	if tx.Dialector.Name() == "postgres" {
@@ -187,10 +198,332 @@ func lockDraft(tx *gorm.DB, id, version int64) (Draft, error) {
 	if e := q.Take(&h).Error; e != nil {
 		return h, e
 	}
-	if h.Status != "DRAFT" || h.Version != version {
+	if (h.Status != "DRAFT" && h.Status != "POSTED") || h.Version != version {
 		return h, ErrConflict
 	}
 	return h, nil
+}
+
+func lockDraft(tx *gorm.DB, id, version int64) (Draft, error) {
+	h, e := lockDocument(tx, id, version)
+	if e != nil {
+		return h, e
+	}
+	if h.Status != "DRAFT" {
+		return h, ErrConflict
+	}
+	return h, nil
+}
+
+// Post locks the receivable first and products in ascending ID order, matching
+// purchase posting/cancellation and the settlement write path.
+func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Event) (Draft, error) {
+	var out Draft
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		h, e := lockDraft(tx, id, version)
+		if e != nil {
+			return e
+		}
+		lines := []Line{}
+		if e = tx.Where("document_id=?", id).Order("id ASC").Find(&lines).Error; e != nil {
+			return e
+		}
+		if len(lines) == 0 {
+			return ErrInvalid
+		}
+		var partner struct {
+			ID         int64
+			Name       string
+			IsCustomer bool `gorm:"column:is_customer"`
+		}
+		if e = tx.Table("partner").Select("id,name,is_customer").Where("id=? AND status=1", h.PartnerID).Take(&partner).Error; e != nil || !partner.IsCustomer {
+			return fmt.Errorf("%w：客户已停用或身份已变化", ErrInvalid)
+		}
+		now := time.Now().UTC()
+		if e = tx.Exec("INSERT INTO partner_balance(partner_id,direction,amount_cents,entry_count,update_time) VALUES (?, 'CUSTOMER', 0, 0, ?) ON CONFLICT(partner_id,direction) DO NOTHING", h.PartnerID, now).Error; e != nil {
+			return e
+		}
+		var balance struct{ ID, AmountCents int64 }
+		bq := tx.Table("partner_balance").Where("partner_id=? AND direction='CUSTOMER'", h.PartnerID)
+		if tx.Dialector.Name() == "postgres" {
+			bq = bq.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		if e = bq.Take(&balance).Error; e != nil {
+			return e
+		}
+		productIDs := uniqueProductIDs(lines)
+		if e = lockProducts(tx, productIDs); e != nil {
+			return e
+		}
+		need := map[int64]int64{}
+		var total int64
+		for i := range lines {
+			l := &lines[i]
+			var p struct {
+				Code, Name           string
+				Model, Specification *string
+				Type, Unit           string
+				Status               int
+			}
+			if e = tx.Table("product").Select("code,name,model,specification,type,unit,status").Where("id=?", l.ProductID).Take(&p).Error; e != nil {
+				return fmt.Errorf("%w：商品或服务不存在", ErrInvalid)
+			}
+			if p.Status != 1 || p.Type != l.ProductType || p.Unit != l.Unit || (p.Type != "GOODS" && p.Type != "SERVICE") {
+				return fmt.Errorf("%w：商品或服务已停用或类型/单位已变化", ErrInvalid)
+			}
+			l.ProductCode, l.ProductName, l.ProductModel, l.ProductSpecification = p.Code, p.Name, copyString(p.Model), copyString(p.Specification)
+			if total > math.MaxInt64-l.AmountCents {
+				return fmt.Errorf("%w：单据金额超出范围", ErrInvalid)
+			}
+			total += l.AmountCents
+			if p.Type == "GOODS" {
+				if need[l.ProductID] > math.MaxInt64-l.QuantityMilli {
+					return fmt.Errorf("%w：商品数量超出范围", ErrInvalid)
+				}
+				need[l.ProductID] += l.QuantityMilli
+			}
+		}
+		if balance.AmountCents > math.MaxInt64-total {
+			return fmt.Errorf("%w：应收金额超出范围", ErrInvalid)
+		}
+		for productID, qty := range need {
+			var current int64
+			if e = tx.Table("inventory_balance").Select("quantity_milli").Where("product_id=?", productID).Scan(&current).Error; e != nil {
+				return e
+			}
+			if current < qty {
+				return fmt.Errorf("%w：商品%d库存不足，销售单未过账", ErrConflict, productID)
+			}
+		}
+		profile, er := readOwnerProfile(tx)
+		if er != nil {
+			return er
+		}
+		for _, l := range lines {
+			if l.ProductType != "GOODS" {
+				continue
+			}
+			before, after, er := decreaseSaleStock(tx, l.ProductID, l.QuantityMilli, now)
+			if er != nil {
+				return er
+			}
+			if er = tx.Model(&Line{}).Where("id=? AND document_id=?", l.ID, id).Updates(map[string]any{"product_code": l.ProductCode, "product_name": l.ProductName, "product_model": l.ProductModel, "product_specification": l.ProductSpecification}).Error; er != nil {
+				return er
+			}
+			entry := map[string]any{"product_id": l.ProductID, "sale_id": id, "sale_item_id": l.ID, "entry_type": "ORIGINAL", "quantity_milli": -l.QuantityMilli, "balance_before_milli": before, "balance_after_milli": after, "reason": "SALE", "remark": l.Remark, "product_code": l.ProductCode, "product_name": l.ProductName, "product_model": l.ProductModel, "product_specification": l.ProductSpecification, "unit": l.Unit, "operator_id": event.Metadata.ActorID, "occurred_at": now, "create_time": now}
+			if er = tx.Table("inventory_entry").Create(entry).Error; er != nil {
+				return er
+			}
+		}
+		for _, l := range lines {
+			if l.ProductType == "SERVICE" {
+				if e = tx.Model(&Line{}).Where("id=? AND document_id=?", l.ID, id).Updates(map[string]any{"product_code": l.ProductCode, "product_name": l.ProductName, "product_model": l.ProductModel, "product_specification": l.ProductSpecification}).Error; e != nil {
+					return e
+				}
+			}
+		}
+		changed := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"status": "POSTED", "version": version + 1, "posted_by": event.Metadata.ActorID, "posted_at": now, "partner_name": partner.Name, "owner_name": profile.Name, "owner_phone": profile.Phone, "owner_address": profile.Address})
+		if changed.Error != nil {
+			return changed.Error
+		}
+		if changed.RowsAffected != 1 {
+			return ErrConflict
+		}
+		after := balance.AmountCents + total
+		res := tx.Table("partner_balance").Where("id=?", balance.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return ErrConflict
+		}
+		financial := map[string]any{"partner_id": h.PartnerID, "direction": "CUSTOMER", "entry_type": "SALE", "amount_cents": total, "balance_before_cents": balance.AmountCents, "balance_after_cents": after, "business_date": h.BusinessDate, "effective_at": now, "description": "销售出库 " + h.DocumentNo, "document_no": h.DocumentNo, "operator_id": event.Metadata.ActorID, "sale_id": id, "create_time": now}
+		if e = tx.Table("partner_balance_entry").Create(financial).Error; e != nil {
+			return e
+		}
+		event.ResourceID = id
+		if e = audit.RecordOn(ctx, tx, event); e != nil {
+			return e
+		}
+		stored, e := find(tx, id)
+		if e != nil {
+			return e
+		}
+		out = *stored
+		return nil
+	})
+	if err != nil {
+		return out, mapErr(err)
+	}
+	return out, nil
+}
+
+func readOwnerProfile(tx *gorm.DB) (v struct{ Name, Phone, Address string }, err error) {
+	var rows []struct {
+		ConfigKey   string `gorm:"column:config_key"`
+		ConfigValue string `gorm:"column:config_value"`
+	}
+	err = tx.Table("sys_config").Select("config_key,config_value").Where("config_key IN ? AND deleted=0", []string{"business.print-profile.name", "business.print-profile.phone", "business.print-profile.address"}).Find(&rows).Error
+	if err != nil {
+		return v, err
+	}
+	for _, r := range rows {
+		switch r.ConfigKey {
+		case "business.print-profile.name":
+			v.Name = r.ConfigValue
+		case "business.print-profile.phone":
+			v.Phone = r.ConfigValue
+		case "business.print-profile.address":
+			v.Address = r.ConfigValue
+		}
+	}
+	return v, nil
+}
+
+func decreaseSaleStock(tx *gorm.DB, productID, delta int64, now time.Time) (int64, int64, error) {
+	res := tx.Exec("UPDATE inventory_balance SET quantity_milli=quantity_milli-?,update_time=? WHERE product_id=? AND quantity_milli>=?", delta, now, productID, delta)
+	if res.Error != nil {
+		return 0, 0, res.Error
+	}
+	if res.RowsAffected != 1 {
+		return 0, 0, fmt.Errorf("%w：库存不足", ErrConflict)
+	}
+	var after int64
+	if e := tx.Table("inventory_balance").Select("quantity_milli").Where("product_id=?", productID).Scan(&after).Error; e != nil {
+		return 0, 0, e
+	}
+	return after + delta, after, nil
+}
+
+func uniqueProductIDs(lines []Line) []int64 {
+	m := map[int64]bool{}
+	ids := []int64{}
+	for _, l := range lines {
+		if !m[l.ProductID] {
+			m[l.ProductID] = true
+			ids = append(ids, l.ProductID)
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+func lockProducts(tx *gorm.DB, ids []int64) error {
+	for _, id := range ids {
+		q := tx.Table("product").Where("id=?", id)
+		if tx.Dialector.Name() == "postgres" {
+			q = q.Clauses(clause.Locking{Strength: "UPDATE"})
+		}
+		var p struct{ ID int64 }
+		if e := q.Take(&p).Error; e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func rejectSaleWithReturns(tx *gorm.DB, id int64) error {
+	// The return module lands in a later Phase 4 ticket. Keeping this guard at
+	// the cancellation boundary makes the constraint effective as soon as that
+	// table is installed without creating a parallel return model here.
+	if !tx.Migrator().HasTable("sale_return_document") {
+		return nil
+	}
+	var count int64
+	if e := tx.Table("sale_return_document").Where("sale_id=? AND status='POSTED'", id).Count(&count).Error; e != nil {
+		return e
+	}
+	if count > 0 {
+		return fmt.Errorf("%w：该销售单存在已生效退货，不能取消", ErrConflict)
+	}
+	return nil
+}
+
+func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, now time.Time, actor int64) error {
+	var b struct{ ID, AmountCents int64 }
+	bq := tx.Table("partner_balance").Where("partner_id=? AND direction='CUSTOMER'", h.PartnerID)
+	if tx.Dialector.Name() == "postgres" {
+		bq = bq.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	if e := bq.Take(&b).Error; e != nil {
+		return e
+	}
+	lines := []Line{}
+	if e := tx.Where("document_id=?", id).Order("id DESC").Find(&lines).Error; e != nil {
+		return e
+	}
+	productIDs := uniqueProductIDs(lines)
+	if e := lockProducts(tx, productIDs); e != nil {
+		return e
+	}
+	need := map[int64]int64{}
+	var total int64
+	for _, l := range lines {
+		if total > math.MaxInt64-l.AmountCents {
+			return ErrInvalid
+		}
+		total += l.AmountCents
+		if l.ProductType == "GOODS" {
+			if need[l.ProductID] > math.MaxInt64-l.QuantityMilli {
+				return ErrInvalid
+			}
+			need[l.ProductID] += l.QuantityMilli
+		}
+	}
+	for productID, qty := range need {
+		var current int64
+		if e := tx.Table("inventory_balance").Select("quantity_milli").Where("product_id=?", productID).Scan(&current).Error; e != nil {
+			return e
+		}
+		if current > math.MaxInt64-qty {
+			return fmt.Errorf("%w：商品%d冲销后库存超出范围，销售单未取消", ErrInvalid, productID)
+		}
+	}
+	for _, l := range lines {
+		if l.ProductType != "GOODS" {
+			continue
+		}
+		before, after, e := increaseSaleStock(tx, l.ProductID, l.QuantityMilli, now)
+		if e != nil {
+			return e
+		}
+		row := map[string]any{"product_id": l.ProductID, "sale_id": id, "sale_item_id": l.ID, "entry_type": "REVERSAL", "quantity_milli": l.QuantityMilli, "balance_before_milli": before, "balance_after_milli": after, "reason": "SALE_CANCEL", "remark": reason, "product_code": l.ProductCode, "product_name": l.ProductName, "product_model": l.ProductModel, "product_specification": l.ProductSpecification, "unit": l.Unit, "operator_id": actor, "occurred_at": now, "create_time": now}
+		if e = tx.Table("inventory_entry").Create(row).Error; e != nil {
+			return e
+		}
+	}
+	if b.AmountCents < math.MinInt64+total {
+		return ErrInvalid
+	}
+	after := b.AmountCents - total
+	res := tx.Table("partner_balance").Where("id=?", b.ID).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return ErrConflict
+	}
+	var original struct{ ID int64 }
+	if e := tx.Table("partner_balance_entry").Select("id").Where("sale_id=? AND entry_type='SALE'", id).Take(&original).Error; e != nil {
+		return e
+	}
+	docNo := fmt.Sprintf("SR%s-%d", now.Format("20060102150405"), id)
+	rev := map[string]any{"partner_id": h.PartnerID, "direction": "CUSTOMER", "entry_type": "REVERSAL", "amount_cents": -total, "balance_before_cents": b.AmountCents, "balance_after_cents": after, "business_date": h.BusinessDate, "effective_at": now, "description": "取消销售出库 " + h.DocumentNo + "：" + reason, "document_no": docNo, "operator_id": actor, "reverses_id": original.ID, "create_time": now}
+	return tx.Table("partner_balance_entry").Create(rev).Error
+}
+
+func increaseSaleStock(tx *gorm.DB, productID, delta int64, now time.Time) (int64, int64, error) {
+	res := tx.Exec("INSERT INTO inventory_balance(product_id,quantity_milli,update_time) VALUES(?,?,?) ON CONFLICT(product_id) DO UPDATE SET quantity_milli=inventory_balance.quantity_milli+excluded.quantity_milli,update_time=excluded.update_time WHERE inventory_balance.quantity_milli<=?", productID, delta, now, math.MaxInt64-delta)
+	if res.Error != nil {
+		return 0, 0, res.Error
+	}
+	if res.RowsAffected != 1 {
+		return 0, 0, fmt.Errorf("%w：冲销后库存数量超出范围", ErrInvalid)
+	}
+	var after int64
+	if e := tx.Table("inventory_balance").Select("quantity_milli").Where("product_id=?", productID).Scan(&after).Error; e != nil {
+		return 0, 0, e
+	}
+	return after - delta, after, nil
 }
 func (r *Repository) Find(ctx context.Context, id int64) (*Draft, error) {
 	v, e := find(r.db.WithContext(ctx), id)
@@ -264,7 +597,7 @@ func validPartnerProduct(tx *gorm.DB, partnerID int64, lines []Line) error {
 }
 func find(db *gorm.DB, id int64) (*Draft, error) {
 	var h Draft
-	e := db.Table("sale_document d").Select("d.*,p.name AS partner_name,COALESCE(NULLIF(c.nickname,''),c.username) AS created_by_name,COALESCE(NULLIF(u.nickname,''),u.username) AS cancelled_by_name").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user c ON c.id=d.created_by").Joins("LEFT JOIN sys_user u ON u.id=d.cancelled_by").Where("d.id=?", id).Take(&h).Error
+	e := db.Table("sale_document d").Select("d.*,COALESCE(NULLIF(d.partner_name,''),p.name) AS partner_name,COALESCE(NULLIF(c.nickname,''),c.username) AS created_by_name,COALESCE(NULLIF(u.nickname,''),u.username) AS cancelled_by_name,COALESCE(NULLIF(pb.nickname,''),pb.username) AS posted_by_name").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user c ON c.id=d.created_by").Joins("LEFT JOIN sys_user u ON u.id=d.cancelled_by").Joins("LEFT JOIN sys_user pb ON pb.id=d.posted_by").Where("d.id=?", id).Take(&h).Error
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}

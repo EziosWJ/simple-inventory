@@ -131,7 +131,7 @@ export function InventoryEntriesPage() {
     { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(reasonOptions, value as AdjustmentReason) },
     { title: "说明", dataIndex: "remark", render: (value) => <span className="whitespace-pre-wrap">{value || "-"}</span> },
     { title: "操作人", key: "operator", render: (_, record) => record.operatorName || `用户 ${record.operatorId}` },
-    { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button className="text-primary hover:underline" onClick={() => record.purchaseId ? navigate(`/business/purchases?purchaseId=${record.purchaseId}`) : void openSourceDocument(record.adjustmentId ?? 0)}>{String(value ?? "")}</button> },
+    { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button className="text-primary hover:underline" onClick={() => record.saleId ? navigate(`/business/sales?saleId=${record.saleId}`) : record.purchaseId ? navigate(`/business/purchases?purchaseId=${record.purchaseId}`) : void openSourceDocument(record.adjustmentId ?? 0)}>{String(value ?? "")}</button> },
   ];
 
   async function openSourceDocument(id: number) {

@@ -25,7 +25,33 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("", h.page)
 	g.GET("/:id", h.detail)
 	g.PUT("/:id", h.edit)
+	g.POST("/:id/post", h.post)
 	g.POST("/:id/cancel", h.cancel)
+}
+
+// @Summary 过账销售出库单
+// @Tags 销售出库
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "销售单ID"
+// @Param body body PostInput true "确认当前草稿版本"
+// @Success 200 {object} ApiEnvelope{data=Draft}
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/sales/{id}/post [post]
+func (h *Handler) post(c *gin.Context) {
+	id, e := pathID(c)
+	var in PostInput
+	if e != nil || c.ShouldBindJSON(&in) != nil {
+		fail(c, ErrInvalid)
+		return
+	}
+	v, e := h.s.Post(c.Request.Context(), meta(c), id, in)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
 }
 
 func meta(ctx *gin.Context) audit.Metadata {

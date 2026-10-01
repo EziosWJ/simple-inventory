@@ -31,13 +31,19 @@ type Draft struct {
 	ID              int64        `json:"id"`
 	DocumentNo      string       `json:"documentNo"`
 	PartnerID       int64        `json:"partnerId"`
-	PartnerName     string       `json:"partnerName" gorm:"->"`
+	PartnerName     string       `json:"partnerName"`
 	DeliveryContact *string      `json:"deliveryContact"`
 	DeliveryPhone   *string      `json:"deliveryPhone"`
 	DeliveryAddress *string      `json:"deliveryAddress"`
 	BusinessDate    BusinessDate `json:"businessDate"`
 	Status          string       `json:"status"`
 	Version         int64        `json:"version"`
+	PostedBy        *int64       `json:"postedBy"`
+	PostedByName    string       `json:"postedByName" gorm:"->"`
+	PostedAt        *time.Time   `json:"postedAt"`
+	OwnerName       string       `json:"ownerName"`
+	OwnerPhone      string       `json:"ownerPhone"`
+	OwnerAddress    string       `json:"ownerAddress"`
 	Remark          *string      `json:"remark"`
 	CreatedBy       int64        `json:"createdBy"`
 	CreatedByName   string       `json:"createdByName" gorm:"->"`
@@ -98,6 +104,9 @@ type EditInput struct {
 type CancelInput struct {
 	Version int64  `json:"version"`
 	Reason  string `json:"reason"`
+}
+type PostInput struct {
+	Version int64 `json:"version"`
 }
 type Query struct {
 	Page, PageSize           int

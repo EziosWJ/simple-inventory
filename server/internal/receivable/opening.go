@@ -63,6 +63,8 @@ type Entry struct {
 	ReversedByID  *int64    `json:"reversedById"`
 	PaymentMethod string    `json:"paymentMethod,omitempty"`
 	TransactionNo string    `json:"transactionNo,omitempty"`
+	PurchaseID    *int64    `json:"purchaseId,omitempty"`
+	SaleID        *int64    `json:"saleId,omitempty"`
 }
 
 func (Entry) TableName() string { return "partner_balance_entry" }
@@ -297,6 +299,7 @@ type entryRow struct {
 	ReversesID, ReversedByID                           *int64
 	RequestKey                                         *string
 	PaymentMethod, TransactionNo                       string
+	PurchaseID, SaleID                                 *int64
 }
 
 func (entryRow) TableName() string { return "partner_balance_entry" }
@@ -339,7 +342,7 @@ func (s *Repository) Page(ctx context.Context, partner int64, direction string, 
 	return out, nil
 }
 func fromRow(r entryRow) Entry {
-	return Entry{ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo}
+	return Entry{ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
 }
 
 func (s *Repository) Settle(ctx context.Context, meta audit.Metadata, in SettlementInput) (Entry, error) {
