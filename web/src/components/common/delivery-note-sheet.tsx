@@ -26,7 +26,7 @@ export function DeliveryNoteSheet({ note, showAmount }: { note: DeliveryNote; sh
           </header>
           <div className="delivery-meta">
             <span>单号：{note.documentNo}</span>
-            <span>业务日期：{note.businessDate}</span>
+            <span>业务日期：{note.businessDate.slice(0, 10)}</span>
             <span>客户：{note.partnerName}</span>
             <span>联系人：{note.deliveryContact ?? ""}</span>
             <span>电话：{note.deliveryPhone ?? ""}</span>

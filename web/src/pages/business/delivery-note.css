@@ -16,6 +16,9 @@
   background: #fff;
   color: #111827;
   font-size: 12px;
+  /* Keep the paper typography independent of the admin body's 22px line height.
+     Two-line product names must still fit all 18 rows on an A4 sheet. */
+  line-height: 18px;
   border: 1px solid #d1d5db;
   display: flex;
   flex-direction: column;
@@ -136,6 +139,9 @@
     top: 0;
     width: 100%;
     display: block;
+    /* The page's space-y utility otherwise offsets the first sheet by 16px,
+       moving its footer onto an extra physical page. */
+    margin: 0 !important;
   }
 
   .delivery-page {
