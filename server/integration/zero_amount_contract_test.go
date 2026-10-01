@@ -57,9 +57,12 @@ func assertZeroAmountContract(t *testing.T, r http.Handler) {
 		t.Helper()
 		return inventoryData[document](t, serveJSON(r, method, path, body, token), 200)
 	}
-	partner := call("POST", "/api/v1/partners", `{"code":"ZERO-P","name":"零价往来","type":"COMPANY","isCustomer":true,"isSupplier":true}`).ID
-	goods := call("POST", "/api/v1/products", `{"code":"ZERO-G","name":"赠品","type":"GOODS","unit":"台"}`).ID
-	service := call("POST", "/api/v1/products", `{"code":"ZERO-S","name":"免费服务","type":"SERVICE","unit":"次"}`).ID
+	createID := func(path, body string) int64 {
+		return inventoryData[item](t, serveJSON(r, "POST", path, body, token), 200).ID
+	}
+	partner := createID("/api/v1/partners", `{"code":"ZERO-P","name":"零价往来","type":"COMPANY","isCustomer":true,"isSupplier":true}`)
+	goods := createID("/api/v1/products", `{"code":"ZERO-G","name":"赠品","type":"GOODS","unit":"台"}`)
+	service := createID("/api/v1/products", `{"code":"ZERO-S","name":"免费服务","type":"SERVICE","unit":"次"}`)
 	create := func(path string, product int64, typ, unit, qty string) document {
 		return call("POST", path, fmt.Sprintf(`{"partnerId":%d,"businessDate":"2026-10-01","items":[{"productId":%d,"productType":%q,"unit":%q,"quantity":%q,"unitPrice":"0.00"}]}`, partner, product, typ, unit, qty))
 	}
@@ -94,6 +97,27 @@ func assertZeroAmountContract(t *testing.T, r http.Handler) {
 	cancel("/api/v1/sales", sale)
 	cancel("/api/v1/purchases", purchase)
 	cancel("/api/v1/sales", post("/api/v1/sales", create("/api/v1/sales", service, "SERVICE", "次", "3")))
+	stock := inventoryData[struct {
+		Records []struct {
+			ProductID int64  `json:"productId"`
+			Quantity  string `json:"quantity"`
+		} `json:"records"`
+	}](t, serveJSON(r, "GET", "/api/v1/inventory/balances?page=1&pageSize=500&stock=all", "", token), 200)
+	found := false
+	for _, row := range stock.Records {
+		if row.ProductID == service {
+			t.Fatal("service acquired a stock balance")
+		}
+		if row.ProductID == goods {
+			found = true
+			if quantityToMilli(t, row.Quantity) != 0 {
+				t.Fatalf("zero document cancellation left stock: %+v", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("goods stock missing after zero document lifecycle")
+	}
 	entries := inventoryData[struct {
 		Total int64 `json:"total"`
 	}](t, serveJSON(r, "GET", fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&page=1&pageSize=500", partner), "", token), 200)
