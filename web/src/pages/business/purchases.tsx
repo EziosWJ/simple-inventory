@@ -77,6 +77,7 @@ export function PurchasesPage() {
   const [editing, setEditing] = useState<PurchaseDraft | null>(null);
   const [partnerId, setPartnerId] = useState(0);
   const [businessDate, setBusinessDate] = useState(today());
+  const [directDelivery, setDirectDelivery] = useState(false);
   const [remark, setRemark] = useState("");
   const [lines, setLines] = useState<LineForm[]>([blankLine()]);
   const [detail, setDetail] = useState<PurchaseDraft | null>(null);
@@ -125,6 +126,7 @@ export function PurchasesPage() {
 
   function startNew() {
     setEditing(null);
+    setDirectDelivery(false);
     setPartnerId(0);
     setBusinessDate(today());
     setRemark("");
@@ -137,6 +139,7 @@ export function PurchasesPage() {
     try {
       const current = await getPurchase(record.id);
       setEditing(current);
+      setDirectDelivery(current.directDelivery);
       setPartnerId(current.partnerId);
       setBusinessDate(current.businessDate);
       setRemark(current.remark ?? "");
@@ -165,6 +168,7 @@ export function PurchasesPage() {
 
   async function saveDraft() {
     const body: PurchaseInput = {
+      directDelivery,
       partnerId,
       businessDate,
       remark: remark.trim() || undefined,
@@ -332,6 +336,7 @@ export function PurchasesPage() {
           <Field label="业务日期" required>
             <Input type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} />
           </Field>
+          <Field label="交付方式"><label className="flex items-center gap-2"><input type="checkbox" checked={directDelivery} onChange={e=>setDirectDelivery(e.target.checked)}/>供应商直接送达客户</label></Field>
           <Field label="备注">
             <Input value={remark} onChange={(event) => setRemark(event.target.value)} maxLength={500} />
           </Field>
@@ -382,6 +387,8 @@ export function PurchasesPage() {
       >
         {detail && (
           <>
+            <p className="mb-3">{detail.directDelivery ? "直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
+            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>navigate(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${new Date(d.postedAt).toLocaleString()}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>navigate(`/business/sales?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
             <DataTable
               columns={[
                 { title: "商品", key: "product", render: (_, item) => `${item.productCode} ${item.productName}` },
@@ -440,3 +447,5 @@ function today() {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
 }
+
+function statusText(s:string){return {DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[s]??s}

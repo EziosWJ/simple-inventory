@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -29,6 +30,9 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 	h.DocumentNo = "SO" + time.Now().UTC().Format("20060102") + "-" + hex.EncodeToString(nonce[:])
 	h.CreateTime = time.Now().UTC()
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if e := validateDirect(tx, h, 0, false, lines); e != nil {
+			return e
+		}
 		if e := validPartnerProduct(tx, h.PartnerID, lines); e != nil {
 			return e
 		}
@@ -79,14 +83,27 @@ func copyString(v *string) *string {
 func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines []Line, event audit.Event) (Draft, error) {
 	var out Draft
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var prior Draft
+		if e := tx.Where("id=?", id).Take(&prior).Error; e != nil {
+			return e
+		}
+		if prior.DirectPurchaseID != nil && !samePurchase(prior.DirectPurchaseID, h.DirectPurchaseID) {
+			return fmt.Errorf("%w：已关联销售须取消后重新建立，保留历史关联", ErrConflict)
+		}
+		if e := validateDirect(tx, h, id, false, lines); e != nil {
+			return e
+		}
 		old, e := lockDraft(tx, id, version)
 		if e != nil {
 			return e
 		}
+		if old.DirectPurchaseID != nil && (h.DirectPurchaseID == nil || *old.DirectPurchaseID != *h.DirectPurchaseID) {
+			return fmt.Errorf("%w：已关联销售须取消后重新建立，保留历史关联", ErrConflict)
+		}
 		if e = validPartnerProduct(tx, h.PartnerID, lines); e != nil {
 			return e
 		}
-		res := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"partner_id": h.PartnerID, "business_date": h.BusinessDate, "remark": h.Remark, "delivery_contact": h.DeliveryContact, "delivery_phone": h.DeliveryPhone, "delivery_address": h.DeliveryAddress, "version": version + 1})
+		res := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"direct_delivery": h.DirectDelivery, "direct_purchase_id": h.DirectPurchaseID, "partner_id": h.PartnerID, "business_date": h.BusinessDate, "remark": h.Remark, "delivery_contact": h.DeliveryContact, "delivery_phone": h.DeliveryPhone, "delivery_address": h.DeliveryAddress, "version": version + 1})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -191,12 +208,25 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 }
 func lockDocument(tx *gorm.DB, id, version int64) (Draft, error) {
 	var h Draft
+	var before Draft
+	if e := tx.Where("id=?", id).Take(&before).Error; e != nil {
+		return h, e
+	}
+	if before.DirectPurchaseID != nil {
+		var p directdelivery.Purchase
+		if e := directdelivery.LockPurchase(tx, *before.DirectPurchaseID, &p); e != nil {
+			return h, e
+		}
+	}
 	q := tx.Where("id=?", id)
 	if tx.Dialector.Name() == "postgres" {
 		q = q.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
 	if e := q.Take(&h).Error; e != nil {
 		return h, e
+	}
+	if !samePurchase(before.DirectPurchaseID, h.DirectPurchaseID) {
+		return h, ErrConflict
 	}
 	if (h.Status != "DRAFT" && h.Status != "POSTED") || h.Version != version {
 		return h, ErrConflict
@@ -230,6 +260,9 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		}
 		if len(lines) == 0 {
 			return ErrInvalid
+		}
+		if e = validateDirect(tx, h, id, true, lines); e != nil {
+			return e
 		}
 		var partner struct {
 			ID         int64
@@ -683,13 +716,17 @@ func find(db *gorm.DB, id int64) (*Draft, error) {
 	}
 	h.Items = lines
 	h.TotalAmount = moneyText(total)
+	h.DirectDocuments, e = directdelivery.SalePurchase(db, h.DirectPurchaseID)
+	if e != nil {
+		return nil, e
+	}
 	return &h, nil
 }
 func mapErr(e error) error {
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}
-	if e != nil && strings.Contains(strings.ToLower(e.Error()), "unique constraint") {
+	if e != nil && (strings.Contains(strings.ToLower(e.Error()), "unique constraint") || strings.Contains(strings.ToLower(e.Error()), "database is locked")) {
 		return ErrConflict
 	}
 	return e
@@ -703,4 +740,53 @@ func milliText(n int64) string {
 	s := fmt.Sprintf("%03d", frac)
 	s = strings.TrimRight(s, "0")
 	return fmt.Sprintf("%d.%s", whole, s)
+}
+
+func samePurchase(a, b *int64) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+func validateDirect(tx *gorm.DB, h Draft, id int64, posting bool, lines []Line) error {
+	if h.DirectPurchaseID == nil {
+		return nil
+	}
+	var p directdelivery.Purchase
+	if e := directdelivery.LockPurchase(tx, *h.DirectPurchaseID, &p); e != nil {
+		return fmt.Errorf("%w：关联采购不存在", ErrInvalid)
+	}
+	if !p.DirectDelivery || p.Status == "CANCELLED" {
+		return fmt.Errorf("%w：必须关联未取消的直送采购单", ErrConflict)
+	}
+	var n int64
+	if e := tx.Table("sale_document").Where("direct_purchase_id=? AND status<>'CANCELLED' AND id<>?", p.ID, id).Count(&n).Error; e != nil {
+		return e
+	}
+	if n != 0 {
+		return fmt.Errorf("%w：该直送采购已有未取消销售单", ErrConflict)
+	}
+	if !posting {
+		return nil
+	}
+	if p.Status != "POSTED" {
+		return fmt.Errorf("%w：请先单独过账关联采购单", ErrConflict)
+	}
+	sale := map[int64]int64{}
+	for _, l := range lines {
+		if l.ProductType == "GOODS" {
+			if sale[l.ProductID] > math.MaxInt64-l.QuantityMilli {
+				return ErrInvalid
+			}
+			sale[l.ProductID] += l.QuantityMilli
+		}
+	}
+	purchase, e := directdelivery.PurchaseQuantities(tx, p.ID)
+	if e != nil {
+		return fmt.Errorf("%w：%v", ErrConflict, e)
+	}
+	if len(sale) != len(purchase) {
+		return fmt.Errorf("%w：直送实物商品汇总数量不一致", ErrConflict)
+	}
+	for id, n := range purchase {
+		if sale[id] != n {
+			return fmt.Errorf("%w：直送商品%d汇总数量不一致", ErrConflict, id)
+		}
+	}
+	return nil
 }

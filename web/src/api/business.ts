@@ -52,9 +52,10 @@ export type InventoryEntry = {
 export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryBalance>>("/api/v1/inventory/balances",{query});
 export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
 export type PurchaseLine = {id:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS";unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
-export type PurchaseDraft = {id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
+export type DirectDocument = {id:number;documentNo:string;status:"DRAFT"|"POSTED"|"CANCELLED";partnerName:string;postedAt?:string|null;postedByName?:string;cancelledAt?:string|null;cancelledByName?:string;cancelReason?:string|null};
+export type PurchaseDraft = {directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
 export type PurchaseLineInput = {productId:number;productType:"GOODS";unit:string;quantity:string;unitPrice:string;remark?:string};
-export type PurchaseInput = {partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
+export type PurchaseInput = {directDelivery?:boolean;partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
 export const purchasePage=(query:Record<string,string|number>)=>http.get<BusinessPage<PurchaseDraft>>("/api/v1/purchases",{query});
 export const getPurchase=(id:number)=>http.get<PurchaseDraft>(`/api/v1/purchases/${id}`);
 export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api/v1/purchases",data);
@@ -62,9 +63,9 @@ export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>htt
 export const cancelPurchase=(id:number,data:{version:number;reason:string})=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/cancel`,data);
 export const postPurchase=(id:number,version:number)=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/post`,{version});
 export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"SERVICE"};
-export type SaleDraft = Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {postedBy?:number|null;postedByName?:string;postedAt?:string|null;ownerName?:string;ownerPhone?:string;ownerAddress?:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
+export type SaleDraft = {directPurchaseId?:number|null} & Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {postedBy?:number|null;postedByName?:string;postedAt?:string|null;ownerName?:string;ownerPhone?:string;ownerAddress?:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
 export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {id?:number;productType:"GOODS"|"SERVICE"};
-export type SaleInput = Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};
+export type SaleInput = {directPurchaseId?:number} & Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};
 export const salePage=(query:Record<string,string|number>)=>http.get<BusinessPage<SaleDraft>>("/api/v1/sales",{query});
 export const getSale=(id:number)=>http.get<SaleDraft>(`/api/v1/sales/${id}`);
 export const createSale=(data:SaleInput)=>http.post<SaleDraft>("/api/v1/sales",data);

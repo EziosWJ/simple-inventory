@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -61,16 +62,21 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 	var out Draft
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old Draft
-		if e := tx.Where("id=?", id).First(&old).Error; e != nil {
+		if e := directdelivery.LockPurchase(tx, id, &old); e != nil {
 			return e
 		}
 		if old.Status != "DRAFT" || old.Version != version {
 			return ErrConflict
 		}
+		if old.DirectDelivery && !h.DirectDelivery {
+			if e := directdelivery.RejectActiveSale(tx, id); e != nil {
+				return fmt.Errorf("%w：%v", ErrConflict, e)
+			}
+		}
 		if e := validPartnerProduct(tx, h.PartnerID, lines); e != nil {
 			return e
 		}
-		res := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"partner_id": h.PartnerID, "business_date": h.BusinessDate, "remark": h.Remark, "version": version + 1})
+		res := tx.Model(&Draft{}).Where("id=? AND status='DRAFT' AND version=?", id, version).Updates(map[string]any{"direct_delivery": h.DirectDelivery, "partner_id": h.PartnerID, "business_date": h.BusinessDate, "remark": h.Remark, "version": version + 1})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -107,15 +113,14 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		now := time.Now().UTC()
 		var old Draft
-		q := tx.Where("id=?", id)
-		if tx.Dialector.Name() == "postgres" {
-			q = q.Clauses(clause.Locking{Strength: "UPDATE"})
-		}
-		if x := q.Take(&old).Error; x != nil {
+		if x := directdelivery.LockPurchase(tx, id, &old); x != nil {
 			return x
 		}
 		if old.Version != version || (old.Status != "DRAFT" && old.Status != "POSTED") {
 			return ErrConflict
+		}
+		if e := directdelivery.RejectActiveSale(tx, id); e != nil {
+			return fmt.Errorf("%w：%v", ErrConflict, e)
 		}
 		if old.Status == "POSTED" {
 			var activeReturn struct{ ID int64 }
@@ -352,11 +357,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 
 func lockPurchase(tx *gorm.DB, id, version int64) (Draft, error) {
 	var h Draft
-	q := tx.Where("id=?", id)
-	if tx.Dialector.Name() == "postgres" {
-		q = q.Clauses(clause.Locking{Strength: "UPDATE"})
-	}
-	if e := q.Take(&h).Error; e != nil {
+	if e := directdelivery.LockPurchase(tx, id, &h); e != nil {
 		return h, e
 	}
 	if h.Status != "DRAFT" || h.Version != version {
@@ -497,6 +498,10 @@ func find(db *gorm.DB, id int64) (*Draft, error) {
 	}
 	h.Items = lines
 	h.TotalAmount = moneyText(total)
+	h.DirectDocuments, e = directdelivery.PurchaseSales(db, id)
+	if e != nil {
+		return nil, e
+	}
 	return &h, nil
 }
 func milliText(n int64) string {
@@ -512,7 +517,7 @@ func mapErr(e error) error {
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}
-	if e != nil && strings.Contains(strings.ToLower(e.Error()), "unique constraint") {
+	if e != nil && (strings.Contains(strings.ToLower(e.Error()), "unique constraint") || strings.Contains(strings.ToLower(e.Error()), "database is locked") || strings.Contains(strings.ToLower(e.Error()), "database table is locked")) {
 		return ErrConflict
 	}
 	return e

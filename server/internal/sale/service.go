@@ -113,6 +113,9 @@ func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 }
 
 func validate(in Input) (Draft, []Line, error) {
+	if in.DirectDelivery != (in.DirectPurchaseID != nil) || in.DirectPurchaseID != nil && *in.DirectPurchaseID < 1 {
+		return Draft{}, nil, ErrInvalid
+	}
 	date, e := time.Parse("2006-01-02", in.BusinessDate)
 	if e != nil || in.PartnerID < 1 || len(in.Items) == 0 || len(in.Items) > 200 {
 		return Draft{}, nil, ErrInvalid
@@ -133,7 +136,7 @@ func validate(in Input) (Draft, []Line, error) {
 	if e != nil {
 		return Draft{}, nil, e
 	}
-	h := Draft{PartnerID: in.PartnerID, BusinessDate: BusinessDate(date.Format("2006-01-02")), Status: "DRAFT", Version: 1, Remark: remark, DeliveryContact: contact, DeliveryPhone: phone, DeliveryAddress: address, Items: []Line{}}
+	h := Draft{DirectDelivery: in.DirectDelivery, DirectPurchaseID: in.DirectPurchaseID, PartnerID: in.PartnerID, BusinessDate: BusinessDate(date.Format("2006-01-02")), Status: "DRAFT", Version: 1, Remark: remark, DeliveryContact: contact, DeliveryPhone: phone, DeliveryAddress: address, Items: []Line{}}
 	lines := make([]Line, 0, len(in.Items))
 	seenLineIDs := map[int64]bool{}
 	total := int64(0)

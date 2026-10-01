@@ -3,6 +3,7 @@ package sale
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
 	"time"
 )
 
@@ -28,32 +29,35 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
-	ID              int64        `json:"id"`
-	DocumentNo      string       `json:"documentNo"`
-	PartnerID       int64        `json:"partnerId"`
-	PartnerName     string       `json:"partnerName"`
-	DeliveryContact *string      `json:"deliveryContact"`
-	DeliveryPhone   *string      `json:"deliveryPhone"`
-	DeliveryAddress *string      `json:"deliveryAddress"`
-	BusinessDate    BusinessDate `json:"businessDate"`
-	Status          string       `json:"status"`
-	Version         int64        `json:"version"`
-	PostedBy        *int64       `json:"postedBy"`
-	PostedByName    string       `json:"postedByName" gorm:"->"`
-	PostedAt        *time.Time   `json:"postedAt"`
-	OwnerName       string       `json:"ownerName"`
-	OwnerPhone      string       `json:"ownerPhone"`
-	OwnerAddress    string       `json:"ownerAddress"`
-	Remark          *string      `json:"remark"`
-	CreatedBy       int64        `json:"createdBy"`
-	CreatedByName   string       `json:"createdByName" gorm:"->"`
-	CancelledBy     *int64       `json:"cancelledBy"`
-	CancelledByName string       `json:"cancelledByName" gorm:"->"`
-	CancelReason    *string      `json:"cancelReason"`
-	CreateTime      time.Time    `json:"createTime"`
-	CancelledAt     *time.Time   `json:"cancelledAt"`
-	Items           []Line       `json:"items" gorm:"-"`
-	TotalAmount     string       `json:"totalAmount" gorm:"-"`
+	DirectPurchaseID *int64                       `json:"directPurchaseId"`
+	DirectDelivery   bool                         `json:"directDelivery"`
+	DirectDocuments  []directdelivery.DocumentRef `json:"directDocuments" gorm:"-"`
+	ID               int64                        `json:"id"`
+	DocumentNo       string                       `json:"documentNo"`
+	PartnerID        int64                        `json:"partnerId"`
+	PartnerName      string                       `json:"partnerName"`
+	DeliveryContact  *string                      `json:"deliveryContact"`
+	DeliveryPhone    *string                      `json:"deliveryPhone"`
+	DeliveryAddress  *string                      `json:"deliveryAddress"`
+	BusinessDate     BusinessDate                 `json:"businessDate"`
+	Status           string                       `json:"status"`
+	Version          int64                        `json:"version"`
+	PostedBy         *int64                       `json:"postedBy"`
+	PostedByName     string                       `json:"postedByName" gorm:"->"`
+	PostedAt         *time.Time                   `json:"postedAt"`
+	OwnerName        string                       `json:"ownerName"`
+	OwnerPhone       string                       `json:"ownerPhone"`
+	OwnerAddress     string                       `json:"ownerAddress"`
+	Remark           *string                      `json:"remark"`
+	CreatedBy        int64                        `json:"createdBy"`
+	CreatedByName    string                       `json:"createdByName" gorm:"->"`
+	CancelledBy      *int64                       `json:"cancelledBy"`
+	CancelledByName  string                       `json:"cancelledByName" gorm:"->"`
+	CancelReason     *string                      `json:"cancelReason"`
+	CreateTime       time.Time                    `json:"createTime"`
+	CancelledAt      *time.Time                   `json:"cancelledAt"`
+	Items            []Line                       `json:"items" gorm:"-"`
+	TotalAmount      string                       `json:"totalAmount" gorm:"-"`
 }
 
 func (Draft) TableName() string { return "sale_document" }
@@ -89,13 +93,15 @@ type LineInput struct {
 	Remark      *string `json:"remark"`
 }
 type Input struct {
-	PartnerID       int64       `json:"partnerId"`
-	BusinessDate    string      `json:"businessDate"`
-	DeliveryContact *string     `json:"deliveryContact"`
-	DeliveryPhone   *string     `json:"deliveryPhone"`
-	DeliveryAddress *string     `json:"deliveryAddress"`
-	Remark          *string     `json:"remark"`
-	Items           []LineInput `json:"items"`
+	DirectPurchaseID *int64      `json:"directPurchaseId"`
+	DirectDelivery   bool        `json:"directDelivery"`
+	PartnerID        int64       `json:"partnerId"`
+	BusinessDate     string      `json:"businessDate"`
+	DeliveryContact  *string     `json:"deliveryContact"`
+	DeliveryPhone    *string     `json:"deliveryPhone"`
+	DeliveryAddress  *string     `json:"deliveryAddress"`
+	Remark           *string     `json:"remark"`
+	Items            []LineInput `json:"items"`
 }
 type EditInput struct {
 	Version int64 `json:"version"`

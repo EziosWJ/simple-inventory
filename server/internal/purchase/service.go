@@ -109,7 +109,7 @@ func validate(in Input) (Draft, []Line, error) {
 	if e != nil {
 		return Draft{}, nil, e
 	}
-	h := Draft{PartnerID: in.PartnerID, BusinessDate: BusinessDate(date.Format("2006-01-02")), Status: "DRAFT", Version: 1, Remark: remark, Items: []Line{}}
+	h := Draft{DirectDelivery: in.DirectDelivery, PartnerID: in.PartnerID, BusinessDate: BusinessDate(date.Format("2006-01-02")), Status: "DRAFT", Version: 1, Remark: remark, Items: []Line{}}
 	lines := make([]Line, 0, len(in.Items))
 	total := int64(0)
 	for i, x := range in.Items {

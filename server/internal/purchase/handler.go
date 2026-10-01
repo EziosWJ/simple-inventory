@@ -29,6 +29,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("/:id/cancel", h.cancel)
 }
 
+// @Description 采购单独过账；直送采购取消前必须先取消全部未取消关联销售。
 // @Summary 过账采购入库单
 // @Tags 采购入库
 // @Security BearerAuth

@@ -30,6 +30,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("/:id/cancel", h.cancel)
 }
 
+// @Description 直送销售必须关联已过账直送采购；事务内按实物商品ID汇总数量核对，两单分别过账。
 // @Summary 过账销售出库单
 // @Tags 销售出库
 // @Security BearerAuth
