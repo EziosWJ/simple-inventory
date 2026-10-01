@@ -305,11 +305,14 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 }
 
 // stockLimits names the errors that make a whole transaction fail when one
-// product cannot move, so an operator is told whether the stock was short or the
-// sum was unrepresentable.
+// product cannot move. Posting and reversal share the same guarded statement but
+// must not tell the operator the same thing when it refuses.
 type stockLimits struct{ insufficient, overflow error }
 
-var postingLimits = stockLimits{insufficient: ErrStockInsufficient, overflow: ErrStockOverflow}
+var (
+	postingLimits  = stockLimits{insufficient: ErrStockInsufficient, overflow: ErrStockOverflow}
+	reversalLimits = stockLimits{insufficient: ErrReversalInsufficient, overflow: ErrStockOverflow}
+)
 
 // applyDelta moves one product balance and reports the before/after values the
 // ledger line must agree with. It never relies on a process-wide lock: the
@@ -366,15 +369,35 @@ func balanceOn(tx *gorm.DB, productID int64) (int64, bool, error) {
 	return row.QuantityMilli, true, nil
 }
 
-// Cancel terminates a draft. A draft is cancelled without touching stock; the
-// CAS on the confirmed version makes a repeated or racing cancellation effective
-// at most once.
+// Cancel terminates a document. A draft is cancelled without touching stock; a
+// posted document is cancelled by appending one reversal line per original line,
+// keeping every original record. Both paths CAS on the confirmed version, so a
+// repeated or racing cancellation is effective at most once; a cancellation that
+// would drive any balance negative fails as a whole and leaves the document
+// posted.
 func (r *Repository) Cancel(ctx context.Context, id, version int64, reason string, event audit.Event) (Adjustment, error) {
 	var v Adjustment
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		changed := tx.Model(&Adjustment{}).Where("id=? AND version=? AND status='DRAFT'", id, version).Updates(map[string]any{"version": gorm.Expr("version+1"), "status": "CANCELLED", "cancelled_by": event.Metadata.ActorID, "cancelled_at": time.Now().UTC(), "cancel_reason": reason})
-		if e := checkMutation(tx, id, changed); e != nil {
-			return e
+		occurred := time.Now().UTC()
+		// The posted branch is tried first because it is the only one that moves
+		// stock; a document that has not been posted simply matches no row here.
+		changed := tx.Model(&Adjustment{}).Where("id=? AND version=? AND status='POSTED'", id, version).
+			Updates(map[string]any{"version": gorm.Expr("version+1"), "status": "CANCELLED", "cancelled_by": event.Metadata.ActorID, "cancelled_at": occurred, "cancel_reason": reason})
+		if changed.Error != nil {
+			return changed.Error
+		}
+		if changed.RowsAffected > 0 {
+			if e := reverseOn(tx, id, occurred, event.Metadata.ActorID); e != nil {
+				return e
+			}
+		} else {
+			// The posting metadata stays untouched: a cancelled document keeps
+			// whether it had been posted, and by whom.
+			changed = tx.Model(&Adjustment{}).Where("id=? AND version=? AND status='DRAFT'", id, version).
+				Updates(map[string]any{"version": gorm.Expr("version+1"), "status": "CANCELLED", "cancelled_by": event.Metadata.ActorID, "cancelled_at": occurred, "cancel_reason": reason})
+			if e := checkMutation(tx, id, changed); e != nil {
+				return e
+			}
 		}
 		if e := audit.RecordOn(ctx, tx, event); e != nil {
 			return e
@@ -387,6 +410,62 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 		return nil
 	})
 	return v, err
+}
+
+// reverseOn appends the cancellation reversal for a posted document: one
+// REVERSAL line per original line with the opposite signed quantity, in the
+// product order posting used, so concurrent cancellations cannot deadlock.
+//
+// The line refers to the same adjustment and the same adjustment item as its
+// original entry, and entry_type tells the two apart; UNIQUE(adjustment_item_id,
+// entry_type) makes that pair the exact link back to the original ledger row.
+// Nothing is read from the product: a disabled product must still be cancelable,
+// and the confirmed type, unit and description stay those of the posting.
+func reverseOn(tx *gorm.DB, id int64, occurred time.Time, operatorID int64) error {
+	items, e := loadStoredItems(tx, id)
+	if e != nil {
+		return e
+	}
+	if len(items) == 0 {
+		return fmt.Errorf("已过账调整单%d缺少明细，无法冲销", id)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ProductID < items[j].ProductID })
+	for i := range items {
+		item := &items[i]
+		if item.ProductCode == "" || item.ProductName == "" {
+			return fmt.Errorf("已过账明细%d缺少商品快照，无法冲销", item.ID)
+		}
+		delta := -item.QuantityMilli
+		before, after, e := applyDelta(tx, item.ProductID, delta, occurred, reversalLimits)
+		if e != nil {
+			return e
+		}
+		entry := Entry{
+			ProductID: item.ProductID, AdjustmentID: id, AdjustmentItemID: item.ID,
+			EntryType: "REVERSAL", QuantityMilli: delta,
+			BalanceBeforeMilli: before, BalanceAfterMilli: after,
+			Reason: item.Reason, Remark: item.Remark,
+			ProductCode: item.ProductCode, ProductName: item.ProductName, ProductModel: item.ProductModel, ProductSpecification: item.ProductSpecification,
+			Unit: item.Unit, OperatorID: operatorID, OccurredAt: occurred,
+		}
+		if e := tx.Create(&entry).Error; e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// storedItemSelect reads only the columns frozen on the line. The snapshot must
+// come from the stored copy, never from the live catalog text a JOIN would add.
+const storedItemSelect = "id,adjustment_id,product_id,product_code,product_name,product_model,product_specification,product_type,unit,quantity_milli,reason,remark"
+
+func loadStoredItems(tx *gorm.DB, id int64) ([]Item, error) {
+	items := []Item{}
+	e := tx.Table("inventory_adjustment_item").Select(storedItemSelect).Where("adjustment_id=?", id).Order("id ASC").Find(&items).Error
+	if e != nil {
+		return nil, e
+	}
+	return items, nil
 }
 
 func checkMutation(tx *gorm.DB, id int64, result *gorm.DB) error {

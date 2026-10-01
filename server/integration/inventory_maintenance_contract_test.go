@@ -385,17 +385,17 @@ func assertInventoryMaintenanceContract(t *testing.T, router http.Handler, db *p
 	}
 	inventoryData[any](t, serveJSON(router, http.MethodPut, postedPath, editBody(2, b), token), 409)
 	inventoryData[any](t, serveJSON(router, http.MethodPost, postedPath+"/post", `{"version":2}`, token), 409)
-	// A posted document cannot be cancelled through the draft-cancel path at any
-	// version: only the confirmed version matches a state, and it is POSTED.
-	// Reversing it is the posted-cancel task's concern.
-	for _, version := range []int64{1, 2, 3} {
-		inventoryData[any](t, serveJSON(router, http.MethodPost, postedPath+"/cancel", cancelBody(version, "已过账不可仅取消"), token), 409)
+	for _, stale := range []int64{1, 3} {
+		inventoryData[any](t, serveJSON(router, http.MethodPost, postedPath+"/cancel", cancelBody(stale, "过期版本取消"), token), 409)
 	}
 	sameDraft(t, postedResult, detail(posted.ID))
 	var entries int64
 	if e := db.GORM.Table("inventory_entry").Where("adjustment_id=?", posted.ID).Count(&entries).Error; e != nil || entries != 1 {
 		t.Fatalf("posted document ledger entries=%d err=%v", entries, e)
 	}
+	// Cancelling the posted document reverses it; this draft-cancel test only
+	// checks that a version-stale request cannot reach the reversal path.
+	inventoryData[adjustmentDTO](t, serveJSON(router, http.MethodPost, postedPath+"/cancel", cancelBody(2, "重复录入，整单冲销"), token), 200)
 	inventoryData[any](t, serveJSON(router, http.MethodDelete, path, "", token), 404)
 	// A cancelled document cannot be posted either, whatever version is claimed.
 	for _, version := range []int64{3, 4} {

@@ -17,6 +17,7 @@ var ErrNotFound = errors.New("调整单不存在")
 var ErrConflict = errors.New("单据状态或版本已变化，请刷新后重试")
 var ErrStockInsufficient = errors.New("库存不足，整单未过账")
 var ErrStockOverflow = errors.New("结存超出可表示范围，整单未过账")
+var ErrReversalInsufficient = errors.New("库存不足，整单未取消，仍为已过账")
 
 // ProductReference is the catalog state a document line is confirmed against.
 // It carries the description so creating a draft stores the confirmed snapshot.
@@ -125,8 +126,9 @@ func (s *Service) Post(ctx context.Context, meta audit.Metadata, id int64, in Po
 	return s.store.Post(ctx, id, in.Version, audit.Event{Action: "inventory.adjustment.post", Resource: "inventory", ResourceID: id, Summary: "过账库存调整单", Metadata: meta}, validateProduct)
 }
 
-// Cancel terminates a draft. It needs the reason and the version the operator
-// confirmed, so a stale screen cannot cancel a document that already moved on.
+// Cancel terminates a document. Cancelling a draft only changes the document;
+// cancelling a posted document reverses the whole document and therefore needs
+// the reason and the version the operator confirmed, exactly like posting.
 func (s *Service) Cancel(ctx context.Context, meta audit.Metadata, id int64, in CancelInput) (Adjustment, error) {
 	if id <= 0 || in.Version <= 0 || in.Version == math.MaxInt64 {
 		return Adjustment{}, invalid("调整单ID或版本无效")
@@ -135,7 +137,7 @@ func (s *Service) Cancel(ctx context.Context, meta audit.Metadata, id int64, in 
 	if reason == "" || utf8.RuneCountInString(reason) > 500 {
 		return Adjustment{}, invalid("取消原因必填且最多500字")
 	}
-	return s.store.Cancel(ctx, id, in.Version, reason, audit.Event{Action: "inventory.adjustment.cancel", Resource: "inventory", ResourceID: id, Summary: "取消库存调整草稿", Metadata: meta})
+	return s.store.Cancel(ctx, id, in.Version, reason, audit.Event{Action: "inventory.adjustment.cancel", Resource: "inventory", ResourceID: id, Summary: "取消库存调整单", Metadata: meta})
 }
 
 func (s *Service) Detail(ctx context.Context, id int64) (*Adjustment, error) {

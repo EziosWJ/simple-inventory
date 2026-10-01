@@ -167,8 +167,7 @@ func assertInventoryPostingContract(t *testing.T, router http.Handler, db *platf
 		t.Fatalf("ledger row=%+v", rows)
 	}
 	// A posted document is frozen: no edit, no second post, and no stale-version
-	// cancellation. Reversing a posted document is a later task's concern; here
-	// a stale cancellation must simply not touch the posted stock.
+	// cancellation. Ticket 04 covers cancelling it through a reversal.
 	inventoryData[any](t, serveJSON(router, http.MethodPut, adjustmentPath+"/"+itoa(mixed.ID), editBody(2, item("INV-A", "99", "OPENING")), token), 409)
 	for _, version := range []int64{1, 2, 3} {
 		inventoryData[any](t, post(mixed.ID, version), 409)
@@ -279,9 +278,7 @@ func assertInventoryPostingContract(t *testing.T, router http.Handler, db *platf
 	}
 
 	// Posting and cancelling the same draft race on one version: exactly one
-	// transition is effective and the stored state matches the winner. A draft
-	// cancellation never moves stock, so the losing posting must leave the
-	// ledger and the balance untouched.
+	// transition is effective and the stored state matches the winner.
 	raceCancel := createDraft(item("INV-E", "2", "OPENING"))
 	raceCancelPath := adjustmentPath + "/" + itoa(raceCancel.ID)
 	outcomeStarted := make(chan struct{})

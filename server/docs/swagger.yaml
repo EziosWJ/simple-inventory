@@ -3177,7 +3177,7 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 核对的版本和必填取消原因（最多500字）；仅DRAFT可取消，重复或版本过期返回409
+      - description: 核对的版本和必填取消原因（最多500字）；DRAFT取消不改变库存，POSTED取消整单生成反向流水；冲销会负库存、重复或版本过期返回409
         in: body
         name: body
         required: true
@@ -3217,7 +3217,7 @@ paths:
             $ref: '#/definitions/internal_inventory.ApiEnvelope'
       security:
       - BearerAuth: []
-      summary: 取消库存调整草稿
+      summary: 取消库存调整单
       tags:
       - 库存调整
   /api/v1/inventory/adjustments/{id}/post:

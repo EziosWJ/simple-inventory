@@ -143,7 +143,7 @@ func fail(c *gin.Context, e error) {
 		status, msg = 400, e.Error()
 	case errors.Is(e, ErrNotFound):
 		status, msg = 404, e.Error()
-	case errors.Is(e, ErrConflict), errors.Is(e, ErrStockInsufficient), errors.Is(e, ErrStockOverflow):
+	case errors.Is(e, ErrConflict), errors.Is(e, ErrStockInsufficient), errors.Is(e, ErrReversalInsufficient), errors.Is(e, ErrStockOverflow):
 		// A shortage or an unrepresentable sum is a conflict with the stock the
 		// document was confirmed against: nothing changed, and the operator can
 		// correct it after checking the current quantity.
@@ -226,13 +226,13 @@ func (h *Handler) post(c *gin.Context) {
 	platform.OK(c, v)
 }
 
-// @Summary 取消库存调整草稿
+// @Summary 取消库存调整单
 // @Tags 库存调整
 // @Security BearerAuth
 // @Accept json
 // @Produce json
 // @Param id path int true "调整单ID"
-// @Param body body CancelInput true "核对的版本和必填取消原因（最多500字）；仅DRAFT可取消，重复或版本过期返回409"
+// @Param body body CancelInput true "核对的版本和必填取消原因（最多500字）；DRAFT取消不改变库存，POSTED取消整单生成反向流水；冲销会负库存、重复或版本过期返回409"
 // @Success 200 {object} ApiEnvelope{data=Adjustment}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
