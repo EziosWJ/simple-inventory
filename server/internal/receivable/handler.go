@@ -26,6 +26,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("/entries/:id", h.detail)
 	g.POST("/opening", h.create)
 	g.POST("/settlements", h.settle)
+	g.POST("/refunds", h.refund)
 	g.POST("/entries/:id/reverse", h.reverse)
 }
 
@@ -58,6 +59,38 @@ func (h *Handler) settle(c *gin.Context) {
 	}
 	platform.OK(c, v)
 }
+
+// @Summary 向客户退款或收到供应商退款（保存即生效）
+// @Tags 往来余额
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body SettlementInput true "退款方式、业务日期与幂等键；金额不得超过对应方向当前待退款"
+// @Success 200 {object} ApiEnvelope{data=Entry}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 401 {object} ApiEnvelope
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/refunds [post]
+func (h *Handler) refund(c *gin.Context) {
+	var in SettlementInput
+	if c.ShouldBindJSON(&in) != nil {
+		platform.WriteError(c, 400, 400, "请求参数无效", nil)
+		return
+	}
+	v, e := h.s.Refund(c.Request.Context(), metadata(c.Request.Context()), in)
+	if e != nil {
+		if errors.Is(e, ErrInvalid) {
+			platform.WriteError(c, 400, 400, e.Error(), nil)
+		} else if errors.Is(e, ErrConflict) {
+			platform.WriteError(c, 409, 409, e.Error(), nil)
+		} else {
+			platform.WriteError(c, 500, 500, "保存退款失败", nil)
+		}
+		return
+	}
+	platform.OK(c, v)
+}
+
 func metadata(ctx context.Context) audit.Metadata {
 	m := audit.Metadata{RequestID: platform.RequestIDFromContext(ctx)}
 	if p, ok := auth.PrincipalFromContext(ctx); ok {
@@ -200,7 +233,7 @@ func (h *Handler) create(c *gin.Context) {
 	platform.OK(c, v)
 }
 
-// @Summary 冲销期初应收应付或收付款记录
+// @Summary 冲销期初、收付款或退款记录
 // @Tags 往来余额
 // @Security BearerAuth
 // @Accept json
@@ -228,7 +261,7 @@ func (h *Handler) reverse(c *gin.Context) {
 		} else if errors.Is(e, ErrConflict) {
 			platform.WriteError(c, 409, 409, e.Error(), nil)
 		} else {
-			platform.WriteError(c, 500, 500, "冲销期初余额失败", nil)
+			platform.WriteError(c, 500, 500, "冲销往来记录失败", nil)
 		}
 		return
 	}

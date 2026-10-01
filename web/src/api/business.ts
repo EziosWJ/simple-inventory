@@ -77,7 +77,7 @@ export const getDeliveryNote=(id:number)=>http.get<DeliveryNote>(`/api/v1/sales/
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};
-export type PartnerBalanceEntry={id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"RECEIPT"|"PAYMENT"|"REVERSAL"|"PURCHASE"|"SALE";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;reversesId:number|null;reversedById:number|null;paymentMethod?:string;transactionNo?:string;purchaseId?:number;saleId?:number};
+export type PartnerBalanceEntry={id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"RECEIPT"|"PAYMENT"|"REVERSAL"|"PURCHASE"|"SALE"|"PURCHASE_RETURN"|"SALE_RETURN"|"CUSTOMER_REFUND"|"SUPPLIER_REFUND";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;reversesId:number|null;reversedById:number|null;paymentMethod?:string;transactionNo?:string;purchaseId?:number;saleId?:number};
 export const partnerBalances=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalance>>("/api/v1/partner-balances",{query});
 export const partnerBalanceEntries=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalanceEntry>>("/api/v1/partner-balances/entries",{query});
 export const createOpeningBalance=(data:{requestKey:string;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";amount:string;businessDate:string;description:string})=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/opening",data);
@@ -106,3 +106,5 @@ export const createSaleReturn=(data:{saleId:number;businessDate:string;remark?:s
 export const updateSaleReturn=(id:number,data:{version:number;saleId:number;businessDate:string;remark?:string;items:{saleItemId:number;quantity:string;remark?:string}[]})=>http.put<SaleReturn>(`/api/v1/sale-returns/${id}`,data);
 export const postSaleReturn=(id:number,data:{version:number})=>http.post<SaleReturn>(`/api/v1/sale-returns/${id}/post`,data);
 export const cancelSaleReturn=(id:number,data:{version:number;reason:string})=>http.post<SaleReturn>(`/api/v1/sale-returns/${id}/cancel`,data);
+
+export const createRefund=(data:Parameters<typeof createSettlement>[0])=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/refunds",data);

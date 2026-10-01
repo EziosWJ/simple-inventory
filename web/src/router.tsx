@@ -76,6 +76,7 @@ export const router = createBrowserRouter([
       { path: "business/sales", element: <SalesPage /> },
       { path: "business/sales/:id/delivery-note", element: <DeliveryNotePage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
+      { path: "business/refunds", element: <PartnerBalancesPage refundOnly /> },
       {
         path: "forms/basic",
         element: <FormExamplePage />,
