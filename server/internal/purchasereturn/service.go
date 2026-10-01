@@ -25,6 +25,7 @@ type Store interface {
 	Create(context.Context, Document, []Item, audit.Event) (Document, error)
 	Edit(context.Context, int64, int64, Document, []Item, audit.Event) (Document, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Document, error)
+	Post(context.Context, int64, int64, audit.Event) (Document, error)
 	Find(context.Context, int64) (*Document, error)
 	Page(context.Context, Query) (Page, error)
 }
@@ -60,7 +61,13 @@ func (s *Service) Cancel(ctx context.Context, m audit.Metadata, id int64, in Can
 	if id < 1 || in.Version < 1 || in.Version == math.MaxInt64 || r == "" || utf8.RuneCountInString(r) > 500 {
 		return Document{}, ErrInvalid
 	}
-	return s.store.Cancel(ctx, id, in.Version, r, audit.Event{Action: "purchase_return.draft.cancel", Resource: "purchase_return", ResourceID: id, Summary: "取消采购退货草稿", Metadata: m})
+	return s.store.Cancel(ctx, id, in.Version, r, audit.Event{Action: "purchase_return.cancel", Resource: "purchase_return", ResourceID: id, Summary: "取消采购退货单", Metadata: m})
+}
+func (s *Service) Post(ctx context.Context, m audit.Metadata, id int64, version int64) (Document, error) {
+	if id < 1 || version < 1 || version == math.MaxInt64 {
+		return Document{}, ErrInvalid
+	}
+	return s.store.Post(ctx, id, version, audit.Event{Action: "purchase_return.post", Resource: "purchase_return", ResourceID: id, Summary: "过账采购退货单", Metadata: m})
 }
 func (s *Service) Detail(ctx context.Context, id int64) (*Document, error) {
 	if id < 1 {

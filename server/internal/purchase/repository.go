@@ -117,6 +117,14 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 		if old.Version != version || (old.Status != "DRAFT" && old.Status != "POSTED") {
 			return ErrConflict
 		}
+		if old.Status == "POSTED" {
+			var activeReturn struct{ ID int64 }
+			if e := tx.Table("purchase_return_document").Select("id").Where("purchase_id=? AND status='POSTED'", id).Limit(1).Take(&activeReturn).Error; e == nil {
+				return fmt.Errorf("%w：原采购单仍有已过账退货，必须先取消退货", ErrConflict)
+			} else if !errors.Is(e, gorm.ErrRecordNotFound) {
+				return e
+			}
+		}
 		res := tx.Model(&Draft{}).Where("id=? AND status=? AND version=?", id, old.Status, version).Updates(map[string]any{"status": "CANCELLED", "version": version + 1, "cancelled_by": event.Metadata.ActorID, "cancelled_at": now, "cancel_reason": reason})
 		if res.Error != nil {
 			return res.Error

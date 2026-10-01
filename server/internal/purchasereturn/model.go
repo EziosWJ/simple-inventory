@@ -12,6 +12,9 @@ type Document struct {
 	BusinessDate    string     `json:"businessDate"`
 	Status          string     `json:"status"`
 	Version         int64      `json:"version"`
+	PostedBy        *int64     `json:"postedBy"`
+	PostedByName    string     `json:"postedByName" gorm:"->"`
+	PostedAt        *time.Time `json:"postedAt"`
 	Remark          *string    `json:"remark"`
 	CreatedBy       int64      `json:"createdBy"`
 	CreatedByName   string     `json:"createdByName" gorm:"->"`
@@ -72,6 +75,9 @@ type EditInput struct {
 type CancelInput struct {
 	Version int64  `json:"version"`
 	Reason  string `json:"reason"`
+}
+type PostInput struct {
+	Version int64 `json:"version"`
 }
 type Query struct {
 	Page, PageSize           int

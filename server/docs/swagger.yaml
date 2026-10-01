@@ -379,6 +379,10 @@ definitions:
         type: integer
       purchaseItemId:
         type: integer
+      purchaseReturnId:
+        type: integer
+      purchaseReturnItemId:
+        type: integer
       quantity:
         type: string
       reason:
@@ -799,6 +803,12 @@ definitions:
         type: integer
       partnerName:
         type: string
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
+        type: string
       purchaseId:
         type: integer
       purchaseNo:
@@ -895,6 +905,11 @@ definitions:
           $ref: '#/definitions/purchasereturn.Document'
         type: array
       total:
+        type: integer
+    type: object
+  purchasereturn.PostInput:
+    properties:
+      version:
         type: integer
     type: object
   rbac.ApiEnvelope:
@@ -4744,6 +4759,37 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消采购退货草稿
+      tags:
+      - 采购退货
+  /api/v1/purchase-returns/{id}/post:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 退货单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/purchasereturn.PostInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchasereturn.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchasereturn.Document'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 整单过账采购退货
       tags:
       - 采购退货
   /api/v1/purchase-returns/source/{purchaseId}:

@@ -5519,6 +5519,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/purchase-returns/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "采购退货"
+                ],
+                "summary": "整单过账采购退货",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "退货单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/purchasereturn.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/purchasereturn.Document"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/purchases": {
             "get": {
                 "security": [
@@ -6912,6 +6966,12 @@ const docTemplate = `{
                 "purchaseItemId": {
                     "type": "integer"
                 },
+                "purchaseReturnId": {
+                    "type": "integer"
+                },
+                "purchaseReturnItemId": {
+                    "type": "integer"
+                },
                 "quantity": {
                     "type": "string"
                 },
@@ -7553,6 +7613,15 @@ const docTemplate = `{
                 "partnerName": {
                     "type": "string"
                 },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedBy": {
+                    "type": "integer"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
                 "purchaseId": {
                     "type": "integer"
                 },
@@ -7699,6 +7768,14 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "purchasereturn.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
                     "type": "integer"
                 }
             }
