@@ -108,6 +108,44 @@ type CancelInput struct {
 type PostInput struct {
 	Version int64 `json:"version"`
 }
+
+// DeliveryNote is the read-only projection a delivery note is printed from.
+// It is always derived from the saved document, never from a page or list:
+// a posted sale reports its frozen snapshot (including empty values) while a
+// draft reports its current saved content and is flagged as not yet posted.
+type DeliveryNote struct {
+	DocumentNo      string             `json:"documentNo"`
+	Status          string             `json:"status"`
+	Posted          bool               `json:"posted"`
+	BusinessDate    string             `json:"businessDate"`
+	PartnerID       int64              `json:"partnerId"`
+	PartnerName     string             `json:"partnerName"`
+	DeliveryContact *string            `json:"deliveryContact"`
+	DeliveryPhone   *string            `json:"deliveryPhone"`
+	DeliveryAddress *string            `json:"deliveryAddress"`
+	OwnerName       string             `json:"ownerName"`
+	OwnerPhone      string             `json:"ownerPhone"`
+	OwnerAddress    string             `json:"ownerAddress"`
+	Remark          *string            `json:"remark"`
+	Items           []DeliveryNoteLine `json:"items"`
+	TotalQuantity   string             `json:"totalQuantity"`
+	TotalAmount     string             `json:"totalAmount"`
+}
+
+// DeliveryNoteLine carries only the fields a customer signs for. Unit price and
+// line amount are present so the server can hide every money field together.
+type DeliveryNoteLine struct {
+	ProductID            int64   `json:"productId"`
+	ProductCode          string  `json:"productCode"`
+	ProductName          string  `json:"productName"`
+	ProductModel         *string `json:"productModel"`
+	ProductSpecification *string `json:"productSpecification"`
+	Unit                 string  `json:"unit"`
+	Quantity             string  `json:"quantity"`
+	UnitPrice            string  `json:"unitPrice"`
+	Amount               string  `json:"amount"`
+	Remark               *string `json:"remark"`
+}
 type Query struct {
 	Page, PageSize           int
 	DocumentNo, Status       string

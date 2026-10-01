@@ -529,6 +529,72 @@ func (r *Repository) Find(ctx context.Context, id int64) (*Draft, error) {
 	v, e := find(r.db.WithContext(ctx), id)
 	return v, mapErr(e)
 }
+
+// DeliveryNote reads the saved document into the print projection. A posted or
+// cancelled sale uses the frozen snapshot columns, including empty values; a
+// draft falls back to the current partner and operator profile because it has
+// not frozen anything yet. This never touches stock or receivables.
+func (r *Repository) DeliveryNote(ctx context.Context, id int64) (*DeliveryNote, error) {
+	var out *DeliveryNote
+	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var h struct {
+			ID, PartnerID                                   int64
+			DocumentNo, Status, BusinessDate                string
+			PartnerName                                     string
+			DeliveryContact, DeliveryPhone, DeliveryAddress *string
+			OwnerName, OwnerPhone, OwnerAddress             string
+			Remark                                          *string
+		}
+		e := tx.Table("sale_document d").Select("d.id,d.document_no,d.status,d.business_date,d.partner_id,d.remark,d.delivery_contact,d.delivery_phone,d.delivery_address,d.partner_name,d.owner_name,d.owner_phone,d.owner_address").Where("d.id=?", id).Take(&h).Error
+		if errors.Is(e, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		if e != nil {
+			return e
+		}
+		n := &DeliveryNote{DocumentNo: h.DocumentNo, Status: h.Status, Posted: h.Status == "POSTED", BusinessDate: h.BusinessDate, PartnerID: h.PartnerID, DeliveryContact: h.DeliveryContact, DeliveryPhone: h.DeliveryPhone, DeliveryAddress: h.DeliveryAddress, OwnerName: h.OwnerName, OwnerPhone: h.OwnerPhone, OwnerAddress: h.OwnerAddress, Remark: h.Remark, Items: []DeliveryNoteLine{}}
+		n.PartnerName = h.PartnerName
+		if n.PartnerName == "" {
+			if e := tx.Table("partner").Select("name").Where("id=?", h.PartnerID).Scan(&n.PartnerName).Error; e != nil {
+				return e
+			}
+		}
+		if h.Status == "DRAFT" {
+			profile, e := readOwnerProfile(tx)
+			if e != nil {
+				return e
+			}
+			n.OwnerName, n.OwnerPhone, n.OwnerAddress = profile.Name, profile.Phone, profile.Address
+		}
+		var lines []Line
+		if e := tx.Table("sale_document_item").Where("document_id=?", id).Order("id ASC").Find(&lines).Error; e != nil {
+			return e
+		}
+		totalQty, totalAmount := int64(0), int64(0)
+		for i := range lines {
+			l := &lines[i]
+			qty := milliText(l.QuantityMilli)
+			amount := moneyText(l.AmountCents)
+			n.Items = append(n.Items, DeliveryNoteLine{ProductID: l.ProductID, ProductCode: l.ProductCode, ProductName: l.ProductName, ProductModel: l.ProductModel, ProductSpecification: l.ProductSpecification, Unit: l.Unit, Quantity: qty, UnitPrice: moneyText(l.UnitPriceCents), Amount: amount, Remark: l.Remark})
+			if totalQty > math.MaxInt64-l.QuantityMilli {
+				return ErrInvalid
+			}
+			totalQty += l.QuantityMilli
+			if totalAmount > math.MaxInt64-l.AmountCents {
+				return ErrInvalid
+			}
+			totalAmount += l.AmountCents
+		}
+		n.TotalQuantity = milliText(totalQty)
+		n.TotalAmount = moneyText(totalAmount)
+		out = n
+		return nil
+	})
+	if e != nil {
+		return nil, mapErr(e)
+	}
+	return out, nil
+}
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Draft{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Draft{})

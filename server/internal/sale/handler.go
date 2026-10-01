@@ -24,6 +24,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("", h.create)
 	g.GET("", h.page)
 	g.GET("/:id", h.detail)
+	g.GET("/:id/delivery-note", h.deliveryNote)
 	g.PUT("/:id", h.edit)
 	g.POST("/:id/post", h.post)
 	g.POST("/:id/cancel", h.cancel)
@@ -147,6 +148,27 @@ func (h *Handler) detail(c *gin.Context) {
 		return
 	}
 	v, e := h.s.Detail(c.Request.Context(), id)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 送货单只读打印数据
+// @Tags 销售出库
+// @Security BearerAuth
+// @Param id path int true "销售单ID"
+// @Success 200 {object} ApiEnvelope{data=DeliveryNote}
+// @Failure 404 {object} ApiEnvelope
+// @Router /api/v1/sales/{id}/delivery-note [get]
+func (h *Handler) deliveryNote(c *gin.Context) {
+	id, e := pathID(c)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	v, e := h.s.DeliveryNote(c.Request.Context(), id)
 	if e != nil {
 		fail(c, e)
 		return

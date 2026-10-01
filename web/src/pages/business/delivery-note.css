@@ -1,0 +1,156 @@
+/* A4 portrait delivery note. Everything outside .delivery-note-print is hidden
+   when printing, and each .delivery-page breaks onto its own sheet. */
+
+.delivery-note-print {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.delivery-page {
+  position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 12mm 14mm;
+  background: #fff;
+  color: #111827;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  display: flex;
+  flex-direction: column;
+}
+
+.delivery-watermark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 72px;
+  font-weight: 700;
+  color: rgba(220, 38, 38, 0.12);
+  transform: rotate(-24deg);
+  pointer-events: none;
+}
+
+.delivery-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.delivery-owner {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.delivery-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 4px;
+}
+
+.delivery-meta {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 12px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.delivery-table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.delivery-table th,
+.delivery-table td {
+  border: 1px solid #9ca3af;
+  padding: 3px 5px;
+  text-align: left;
+  word-break: break-all;
+}
+
+.delivery-table thead th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.col-index { width: 32px; text-align: center; }
+.col-qty { width: 60px; text-align: right; }
+.col-money { width: 72px; text-align: right; }
+
+.delivery-tail {
+  margin-top: 10px;
+}
+
+.delivery-total {
+  font-weight: 600;
+  text-align: right;
+}
+
+.delivery-remark {
+  margin-top: 4px;
+}
+
+.delivery-sign {
+  margin-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.delivery-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .delivery-note-print,
+  .delivery-note-print * {
+    visibility: visible;
+  }
+
+  .delivery-note-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block;
+  }
+
+  .delivery-page {
+    border: none;
+    margin: 0;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .delivery-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .delivery-watermark {
+    color: rgba(220, 38, 38, 0.16);
+  }
+}

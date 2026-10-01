@@ -71,6 +71,9 @@ export const createSale=(data:SaleInput)=>http.post<SaleDraft>("/api/v1/sales",d
 export const updateSale=(id:number,data:SaleInput&{version:number})=>http.put<SaleDraft>(`/api/v1/sales/${id}`,data);
 export const cancelSale=(id:number,data:{version:number;reason:string})=>http.post<SaleDraft>(`/api/v1/sales/${id}/cancel`,data);
 export const postSale=(id:number,version:number)=>http.post<SaleDraft>(`/api/v1/sales/${id}/post`,{version});
+export type DeliveryNoteLine = {productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
+export type DeliveryNote = {documentNo:string;status:"DRAFT"|"POSTED"|"CANCELLED";posted:boolean;businessDate:string;partnerId:number;partnerName:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;ownerName:string;ownerPhone:string;ownerAddress:string;remark?:string|null;items:DeliveryNoteLine[];totalQuantity:string;totalAmount:string};
+export const getDeliveryNote=(id:number)=>http.get<DeliveryNote>(`/api/v1/sales/${id}/delivery-note`);
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};

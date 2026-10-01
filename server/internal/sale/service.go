@@ -27,6 +27,7 @@ type Store interface {
 	Post(context.Context, int64, int64, audit.Event) (Draft, error)
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
+	DeliveryNote(context.Context, int64) (*DeliveryNote, error)
 }
 type Service struct{ store Store }
 
@@ -72,6 +73,12 @@ func (s *Service) Detail(ctx context.Context, id int64) (*Draft, error) {
 		return nil, ErrInvalid
 	}
 	return s.store.Find(ctx, id)
+}
+func (s *Service) DeliveryNote(ctx context.Context, id int64) (*DeliveryNote, error) {
+	if id < 1 {
+		return nil, ErrInvalid
+	}
+	return s.store.DeliveryNote(ctx, id)
 }
 func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 	if q.Page < 1 {

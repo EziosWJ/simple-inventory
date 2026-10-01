@@ -35,6 +35,7 @@ import { PurchasesPage } from "@/pages/business/purchases";
 import { PurchaseReturnsPage } from "@/pages/business/purchase-returns";
 import { SaleReturnsPage } from "@/pages/business/sale-returns";
 import { SalesPage } from "@/pages/business/sales";
+import { DeliveryNotePage } from "@/pages/business/delivery-note";
 import { PartnerBalancesPage } from "@/pages/business/partner-balances";
 
 export const router = createBrowserRouter([
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
       { path: "business/purchase-returns", element: <PurchaseReturnsPage /> },
       { path: "business/sale-returns", element: <SaleReturnsPage /> },
       { path: "business/sales", element: <SalesPage /> },
+      { path: "business/sales/:id/delivery-note", element: <DeliveryNotePage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
       {
         path: "forms/basic",

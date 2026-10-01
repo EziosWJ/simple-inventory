@@ -1120,6 +1120,66 @@ definitions:
       version:
         type: integer
     type: object
+  sale.DeliveryNote:
+    properties:
+      businessDate:
+        type: string
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      documentNo:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/sale.DeliveryNoteLine'
+        type: array
+      ownerAddress:
+        type: string
+      ownerName:
+        type: string
+      ownerPhone:
+        type: string
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      posted:
+        type: boolean
+      remark:
+        type: string
+      status:
+        type: string
+      totalAmount:
+        type: string
+      totalQuantity:
+        type: string
+    type: object
+  sale.DeliveryNoteLine:
+    properties:
+      amount:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      quantity:
+        type: string
+      remark:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
   sale.Draft:
     properties:
       businessDate:
@@ -5591,6 +5651,33 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消销售出库草稿
+      tags:
+      - 销售出库
+  /api/v1/sales/{id}/delivery-note:
+    get:
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.DeliveryNote'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 送货单只读打印数据
       tags:
       - 销售出库
   /api/v1/sales/{id}/post:
