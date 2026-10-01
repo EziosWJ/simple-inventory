@@ -4,6 +4,7 @@ import {
   createPurchase,
   getPurchase,
   partnerPage,
+  postPurchase,
   productPage,
   purchasePage,
   updatePurchase,
@@ -14,6 +15,7 @@ import {
   type PurchaseLineInput,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
+import { useSearchParams } from "react-router-dom";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { DetailDialog } from "@/components/common/detail-dialog";
 import { Field } from "@/components/common/field";
@@ -58,6 +60,7 @@ const blankLine = (): LineForm => ({
 const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
+  const [searchParams] = useSearchParams();
   const [records, setRecords] = useState<PurchaseDraft[]>([]);
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -78,6 +81,7 @@ export function PurchasesPage() {
   const [detail, setDetail] = useState<PurchaseDraft | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PurchaseDraft | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [postTarget, setPostTarget] = useState<PurchaseDraft | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -116,6 +120,7 @@ export function PurchasesPage() {
   }, []);
 
   useEffect(() => load(), [load, reload]);
+  useEffect(() => { const id=Number(searchParams.get("purchaseId")); if(id>0) void getPurchase(id).then(setDetail).catch((reason:unknown)=>setError(reason instanceof Error?reason.message:"读取采购单失败")); }, [searchParams]);
 
   function startNew() {
     setEditing(null);
@@ -206,6 +211,7 @@ export function PurchasesPage() {
       setSaving(false);
     }
   }
+  async function confirmPost(){if(!postTarget)return;setSaving(true);try{await postPurchase(postTarget.id,postTarget.version);setPostTarget(null);setDetail(null);setReload(v=>v+1);}catch(reason){setError(reason instanceof Error?reason.message:"过账失败，单据仍保留");}finally{setSaving(false);}}
 
   function applyFilters() {
     if (filters.businessFrom && filters.businessTo && filters.businessFrom > filters.businessTo) {
@@ -236,7 +242,7 @@ export function PurchasesPage() {
     { title: "供应商", dataIndex: "partnerName" },
     { title: "业务日期", dataIndex: "businessDate", nowrap: true },
     { title: "金额", dataIndex: "totalAmount", align: "right", render: (value) => `¥${String(value ?? "0.00")}` },
-    { title: "状态", dataIndex: "status", render: (value) => (value === "DRAFT" ? "草稿" : "已取消") },
+    { title: "状态", dataIndex: "status", render: (value) => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[String(value)] ?? String(value)) },
     { title: "创建人", dataIndex: "createdByName" },
     {
       title: "操作",
@@ -248,9 +254,11 @@ export function PurchasesPage() {
           {record.status === "DRAFT" && (
             <>
               <Button size="sm" variant="secondary" onClick={() => void startEdit(record)}>编辑</Button>
+              <Button size="sm" onClick={() => setPostTarget(record)}>过账</Button>
               <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>取消</Button>
             </>
           )}
+          {record.status === "POSTED" && <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button>}
         </div>
       ),
     },
@@ -280,7 +288,7 @@ export function PurchasesPage() {
         </Field>
         <Field label="状态">
           <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-            <option value="">全部状态</option><option value="DRAFT">草稿</option><option value="CANCELLED">已取消</option>
+            <option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option>
           </select>
         </Field>
         <Field label="商品">
@@ -368,7 +376,7 @@ export function PurchasesPage() {
       <DetailDialog
         open={detail !== null}
         title={`采购入库单${detail ? ` · ${detail.documentNo}` : "详情"}`}
-        description={detail ? `${detail.partnerName} · ${detail.businessDate} · ${detail.status === "DRAFT" ? "草稿" : "已取消"}` : undefined}
+        description={detail ? `${detail.partnerName} · ${detail.businessDate} · ${{DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[detail.status]}` : undefined}
         onCancel={() => setDetail(null)}
       >
         {detail && (
@@ -388,6 +396,7 @@ export function PurchasesPage() {
             <p className="mt-space-4 text-right font-medium">合计：¥{detail.totalAmount}</p>
             <p className="mt-space-2 text-sm text-text-tertiary">
               创建人：{detail.createdByName} · 创建时间：{new Date(detail.createTime).toLocaleString()}
+              {detail.postedByName && ` · 过账人：${detail.postedByName}`}
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
             </p>
             {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
@@ -397,8 +406,8 @@ export function PurchasesPage() {
 
       <FormDialog
         open={cancelTarget !== null}
-        title="取消采购草稿"
-        description={cancelTarget ? `单号 ${cancelTarget.documentNo}。取消后保留记录，不影响库存与应付。` : undefined}
+        title={cancelTarget?.status === "POSTED" ? "整单取消采购入库" : "取消采购草稿"}
+        description={cancelTarget ? `单号 ${cancelTarget.documentNo}。已付款保留；若库存不足，整单取消将被拒绝。` : undefined}
         submitText="确认取消"
         loading={saving}
         submitDisabled={!cancelReason.trim()}
@@ -408,6 +417,9 @@ export function PurchasesPage() {
         <Field label="取消原因" required>
           <Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={500} placeholder="请说明取消原因" />
         </Field>
+      </FormDialog>
+      <FormDialog open={postTarget !== null} title="过账采购入库单" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 合计 ¥${postTarget.totalAmount}。确认后库存与应付同时生效。` : undefined} submitText="确认过账" loading={saving} onCancel={() => setPostTarget(null)} onSubmit={confirmPost}>
+        {postTarget && <p className="text-sm">明细 {postTarget.items.length} 行 · 当前版本 {postTarget.version}</p>}
       </FormDialog>
     </div>
   );

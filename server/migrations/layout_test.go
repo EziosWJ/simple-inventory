@@ -51,6 +51,9 @@ func TestSchemaAndSeedResponsibilitiesStaySeparate(t *testing.T) {
 			// SQLite table-rebuild migrations copy existing data into a replacement table.
 			ddlOnly := strings.ReplaceAll(string(contents), "INSERT INTO partner_balance_entry_new", "COPY INTO partner_balance_entry_new")
 			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO partner_balance_entry_old", "COPY INTO partner_balance_entry_old")
+			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO purchase_document_new", "COPY INTO purchase_document_new")
+			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO purchase_document_item_new", "COPY INTO purchase_document_item_new")
+			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO inventory_entry_new", "COPY INTO inventory_entry_new")
 			if schemaDML.Match([]byte(ddlOnly)) {
 				t.Errorf("schema migration %s contains seed-data DML", name)
 			}

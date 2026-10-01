@@ -210,9 +210,10 @@ func (r *Repository) BalancePage(ctx context.Context, q BalanceQuery) (BalancePa
 // a ledger line must keep showing the text it was written with.
 func entryQuery(db *gorm.DB) *gorm.DB {
 	return db.Table("inventory_entry e").
-		Select("e.*,COALESCE(NULLIF(u.nickname,''),u.username) AS operator_name,COALESCE(a.document_no,'') AS document_no").
+		Select("e.*,COALESCE(NULLIF(u.nickname,''),u.username) AS operator_name,COALESCE(a.document_no,pd.document_no,'') AS document_no,CASE WHEN e.purchase_id IS NULL THEN 'ADJUSTMENT' ELSE 'PURCHASE' END AS source_type").
 		Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").
-		Joins("LEFT JOIN inventory_adjustment a ON a.id=e.adjustment_id")
+		Joins("LEFT JOIN inventory_adjustment a ON a.id=e.adjustment_id").
+		Joins("LEFT JOIN purchase_document pd ON pd.id=e.purchase_id")
 }
 
 // EntryPage reads the ledger. Records and total use the same predicate, and the

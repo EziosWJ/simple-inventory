@@ -24,6 +24,7 @@ type Store interface {
 	Create(context.Context, Draft, []Line, audit.Event) (Draft, error)
 	Edit(context.Context, int64, int64, Draft, []Line, audit.Event) (Draft, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Draft, error)
+	Post(context.Context, int64, int64, audit.Event) (Draft, error)
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
 }
@@ -55,6 +56,12 @@ func (s *Service) Cancel(ctx context.Context, m audit.Metadata, id int64, in Can
 	}
 	return s.store.Cancel(ctx, id, in.Version, reason, audit.Event{Action: "purchase.draft.cancel", Resource: "purchase", ResourceID: id, Summary: "取消采购入库草稿", Metadata: m})
 }
+func (s *Service) Post(ctx context.Context, m audit.Metadata, id int64, in PostInput) (Draft, error) {
+	if id < 1 || in.Version < 1 || in.Version == math.MaxInt64 {
+		return Draft{}, ErrInvalid
+	}
+	return s.store.Post(ctx, id, in.Version, audit.Event{Action: "purchase.post", Resource: "purchase", ResourceID: id, Summary: "过账采购入库单", Metadata: m})
+}
 func (s *Service) Detail(ctx context.Context, id int64) (*Draft, error) {
 	if id < 1 {
 		return nil, ErrInvalid
@@ -74,7 +81,7 @@ func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 {
 		return Page{}, ErrInvalid
 	}
-	if q.Status != "" && q.Status != "DRAFT" && q.Status != "CANCELLED" {
+	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {
 		return Page{}, ErrInvalid
 	}
 	if q.BusinessFrom != "" {

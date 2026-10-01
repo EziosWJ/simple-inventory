@@ -25,7 +25,33 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("", h.page)
 	g.GET("/:id", h.detail)
 	g.PUT("/:id", h.edit)
+	g.POST("/:id/post", h.post)
 	g.POST("/:id/cancel", h.cancel)
+}
+
+// @Summary 过账采购入库单
+// @Tags 采购入库
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "采购单ID"
+// @Param body body PostInput true "确认当前版本"
+// @Success 200 {object} ApiEnvelope{data=Draft}
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/purchases/{id}/post [post]
+func (h *Handler) post(c *gin.Context) {
+	id, e := pathID(c)
+	var in PostInput
+	if e != nil || c.ShouldBindJSON(&in) != nil {
+		fail(c, ErrInvalid)
+		return
+	}
+	v, e := h.s.Post(c.Request.Context(), meta(c), id, in)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
 }
 func meta(ctx *gin.Context) audit.Metadata {
 	m := audit.Metadata{RequestID: platform.RequestIDFromContext(ctx.Request.Context())}
@@ -74,7 +100,7 @@ func (h *Handler) create(c *gin.Context) {
 // @Param documentNo query string false "单号"
 // @Param partnerId query int false "供应商ID"
 // @Param productId query int false "商品ID"
-// @Param status query string false "状态" Enums(DRAFT,CANCELLED)
+// @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
 // @Success 200 {object} ApiEnvelope{data=Page}

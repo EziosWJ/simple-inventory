@@ -54,8 +54,11 @@ func (Item) TableName() string { return "inventory_adjustment_item" }
 type Entry struct {
 	ID                   int64   `json:"id"`
 	ProductID            int64   `json:"productId"`
-	AdjustmentID         int64   `json:"adjustmentId"`
-	AdjustmentItemID     int64   `json:"adjustmentItemId"`
+	AdjustmentID         int64   `json:"adjustmentId,omitempty"`
+	AdjustmentItemID     int64   `json:"adjustmentItemId,omitempty"`
+	PurchaseID           *int64  `json:"purchaseId,omitempty"`
+	PurchaseItemID       *int64  `json:"purchaseItemId,omitempty"`
+	SourceType           string  `json:"sourceType" gorm:"->;-:migration"`
 	EntryType            string  `json:"entryType"`
 	QuantityMilli        int64   `json:"-"`
 	Quantity             string  `json:"quantity" gorm:"-"`

@@ -5255,6 +5255,7 @@ const docTemplate = `{
                     {
                         "enum": [
                             "DRAFT",
+                            "POSTED",
                             "CANCELLED"
                         ],
                         "type": "string",
@@ -5492,6 +5493,69 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/purchase.CancelInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/purchase.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/purchase.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/purchases/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "采购入库"
+                ],
+                "summary": "过账采购入库单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "采购单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "确认当前版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/purchase.PostInput"
                         }
                     }
                 ],
@@ -6150,6 +6214,12 @@ const docTemplate = `{
                 "productSpecification": {
                     "type": "string"
                 },
+                "purchaseId": {
+                    "type": "integer"
+                },
+                "purchaseItemId": {
+                    "type": "integer"
+                },
                 "quantity": {
                     "type": "string"
                 },
@@ -6157,6 +6227,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "remark": {
+                    "type": "string"
+                },
+                "sourceType": {
                     "type": "string"
                 },
                 "unit": {
@@ -6556,6 +6629,15 @@ const docTemplate = `{
                 "partnerName": {
                     "type": "string"
                 },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedBy": {
+                    "type": "integer"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
                 "remark": {
                     "type": "string"
                 },
@@ -6693,6 +6775,14 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "purchase.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
                     "type": "integer"
                 }
             }

@@ -375,11 +375,17 @@ definitions:
         type: string
       productSpecification:
         type: string
+      purchaseId:
+        type: integer
+      purchaseItemId:
+        type: integer
       quantity:
         type: string
       reason:
         type: string
       remark:
+        type: string
+      sourceType:
         type: string
       unit:
         type: string
@@ -641,6 +647,12 @@ definitions:
         type: integer
       partnerName:
         type: string
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
+        type: string
       remark:
         type: string
       status:
@@ -731,6 +743,11 @@ definitions:
           $ref: '#/definitions/purchase.Draft'
         type: array
       total:
+        type: integer
+    type: object
+  purchase.PostInput:
+    properties:
+      version:
         type: integer
     type: object
   rbac.ApiEnvelope:
@@ -4275,6 +4292,7 @@ paths:
       - description: 状态
         enum:
         - DRAFT
+        - POSTED
         - CANCELLED
         in: query
         name: status
@@ -4433,6 +4451,43 @@ paths:
       security:
       - BearerAuth: []
       summary: 取消采购入库草稿
+      tags:
+      - 采购入库
+  /api/v1/purchases/{id}/post:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 采购单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 确认当前版本
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/purchase.PostInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchase.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchase.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 过账采购入库单
       tags:
       - 采购入库
   /api/v1/warehouse:
