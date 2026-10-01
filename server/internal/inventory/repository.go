@@ -357,6 +357,13 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		// A stable product order keeps concurrent multi-product postings from
 		// deadlocking against each other on PostgreSQL row locks.
 		sort.Slice(items, func(i, j int) bool { return items[i].ProductID < items[j].ProductID })
+		if e := lockStockProducts(tx, items); e != nil {
+			return e
+		}
+		occurred = time.Now().UTC()
+		if e := tx.Model(&Adjustment{}).Where("id=?", id).Update("posted_at", occurred).Error; e != nil {
+			return e
+		}
 		for i := range items {
 			item := &items[i]
 			p, e := readProduct(tx, item.ProductID)
@@ -484,7 +491,7 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 			return changed.Error
 		}
 		if changed.RowsAffected > 0 {
-			if e := reverseOn(tx, id, occurred, event.Metadata.ActorID); e != nil {
+			if e := reverseOn(tx, id, &occurred, event.Metadata.ActorID); e != nil {
 				return e
 			}
 		} else {
@@ -495,6 +502,9 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 			if e := checkMutation(tx, id, changed); e != nil {
 				return e
 			}
+		}
+		if e := tx.Model(&Adjustment{}).Where("id=?", id).Update("cancelled_at", occurred).Error; e != nil {
+			return e
 		}
 		if e := audit.RecordOn(ctx, tx, event); e != nil {
 			return e
@@ -516,9 +526,9 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 // The line refers to the same adjustment and the same adjustment item as its
 // original entry, and entry_type tells the two apart; UNIQUE(adjustment_item_id,
 // entry_type) makes that pair the exact link back to the original ledger row.
-// Nothing is read from the product: a disabled product must still be cancelable,
+// Only product identity is locked: a disabled product remains cancelable,
 // and the confirmed type, unit and description stay those of the posting.
-func reverseOn(tx *gorm.DB, id int64, occurred time.Time, operatorID int64) error {
+func reverseOn(tx *gorm.DB, id int64, stamp *time.Time, operatorID int64) error {
 	items, e := loadStoredItems(tx, id)
 	if e != nil {
 		return e
@@ -527,6 +537,11 @@ func reverseOn(tx *gorm.DB, id int64, occurred time.Time, operatorID int64) erro
 		return fmt.Errorf("已过账调整单%d缺少明细，无法冲销", id)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ProductID < items[j].ProductID })
+	if e := lockStockProducts(tx, items); e != nil {
+		return e
+	}
+	occurred := time.Now().UTC()
+	*stamp = occurred
 	for i := range items {
 		item := &items[i]
 		if item.ProductCode == "" || item.ProductName == "" {
@@ -580,4 +595,19 @@ func checkMutation(tx *gorm.DB, id int64, result *gorm.DB) error {
 		return ErrNotFound
 	}
 	return ErrConflict
+}
+
+// Stock writers serialize on the same product rows used by purchases and sales.
+// The execution timestamp is sampled only after all of them are held.
+func lockStockProducts(tx *gorm.DB, items []Item) error {
+	if tx.Dialector.Name() != "postgres" {
+		return nil
+	}
+	for _, item := range items {
+		var p struct{ ID int64 }
+		if e := tx.Table("product").Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", item.ProductID).Take(&p).Error; e != nil {
+			return e
+		}
+	}
+	return nil
 }

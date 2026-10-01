@@ -73,13 +73,18 @@ func assertDirectDeliveryContract(t *testing.T, r http.Handler) {
 	fixed := `{"version":2,` + strings.TrimPrefix(saleBody, "{")
 	expect("PUT", fmt.Sprintf("/api/v1/sales/%d", so.ID), fixed, 200)
 	so = inventoryData[sale.Draft](t, serveJSON(r, "POST", fmt.Sprintf("/api/v1/sales/%d/post", so.ID), `{"version":3}`, token), 200)
+	expect("PUT", fmt.Sprintf("/api/v1/partners/%d", p), `{"code":"DIRECT-P","name":"改名后的往来","type":"COMPANY","isCustomer":true,"isSupplier":true}`, 200)
+	snapshot := inventoryData[purchase.Draft](t, serveJSON(r, "GET", fmt.Sprintf("/api/v1/purchases/%d", pi.ID), "", token), 200)
+	if len(snapshot.DirectDocuments) != 1 || snapshot.DirectDocuments[0].PartnerName != "直送往来" {
+		t.Fatalf("posted association lost partner snapshot: %+v", snapshot.DirectDocuments)
+	}
 	assertDirectReturnPath(t, r, token, p, g, pi, so)
 	expect("POST", fmt.Sprintf("/api/v1/sales/%d/post", so.ID), `{"version":1}`, 409)
 	expect("POST", fmt.Sprintf("/api/v1/purchases/%d/cancel", pi.ID), `{"version":2,"reason":"不能先取消"}`, 409)
 	expect("POST", fmt.Sprintf("/api/v1/sales/%d/cancel", so.ID), `{"version":4,"reason":"录错"}`, 200)
 	replacement := inventoryData[sale.Draft](t, serveJSON(r, "POST", "/api/v1/sales", saleBody, token), 200)
 	got := inventoryData[purchase.Draft](t, serveJSON(r, "GET", fmt.Sprintf("/api/v1/purchases/%d", pi.ID), "", token), 200)
-	if len(got.DirectDocuments) != 2 || got.DirectDocuments[0].Status != "CANCELLED" {
+	if len(got.DirectDocuments) != 2 || got.DirectDocuments[0].Status != "CANCELLED" || got.DirectDocuments[0].PartnerName != "直送往来" || got.DirectDocuments[1].PartnerName != "改名后的往来" {
 		t.Fatalf("history lost: %+v", got.DirectDocuments)
 	}
 	expect("POST", fmt.Sprintf("/api/v1/sales/%d/cancel", replacement.ID), `{"version":1,"reason":"取消草稿"}`, 200)
@@ -101,7 +106,7 @@ func assertDirectReturnPath(t *testing.T, r http.Handler, token string, partner,
 	expect(fmt.Sprintf("/api/v1/purchase-returns/%d/post", pr.ID), `{"version":1}`, 409)
 	sr := inventoryData[salereturn.Document](t, serveJSON(r, "POST", "/api/v1/sale-returns", fmt.Sprintf(`{"saleId":%d,"businessDate":"2026-10-01","items":[{"saleItemId":%d,"quantity":"0.5"}]}`, so.ID, so.Items[0].ID), token), 200)
 	sr = inventoryData[salereturn.Document](t, serveJSON(r, "POST", fmt.Sprintf("/api/v1/sale-returns/%d/post", sr.ID), `{"version":1}`, token), 200)
-	if sr.TotalAmount != "15.00" {
+	if sr.BusinessDate != "2026-10-01" || sr.TotalAmount != "15.00" {
 		t.Fatalf("sale return own price lost: %+v", sr)
 	}
 	stock := inventoryData[struct {
@@ -120,8 +125,13 @@ func assertDirectReturnPath(t *testing.T, r http.Handler, token string, partner,
 		t.Fatalf("sale return stock interim=%+v", stock)
 	}
 	pr = inventoryData[purchasereturn.Document](t, serveJSON(r, "POST", fmt.Sprintf("/api/v1/purchase-returns/%d/post", pr.ID), `{"version":1}`, token), 200)
-	if pr.TotalAmount != "10.00" || pr.DirectTrace == nil || len(pr.DirectTrace.SaleReturns) != 1 || pr.DirectTrace.SaleReturns[0].TotalAmount != "15.00" || pr.DirectTrace.PurchaseReturns[0].TotalAmount != "10.00" || pr.DirectTrace.SaleReturns[0].Items[0].Quantity != "0.5" || pr.DirectTrace.SaleReturns[0].PostedByName == "" {
+	if pr.BusinessDate != "2026-10-01" || pr.TotalAmount != "10.00" || pr.DirectTrace == nil || len(pr.DirectTrace.SaleReturns) != 1 || pr.DirectTrace.SaleReturns[0].TotalAmount != "15.00" || pr.DirectTrace.PurchaseReturns[0].TotalAmount != "10.00" || pr.DirectTrace.SaleReturns[0].Items[0].Quantity != "0.5" || pr.DirectTrace.SaleReturns[0].PostedByName == "" {
 		t.Fatalf("two sides trace=%+v", pr.DirectTrace)
+	}
+	for _, doc := range append(append(pr.DirectTrace.Sales, pr.DirectTrace.SaleReturns...), pr.DirectTrace.PurchaseReturns...) {
+		if doc.BusinessDate != "2026-10-01" {
+			t.Fatalf("trace business date=%q", doc.BusinessDate)
+		}
 	}
 	for _, url := range []string{fmt.Sprintf("/api/v1/purchases/%d", pi.ID), fmt.Sprintf("/api/v1/sales/%d", so.ID), fmt.Sprintf("/api/v1/sale-returns/%d", sr.ID), fmt.Sprintf("/api/v1/purchase-returns/%d", pr.ID), fmt.Sprintf("/api/v1/sale-returns/source/%d", so.ID), fmt.Sprintf("/api/v1/purchase-returns/source/%d", pi.ID)} {
 		x := inventoryData[struct{ DirectTrace json.RawMessage }](t, serveJSON(r, "GET", url, "", token), 200)

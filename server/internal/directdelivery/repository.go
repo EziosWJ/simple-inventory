@@ -67,7 +67,11 @@ func PurchaseQuantities(tx *gorm.DB, id int64) (map[int64]int64, error) {
 }
 func refs(db *gorm.DB, table, condition string, args ...any) ([]DocumentRef, error) {
 	out := []DocumentRef{}
-	e := db.Table(table+" d").Select("d.id,d.document_no,d.status,p.name AS partner_name,d.posted_at,d.cancelled_at,d.cancel_reason,COALESCE(NULLIF(u.nickname,''),u.username) AS posted_by_name,COALESCE(NULLIF(c.nickname,''),c.username) AS cancelled_by_name").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user u ON u.id=d.posted_by").Joins("LEFT JOIN sys_user c ON c.id=d.cancelled_by").Where(condition, args...).Order("d.id").Scan(&out).Error
+	name := "p.name"
+	if table == "sale_document" {
+		name = "CASE WHEN d.posted_at IS NOT NULL THEN d.partner_name ELSE p.name END"
+	}
+	e := db.Table(table+" d").Select("d.id,d.document_no,d.status,"+name+" AS partner_name,d.posted_at,d.cancelled_at,d.cancel_reason,COALESCE(NULLIF(u.nickname,''),u.username) AS posted_by_name,COALESCE(NULLIF(c.nickname,''),c.username) AS cancelled_by_name").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user u ON u.id=d.posted_by").Joins("LEFT JOIN sys_user c ON c.id=d.cancelled_by").Where(condition, args...).Order("d.id").Scan(&out).Error
 	return out, e
 }
 func PurchaseSales(db *gorm.DB, id int64) ([]DocumentRef, error) {

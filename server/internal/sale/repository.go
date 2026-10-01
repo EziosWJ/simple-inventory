@@ -180,7 +180,7 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 			if err := rejectSaleWithReturns(tx, id); err != nil {
 				return err
 			}
-			if err := reverseSale(tx, h, id, reason, now, event.Metadata.ActorID); err != nil {
+			if err := reverseSale(tx, h, id, reason, &now, event.Metadata.ActorID); err != nil {
 				return err
 			}
 		}
@@ -272,8 +272,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		if e = tx.Table("partner").Select("id,name,is_customer").Where("id=? AND status=1", h.PartnerID).Take(&partner).Error; e != nil || !partner.IsCustomer {
 			return fmt.Errorf("%w：客户已停用或身份已变化", ErrInvalid)
 		}
-		now := time.Now().UTC()
-		if e = tx.Exec("INSERT INTO partner_balance(partner_id,direction,amount_cents,entry_count,update_time) VALUES (?, 'CUSTOMER', 0, 0, ?) ON CONFLICT(partner_id,direction) DO NOTHING", h.PartnerID, now).Error; e != nil {
+		if e = tx.Exec("INSERT INTO partner_balance(partner_id,direction,amount_cents,entry_count,update_time) VALUES (?, 'CUSTOMER', 0, 0, ?) ON CONFLICT(partner_id,direction) DO NOTHING", h.PartnerID, time.Now().UTC()).Error; e != nil {
 			return e
 		}
 		var balance struct{ ID, AmountCents int64 }
@@ -332,6 +331,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		if er != nil {
 			return er
 		}
+		now := time.Now().UTC()
 		for _, l := range lines {
 			if l.ProductType != "GOODS" {
 				continue
@@ -473,7 +473,7 @@ func rejectSaleWithReturns(tx *gorm.DB, id int64) error {
 	return nil
 }
 
-func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, now time.Time, actor int64) error {
+func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, occurred *time.Time, actor int64) error {
 	var b struct{ ID, AmountCents int64 }
 	bq := tx.Table("partner_balance").Where("partner_id=? AND direction='CUSTOMER'", h.PartnerID)
 	if tx.Dialector.Name() == "postgres" {
@@ -513,6 +513,8 @@ func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, now time.Time, a
 			return fmt.Errorf("%w：商品%d冲销后库存超出范围，销售单未取消", ErrInvalid, productID)
 		}
 	}
+	now := time.Now().UTC()
+	*occurred = now
 	for _, l := range lines {
 		if l.ProductType != "GOODS" {
 			continue
@@ -578,7 +580,8 @@ func (r *Repository) DeliveryNote(ctx context.Context, id int64) (*DeliveryNote,
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var h struct {
 			ID, PartnerID                                   int64
-			DocumentNo, Status, BusinessDate                string
+			DocumentNo, Status                              string
+			BusinessDate                                    BusinessDate
 			PartnerName                                     string
 			DeliveryContact, DeliveryPhone, DeliveryAddress *string
 			OwnerName, OwnerPhone, OwnerAddress             string
@@ -591,7 +594,7 @@ func (r *Repository) DeliveryNote(ctx context.Context, id int64) (*DeliveryNote,
 		if e != nil {
 			return e
 		}
-		n := &DeliveryNote{DocumentNo: h.DocumentNo, Status: h.Status, Posted: h.Status == "POSTED", BusinessDate: h.BusinessDate, PartnerID: h.PartnerID, DeliveryContact: h.DeliveryContact, DeliveryPhone: h.DeliveryPhone, DeliveryAddress: h.DeliveryAddress, OwnerName: h.OwnerName, OwnerPhone: h.OwnerPhone, OwnerAddress: h.OwnerAddress, Remark: h.Remark, Items: []DeliveryNoteLine{}}
+		n := &DeliveryNote{DocumentNo: h.DocumentNo, Status: h.Status, Posted: h.Status == "POSTED", BusinessDate: string(h.BusinessDate), PartnerID: h.PartnerID, DeliveryContact: h.DeliveryContact, DeliveryPhone: h.DeliveryPhone, DeliveryAddress: h.DeliveryAddress, OwnerName: h.OwnerName, OwnerPhone: h.OwnerPhone, OwnerAddress: h.OwnerAddress, Remark: h.Remark, Items: []DeliveryNoteLine{}}
 		n.PartnerName = h.PartnerName
 		if n.PartnerName == "" {
 			if e := tx.Table("partner").Select("name").Where("id=?", h.PartnerID).Scan(&n.PartnerName).Error; e != nil {

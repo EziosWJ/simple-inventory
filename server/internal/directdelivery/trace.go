@@ -106,6 +106,9 @@ func traceDocs(db *gorm.DB, kind, condition string, args ...any) ([]TraceDocumen
 	}
 	for i := range out {
 		d := &out[i]
+		if len(d.BusinessDate) > 10 {
+			d.BusinessDate = d.BusinessDate[:10]
+		}
 		d.Kind = kind
 		d.Items = []TraceItem{}
 		if e := db.Table(table+"_item").Select("id,"+originItem+" AS original_item_id,product_id,product_code,product_name,unit,quantity_milli,unit_price_cents,amount_cents").Where("document_id=?", d.ID).Order("id").Scan(&d.Items).Error; e != nil {

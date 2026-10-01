@@ -142,12 +142,12 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 		}
 		oldStatus := old.Status
 		old.CancelReason = &reason
+		now := time.Now().UTC()
 		if old.Status == "POSTED" {
-			if e := reversePostedReturn(tx, id, old, event.Metadata.ActorID); e != nil {
+			if e := reversePostedReturn(tx, id, old, event.Metadata.ActorID, &now); e != nil {
 				return e
 			}
 		}
-		now := time.Now().UTC()
 		res := tx.Model(&Document{}).Where("id=? AND status=? AND version=?", id, oldStatus, version).Updates(map[string]any{"status": "CANCELLED", "version": version + 1, "cancelled_by": event.Metadata.ActorID, "cancelled_at": now, "cancel_reason": reason})
 		if res.Error != nil {
 			return res.Error
@@ -217,8 +217,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 			return ErrInvalid
 		}
 		// Balance before products matches purchase posting/cancellation and settlement lock order.
-		now := time.Now().UTC()
-		if e := tx.Exec("INSERT INTO partner_balance(partner_id,direction,amount_cents,entry_count,update_time) VALUES (?, 'SUPPLIER', 0, 0, ?) ON CONFLICT(partner_id,direction) DO NOTHING", h.PartnerID, now).Error; e != nil {
+		if e := tx.Exec("INSERT INTO partner_balance(partner_id,direction,amount_cents,entry_count,update_time) VALUES (?, 'SUPPLIER', 0, 0, ?) ON CONFLICT(partner_id,direction) DO NOTHING", h.PartnerID, time.Now().UTC()).Error; e != nil {
 			return e
 		}
 		var balance struct{ ID, AmountCents int64 }
@@ -285,6 +284,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 				return fmt.Errorf("%w：商品%d当前库存不足", ErrConflict, product)
 			}
 		}
+		now := time.Now().UTC()
 		for i := range lines {
 			l := &lines[i]
 			before, after, e := decrease(tx, l.ProductID, l.QuantityMilli, now)
@@ -336,7 +336,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 	return out, nil
 }
 
-func reversePostedReturn(tx *gorm.DB, id int64, h Document, actor int64) error {
+func reversePostedReturn(tx *gorm.DB, id int64, h Document, actor int64, occurred *time.Time) error {
 	// Lock origin first so this reversal cannot race another return post or purchase cancel.
 	var origin struct {
 		ID, PartnerID int64
@@ -382,6 +382,7 @@ func reversePostedReturn(tx *gorm.DB, id int64, h Document, actor int64) error {
 		return ErrInvalid
 	}
 	now := time.Now().UTC()
+	*occurred = now
 	for product, qty := range need {
 		var cur int64
 		if e := tx.Table("inventory_balance").Select("quantity_milli").Where("product_id=?", product).Scan(&cur).Error; e != nil {
@@ -573,6 +574,9 @@ func find(db *gorm.DB, id int64) (*Document, error) {
 	}
 	if e != nil {
 		return nil, e
+	}
+	if len(h.BusinessDate) > 10 {
+		h.BusinessDate = h.BusinessDate[:10]
 	}
 	var items []Item
 	e = db.Table("purchase_return_document_item i").Select("i.*").Where("i.document_id=?", id).Joins("JOIN purchase_document_item pi ON pi.id=i.purchase_item_id").Order("i.id").Find(&items).Error

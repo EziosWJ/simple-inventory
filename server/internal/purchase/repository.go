@@ -130,19 +130,19 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 				return e
 			}
 		}
+		if old.Status == "POSTED" {
+			reasonCopy := reason
+			old.CancelReason = &reasonCopy
+			if x := reversePurchase(tx, old, id, &now, event.Metadata.ActorID); x != nil {
+				return x
+			}
+		}
 		res := tx.Model(&Draft{}).Where("id=? AND status=? AND version=?", id, old.Status, version).Updates(map[string]any{"status": "CANCELLED", "version": version + 1, "cancelled_by": event.Metadata.ActorID, "cancelled_at": now, "cancel_reason": reason})
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected != 1 {
 			return ErrConflict
-		}
-		if old.Status == "POSTED" {
-			reasonCopy := reason
-			old.CancelReason = &reasonCopy
-			if x := reversePurchase(tx, old, id, now, event.Metadata.ActorID); x != nil {
-				return x
-			}
 		}
 		event.ResourceID = id
 		if e := audit.RecordOn(ctx, tx, event); e != nil {
@@ -160,7 +160,7 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 	return out, nil
 }
 
-func reversePurchase(tx *gorm.DB, h Draft, id int64, now time.Time, actor int64) error {
+func reversePurchase(tx *gorm.DB, h Draft, id int64, occurred *time.Time, actor int64) error {
 	// Keep balance-first ordering consistent with purchase posting and settlement.
 	var b struct{ ID, AmountCents int64 }
 	q := tx.Table("partner_balance").Where("partner_id=? AND direction='SUPPLIER'", h.PartnerID)
@@ -196,6 +196,8 @@ func reversePurchase(tx *gorm.DB, h Draft, id int64, now time.Time, actor int64)
 			return fmt.Errorf("%w：商品%d当前库存不足，采购单未取消", ErrConflict, productID)
 		}
 	}
+	now := time.Now().UTC()
+	*occurred = now
 	for _, l := range lines {
 		before, after, e := decreaseStock(tx, l.ProductID, l.QuantityMilli, now)
 		if e != nil {
