@@ -25,7 +25,38 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("/entries", h.page)
 	g.GET("/entries/:id", h.detail)
 	g.POST("/opening", h.create)
+	g.POST("/settlements", h.settle)
 	g.POST("/entries/:id/reverse", h.reverse)
+}
+
+// @Summary 按往来余额记录客户收款或供应商付款
+// @Tags 往来余额
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body SettlementInput true "收付款信息"
+// @Success 200 {object} ApiEnvelope{data=Entry}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/partner-balances/settlements [post]
+func (h *Handler) settle(c *gin.Context) {
+	var in SettlementInput
+	if c.ShouldBindJSON(&in) != nil {
+		platform.WriteError(c, 400, 400, "请求参数无效", nil)
+		return
+	}
+	v, e := h.s.Settle(c.Request.Context(), metadata(c.Request.Context()), in)
+	if e != nil {
+		if errors.Is(e, ErrInvalid) {
+			platform.WriteError(c, 400, 400, e.Error(), nil)
+		} else if errors.Is(e, ErrConflict) {
+			platform.WriteError(c, 409, 409, e.Error(), nil)
+		} else {
+			platform.WriteError(c, 500, 500, "保存收付款失败", nil)
+		}
+		return
+	}
+	platform.OK(c, v)
 }
 func metadata(ctx context.Context) audit.Metadata {
 	m := audit.Metadata{RequestID: platform.RequestIDFromContext(ctx)}
@@ -169,12 +200,12 @@ func (h *Handler) create(c *gin.Context) {
 	platform.OK(c, v)
 }
 
-// @Summary 冲销期初应收应付
+// @Summary 冲销期初应收应付或收付款记录
 // @Tags 往来余额
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path int true "期初流水ID"
+// @Param id path int true "往来流水ID"
 // @Param body body object true "冲销原因"
 // @Success 200 {object} ApiEnvelope{data=Entry}
 // @Failure 409 {object} ApiEnvelope

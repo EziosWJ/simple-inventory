@@ -61,6 +61,8 @@ type Entry struct {
 	OperatorID    int64     `json:"operatorId"`
 	ReversesID    *int64    `json:"reversesId"`
 	ReversedByID  *int64    `json:"reversedById"`
+	PaymentMethod string    `json:"paymentMethod,omitempty"`
+	TransactionNo string    `json:"transactionNo,omitempty"`
 }
 
 func (Entry) TableName() string { return "partner_balance_entry" }
@@ -72,6 +74,16 @@ type Input struct {
 	Amount       string `json:"amount"`
 	BusinessDate string `json:"businessDate"`
 	Description  string `json:"description"`
+}
+type SettlementInput struct {
+	RequestKey    string `json:"requestKey"`
+	PartnerID     int64  `json:"partnerId"`
+	Direction     string `json:"direction"`
+	Amount        string `json:"amount"`
+	BusinessDate  string `json:"businessDate"`
+	PaymentMethod string `json:"paymentMethod"`
+	TransactionNo string `json:"transactionNo"`
+	Remark        string `json:"remark"`
 }
 type Page struct {
 	Records  []Entry `json:"records"`
@@ -85,6 +97,7 @@ type Store interface {
 	Page(context.Context, int64, string, int, int) (Page, error)
 	Balances(context.Context, int64, int, int, string) (BalancePage, error)
 	Reverse(context.Context, audit.Metadata, int64, string) (Entry, error)
+	Settle(context.Context, audit.Metadata, SettlementInput) (Entry, error)
 }
 type Service struct{ store Store }
 type Repository struct{ db *gorm.DB }
@@ -148,6 +161,23 @@ func (s *Service) Create(ctx context.Context, meta audit.Metadata, in Input) (En
 		return Entry{}, e
 	}
 	return s.store.Create(ctx, meta, in)
+}
+func (s *Service) Settle(ctx context.Context, meta audit.Metadata, in SettlementInput) (Entry, error) {
+	_, err := cents(in.Amount)
+	if err != nil || in.PartnerID <= 0 || (in.Direction != "CUSTOMER" && in.Direction != "SUPPLIER") || strings.TrimSpace(in.RequestKey) == "" || len(in.RequestKey) > 100 || !validMethod(in.PaymentMethod) || utf8.RuneCountInString(in.TransactionNo) > 100 || utf8.RuneCountInString(in.Remark) > 500 {
+		return Entry{}, ErrInvalid
+	}
+	if _, err = time.Parse("2006-01-02", in.BusinessDate); err != nil {
+		return Entry{}, ErrInvalid
+	}
+	return s.store.Settle(ctx, meta, in)
+}
+func validMethod(v string) bool {
+	switch v {
+	case "CASH", "WECHAT", "ALIPAY", "BANK_TRANSFER", "OTHER":
+		return true
+	}
+	return false
 }
 func (s *Service) Page(ctx context.Context, partner int64, direction string, page, size int) (Page, error) {
 	if partner < 0 || page < 1 || size < 1 || size > 500 || (direction != "" && direction != "CUSTOMER" && direction != "SUPPLIER") {
@@ -266,6 +296,7 @@ type entryRow struct {
 	OperatorID                                         int64
 	ReversesID, ReversedByID                           *int64
 	RequestKey                                         *string
+	PaymentMethod, TransactionNo                       string
 }
 
 func (entryRow) TableName() string { return "partner_balance_entry" }
@@ -308,7 +339,96 @@ func (s *Repository) Page(ctx context.Context, partner int64, direction string, 
 	return out, nil
 }
 func fromRow(r entryRow) Entry {
-	return Entry{ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID}
+	return Entry{ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo}
+}
+
+func (s *Repository) Settle(ctx context.Context, meta audit.Metadata, in SettlementInput) (Entry, error) {
+	amount, err := cents(in.Amount)
+	if err != nil {
+		return Entry{}, ErrInvalid
+	}
+	date, err := time.Parse("2006-01-02", in.BusinessDate)
+	if err != nil {
+		return Entry{}, ErrInvalid
+	}
+	var out Entry
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		key := strings.TrimSpace(in.RequestKey)
+		var prev entryRow
+		e := tx.Where("request_key=?", key).Take(&prev).Error
+		if e == nil {
+			if prev.PartnerID != in.PartnerID || prev.Direction != in.Direction || prev.AmountCents != -amount || prev.PaymentMethod != in.PaymentMethod || prev.TransactionNo != in.TransactionNo {
+				return ErrConflict
+			}
+			out = fromRow(prev)
+			return nil
+		}
+		if !errors.Is(e, gorm.ErrRecordNotFound) {
+			return e
+		}
+		// Insert-first reserves SQLite's writer; the guarded UPDATE is the cross-database concurrency gate.
+		var b balanceRow
+		if e := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "partner_id"}, {Name: "direction"}}, DoNothing: true}).Create(&balanceRow{PartnerID: in.PartnerID, Direction: in.Direction}).Error; e != nil {
+			return e
+		}
+		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("partner_id=? AND direction=?", in.PartnerID, in.Direction).Take(&b).Error; e != nil {
+			return ErrConflict
+		}
+		// A concurrent retry may have committed while this request waited for the balance row.
+		if e := tx.Where("request_key=?", key).Take(&prev).Error; e == nil {
+			if prev.PartnerID != in.PartnerID || prev.Direction != in.Direction || prev.AmountCents != -amount || prev.PaymentMethod != in.PaymentMethod || prev.TransactionNo != strings.TrimSpace(in.TransactionNo) {
+				return ErrConflict
+			}
+			out = fromRow(prev)
+			return nil
+		} else if !errors.Is(e, gorm.ErrRecordNotFound) {
+			return e
+		}
+		var p struct {
+			ID         int64
+			IsCustomer bool `gorm:"column:is_customer"`
+			IsSupplier bool `gorm:"column:is_supplier"`
+		}
+		if e := tx.Table("partner").Select("id,is_customer,is_supplier").Where("id=?", in.PartnerID).Take(&p).Error; e != nil {
+			return ErrInvalid
+		}
+		if in.Direction == "CUSTOMER" && !p.IsCustomer || in.Direction == "SUPPLIER" && !p.IsSupplier { // allow historical settlement for inactive or role-changed partners
+			var exists int64
+			if tx.Model(&entryRow{}).Where("partner_id=? AND direction=?", in.PartnerID, in.Direction).Count(&exists).Error != nil || exists == 0 {
+				return ErrInvalid
+			}
+		}
+		if b.AmountCents <= 0 || b.AmountCents < amount {
+			return ErrConflict
+		}
+		before := b.AmountCents
+		after := before - amount
+		now := time.Now().UTC()
+		typ := "RECEIPT"
+		if in.Direction == "SUPPLIER" {
+			typ = "PAYMENT"
+		}
+		row := entryRow{PartnerID: in.PartnerID, Direction: in.Direction, EntryType: typ, AmountCents: -amount, BalanceBeforeCents: before, BalanceAfterCents: after, BusinessDate: date.Format("2006-01-02"), EffectiveAt: now, Description: strings.TrimSpace(in.Remark), DocumentNo: fmt.Sprintf("ST%s-%d", now.Format("20060102150405"), now.UnixNano()), OperatorID: meta.ActorID, RequestKey: &key, PaymentMethod: in.PaymentMethod, TransactionNo: strings.TrimSpace(in.TransactionNo)}
+		if row.Description == "" {
+			row.Description = "往来结算"
+		}
+		if e := tx.Create(&row).Error; e != nil {
+			return e
+		}
+		res := tx.Model(&balanceRow{}).Where("id=? AND amount_cents>=?", b.ID, amount).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return ErrConflict
+		}
+		if e := audit.RecordOn(ctx, tx, audit.Event{Action: "partner.settlement.create", Resource: "partner_balance", ResourceID: row.ID, Summary: "往来收付款", Metadata: meta}); e != nil {
+			return e
+		}
+		out = fromRow(row)
+		return nil
+	})
+	return out, err
 }
 func (s *Repository) Balances(ctx context.Context, partnerID int64, page, size int, direction string) (BalancePage, error) {
 	if page < 1 || size < 1 || size > 500 {
@@ -360,7 +480,7 @@ func (s *Repository) Reverse(ctx context.Context, meta audit.Metadata, id int64,
 		if er := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&orig, id).Error; er != nil {
 			return ErrNotFound
 		}
-		if orig.EntryType != "OPENING" || orig.ReversedByID != nil {
+		if (orig.EntryType != "OPENING" && orig.EntryType != "RECEIPT" && orig.EntryType != "PAYMENT") || orig.ReversedByID != nil {
 			return ErrConflict
 		}
 		amount := -orig.AmountCents
@@ -372,11 +492,11 @@ func (s *Repository) Reverse(ctx context.Context, meta audit.Metadata, id int64,
 		if er := tx.Model(&entryRow{}).Select("COALESCE(SUM(amount_cents),0)").Where("partner_id=? AND direction=?", orig.PartnerID, orig.Direction).Scan(&current).Error; er != nil {
 			return er
 		}
-		if current < math.MinInt64-amount || current+amount < 0 {
+		if (amount > 0 && current > math.MaxInt64-amount) || (orig.EntryType == "OPENING" && current+amount < 0) {
 			return ErrConflict
 		}
 		now := time.Now().UTC()
-		rev := entryRow{PartnerID: orig.PartnerID, Direction: orig.Direction, EntryType: "REVERSAL", AmountCents: amount, BalanceBeforeCents: current, BalanceAfterCents: current + amount, BusinessDate: time.Now().Format("2006-01-02"), EffectiveAt: now, Description: reason, DocumentNo: fmt.Sprintf("RV%s-%d", now.Format("20060102150405"), now.UnixNano()), OperatorID: meta.ActorID, ReversesID: &orig.ID}
+		rev := entryRow{PartnerID: orig.PartnerID, Direction: orig.Direction, EntryType: "REVERSAL", AmountCents: amount, BalanceBeforeCents: current, BalanceAfterCents: current + amount, BusinessDate: now.Format("2006-01-02"), EffectiveAt: now, Description: reason, DocumentNo: fmt.Sprintf("RV%s-%d", now.Format("20060102150405"), now.UnixNano()), OperatorID: meta.ActorID, ReversesID: &orig.ID}
 		if er := tx.Create(&rev).Error; er != nil {
 			return er
 		}

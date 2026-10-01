@@ -118,6 +118,43 @@ func assertOpeningBalanceContract(t *testing.T, router http.Handler, db *platfor
 	if ledgerCents != balanceCents || balanceCents != 10300 {
 		t.Fatalf("concurrent ledger/balance mismatch: ledger=%d balance=%d", ledgerCents, balanceCents)
 	}
+	settlePath := "/api/v1/partner-balances/settlements"
+	settleBody := fmt.Sprintf(`{"requestKey":"settlement-once","partnerId":%d,"direction":"SUPPLIER","amount":"60.00","businessDate":"2026-09-30","paymentMethod":"WECHAT","transactionNo":"WX-123","remark":"分次付款"}`, partnerID)
+	settled := inventoryData[map[string]any](t, serveJSON(router, http.MethodPost, settlePath, settleBody, token), 200)
+	if settled["entryType"] != "PAYMENT" || settled["amount"] != "-60.00" || settled["balanceBefore"] != "103.00" || settled["balanceAfter"] != "43.00" || settled["paymentMethod"] != "WECHAT" || settled["transactionNo"] != "WX-123" {
+		t.Fatalf("unexpected settlement: %#v", settled)
+	}
+	retriedSettlement := inventoryData[map[string]any](t, serveJSON(router, http.MethodPost, settlePath, settleBody, token), 200)
+	if retriedSettlement["id"] != settled["id"] {
+		t.Fatalf("settlement retry duplicated record: %#v %#v", settled, retriedSettlement)
+	}
+	overpay := fmt.Sprintf(`{"requestKey":"settlement-over","partnerId":%d,"direction":"SUPPLIER","amount":"43.01","businessDate":"2026-09-30","paymentMethod":"CASH"}`, partnerID)
+	inventoryData[any](t, serveJSON(router, http.MethodPost, settlePath, overpay, token), 409)
+	settlementReversePath := fmt.Sprintf("/api/v1/partner-balances/entries/%v/reverse", settled["id"])
+	reversal := inventoryData[map[string]any](t, serveJSON(router, http.MethodPost, settlementReversePath, `{"reason":"付款金额录错"}`, token), 200)
+	if reversal["amount"] != "60.00" || reversal["balanceAfter"] != "103.00" {
+		t.Fatalf("settlement reversal did not restore debt: %#v", reversal)
+	}
+	inventoryData[any](t, serveJSON(router, http.MethodPost, settlementReversePath, `{"reason":"再次冲销"}`, token), 409)
+	var settleWG sync.WaitGroup
+	settleResults := make(chan int, 2)
+	for i := 0; i < 2; i++ {
+		settleWG.Add(1)
+		go func(i int) {
+			defer settleWG.Done()
+			body := fmt.Sprintf(`{"requestKey":"settlement-race-%d","partnerId":%d,"direction":"SUPPLIER","amount":"60.00","businessDate":"2026-09-30","paymentMethod":"CASH"}`, i, partnerID)
+			settleResults <- serveJSON(router, http.MethodPost, settlePath, body, token).Code
+		}(i)
+	}
+	settleWG.Wait()
+	close(settleResults)
+	twins := map[int]int{}
+	for code := range settleResults {
+		twins[code]++
+	}
+	if twins[200] != 1 || twins[409] != 1 {
+		t.Fatalf("concurrent settlements did not enforce total balance: %#v", twins)
+	}
 	for _, amount := range []string{"0.00", "-1.00", "1.001", "92233720368547758.08"} {
 		body := fmt.Sprintf(`{"partnerId":%d,"direction":"CUSTOMER","amount":%q,"businessDate":"2026-09-30","description":"bad"}`, partnerID, amount)
 		inventoryData[any](t, serveJSON(router, http.MethodPost, openingPath, body, token), 400)

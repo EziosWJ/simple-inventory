@@ -4586,11 +4586,11 @@ const docTemplate = `{
                 "tags": [
                     "往来余额"
                 ],
-                "summary": "冲销期初应收应付",
+                "summary": "冲销期初应收应付或收付款记录",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "期初流水ID",
+                        "description": "往来流水ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -4688,6 +4688,68 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/settlements": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "按往来余额记录客户收款或供应商付款",
+                "parameters": [
+                    {
+                        "description": "收付款信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/receivable.SettlementInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.Entry"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -6832,11 +6894,17 @@ const docTemplate = `{
                 "partnerId": {
                     "type": "integer"
                 },
+                "paymentMethod": {
+                    "type": "string"
+                },
                 "reversedById": {
                     "type": "integer"
                 },
                 "reversesId": {
                     "type": "integer"
+                },
+                "transactionNo": {
+                    "type": "string"
                 }
             }
         },
@@ -6880,6 +6948,35 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "receivable.SettlementInput": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "paymentMethod": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "transactionNo": {
+                    "type": "string"
                 }
             }
         },

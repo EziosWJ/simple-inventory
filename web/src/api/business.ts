@@ -63,9 +63,10 @@ export const cancelPurchase=(id:number,data:{version:number;reason:string})=>htt
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};
-export type PartnerBalanceEntry={id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"REVERSAL";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;reversesId:number|null;reversedById:number|null};
+export type PartnerBalanceEntry={id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"RECEIPT"|"PAYMENT"|"REVERSAL";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;reversesId:number|null;reversedById:number|null;paymentMethod?:string;transactionNo?:string};
 export const partnerBalances=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalance>>("/api/v1/partner-balances",{query});
 export const partnerBalanceEntries=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalanceEntry>>("/api/v1/partner-balances/entries",{query});
 export const createOpeningBalance=(data:{requestKey:string;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";amount:string;businessDate:string;description:string})=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/opening",data);
 export const partnerBalanceEntry=(id:number)=>http.get<PartnerBalanceEntry>(`/api/v1/partner-balances/entries/${id}`);
 export const reverseOpeningBalance=(id:number,reason:string)=>http.post<PartnerBalanceEntry>(`/api/v1/partner-balances/entries/${id}/reverse`,{reason});
+export const createSettlement=(data:{requestKey:string;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";amount:string;businessDate:string;paymentMethod:string;transactionNo:string;remark:string})=>http.post<PartnerBalanceEntry>("/api/v1/partner-balances/settlements",data);

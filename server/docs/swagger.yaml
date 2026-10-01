@@ -862,10 +862,14 @@ definitions:
         type: integer
       partnerId:
         type: integer
+      paymentMethod:
+        type: string
       reversedById:
         type: integer
       reversesId:
         type: integer
+      transactionNo:
+        type: string
     type: object
   receivable.Input:
     properties:
@@ -894,6 +898,25 @@ definitions:
         type: array
       total:
         type: integer
+    type: object
+  receivable.SettlementInput:
+    properties:
+      amount:
+        type: string
+      businessDate:
+        type: string
+      direction:
+        type: string
+      partnerId:
+        type: integer
+      paymentMethod:
+        type: string
+      remark:
+        type: string
+      requestKey:
+        type: string
+      transactionNo:
+        type: string
     type: object
   sysconfig.ApiEnvelope:
     properties:
@@ -3846,7 +3869,7 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: 期初流水ID
+      - description: 往来流水ID
         in: path
         name: id
         required: true
@@ -3875,7 +3898,7 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
-      summary: 冲销期初应收应付
+      summary: 冲销期初应收应付或收付款记录
       tags:
       - 往来余额
   /api/v1/partner-balances/opening:
@@ -3912,6 +3935,42 @@ paths:
       security:
       - BearerAuth: []
       summary: 录入期初应收应付
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/settlements:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 收付款信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/receivable.SettlementInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/receivable.Entry'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 按往来余额记录客户收款或供应商付款
       tags:
       - 往来余额
   /api/v1/partners:
