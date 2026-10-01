@@ -408,6 +408,7 @@ export function PurchasesPage() {
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
             </p>
             {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
+            <Button className="mt-space-3" variant="secondary" onClick={() => navigate(`/business/partner-balances?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
           </>
         )}
       </DetailDialog>

@@ -155,6 +155,7 @@ type Balance struct {
 type EntryQuery struct {
 	Page, PageSize           int
 	ProductID                int64
+	SourceType               string
 	EntryType                string
 	OccurredFrom, OccurredTo *time.Time
 }

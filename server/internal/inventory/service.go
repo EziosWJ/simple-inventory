@@ -188,6 +188,9 @@ func (s *Service) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, error
 	if q.EntryType != "" && q.EntryType != "ORIGINAL" && q.EntryType != "REVERSAL" {
 		return EntryPage{}, invalid("流水类型仅支持ORIGINAL或REVERSAL")
 	}
+	if q.SourceType != "" && q.SourceType != "ADJUSTMENT" && q.SourceType != "PURCHASE" && q.SourceType != "SALE" && q.SourceType != "PURCHASE_RETURN" && q.SourceType != "SALE_RETURN" {
+		return EntryPage{}, invalid("来源类型仅支持ADJUSTMENT、PURCHASE、SALE、PURCHASE_RETURN或SALE_RETURN")
+	}
 	if q.ProductID < 0 {
 		return EntryPage{}, ErrInvalid
 	}

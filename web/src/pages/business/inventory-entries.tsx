@@ -9,6 +9,7 @@ import {
   type InventoryAdjustment,
   type InventoryEntry,
   type InventoryEntryType,
+  type InventorySourceType,
   type ProductRecord,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
@@ -39,8 +40,14 @@ const reasonFallback: DictSelectOption<AdjustmentReason>[] = [
 const entryTypeFallback: DictSelectOption<InventoryEntryType>[] = [
   { value: "ORIGINAL", label: "原始变动" }, { value: "REVERSAL", label: "取消冲销" },
 ];
-type Filters = { productId: string; entryType: string; occurredFrom: string; occurredTo: string };
-const blankFilters: Filters = { productId: "", entryType: "", occurredFrom: "", occurredTo: "" };
+const sourceOptions: { value: InventorySourceType; label: string }[] = [
+  { value: "PURCHASE", label: "采购入库" }, { value: "SALE", label: "销售出库" },
+  { value: "PURCHASE_RETURN", label: "采购退货" }, { value: "SALE_RETURN", label: "销售退货" },
+  { value: "ADJUSTMENT", label: "库存调整" },
+];
+const sourceLabels = Object.fromEntries(sourceOptions.map((option) => [option.value, option.label])) as Record<InventorySourceType, string>;
+type Filters = { productId: string; sourceType: string; entryType: string; occurredFrom: string; occurredTo: string };
+const blankFilters: Filters = { productId: "", sourceType: "", entryType: "", occurredFrom: "", occurredTo: "" };
 
 export function InventoryEntriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,7 +75,7 @@ export function InventoryEntriesPage() {
     let active = true;
     setLoading(true);
     void inventoryEntryPage({
-      page, pageSize: PAGE_SIZE, productId: filters.productId, entryType: filters.entryType,
+      page, pageSize: PAGE_SIZE, productId: filters.productId, sourceType: filters.sourceType, entryType: filters.entryType,
       // The list takes whole local days; the API compares instants, so the
       // bounds become the local day start and the next day's start in UTC.
       occurredFrom: filters.occurredFrom ? localMidnightToUtc(filters.occurredFrom) : "",
@@ -127,12 +134,21 @@ export function InventoryEntriesPage() {
       render: (value) => <span className={String(value ?? "").startsWith("-") ? "tabular-nums text-danger" : "tabular-nums text-success"}>{String(value ?? "")}</span>,
     },
     { title: "调整前 → 调整后", key: "balance", render: (_, record) => <span className="tabular-nums">{record.balanceBefore} → {record.balanceAfter}</span> },
+    { title: "业务来源", dataIndex: "sourceType", render: (value) => sourceLabels[value as InventorySourceType] ?? String(value ?? "") },
     { title: "类型", dataIndex: "entryType", render: (value) => businessDictLabel(entryTypeFallback, value as InventoryEntryType) },
     { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(reasonOptions, value as AdjustmentReason) },
     { title: "说明", dataIndex: "remark", render: (value) => <span className="whitespace-pre-wrap">{value || "-"}</span> },
     { title: "操作人", key: "operator", render: (_, record) => record.operatorName || `用户 ${record.operatorId}` },
-    { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button className="text-primary hover:underline" onClick={() => record.saleId ? navigate(`/business/sales?saleId=${record.saleId}`) : record.purchaseId ? navigate(`/business/purchases?purchaseId=${record.purchaseId}`) : void openSourceDocument(record.adjustmentId ?? 0)}>{String(value ?? "")}</button> },
+    { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button type="button" className="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => openSource(record)}>{String(value ?? "")}</button> },
   ];
+
+  function openSource(record: InventoryEntry) {
+    if (record.saleReturnId) navigate(`/business/sale-returns?saleReturnId=${record.saleReturnId}`);
+    else if (record.purchaseReturnId) navigate(`/business/purchase-returns?purchaseReturnId=${record.purchaseReturnId}`);
+    else if (record.saleId) navigate(`/business/sales?saleId=${record.saleId}`);
+    else if (record.purchaseId) navigate(`/business/purchases?purchaseId=${record.purchaseId}`);
+    else if (record.adjustmentId) void openSourceDocument(record.adjustmentId);
+  }
 
   async function openSourceDocument(id: number) {
     setDetailLoading(true); setDetail(null); setActionError("");
@@ -157,6 +173,10 @@ export function InventoryEntriesPage() {
       <PageHeader title="库存流水" description="追溯实物商品每一次已生效的库存变动。流水不可修改或删除，取消已过账单据会追加反向流水。" />
       <SearchFilterBar actions={<><Button variant="secondary" onClick={() => { setProductFilter(null); applyFilters(blankFilters); }}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
         <ProductFilter selected={productFilter} onChoose={(product) => { setProductFilter(product); setDraftFilters({ ...draftFilters, productId: String(product.id) }); }} onClear={() => { setProductFilter(null); setDraftFilters({ ...draftFilters, productId: "" }); }} />
+        <Select aria-label="业务来源" value={draftFilters.sourceType} onChange={(event) => setDraftFilters({ ...draftFilters, sourceType: event.target.value })}>
+          <option value="">全部来源</option>
+          {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </Select>
         <Select aria-label="流水类型" value={draftFilters.entryType} onChange={(event) => setDraftFilters({ ...draftFilters, entryType: event.target.value })}>
           <option value="">全部类型</option>
           {entryTypeFallback.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

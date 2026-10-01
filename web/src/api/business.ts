@@ -40,8 +40,9 @@ export const updateInventoryAdjustment=(id:number,data:{version:number;items:Inv
 export const postInventoryAdjustment=(id:number,data:{version:number})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/post`,data);
 export const cancelInventoryAdjustment=(id:number,data:{version:number;reason:string})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/cancel`,data);
 export type InventoryEntryType = "ORIGINAL" | "REVERSAL";
+export type InventorySourceType = "ADJUSTMENT" | "PURCHASE" | "SALE" | "PURCHASE_RETURN" | "SALE_RETURN";
 export type InventoryEntry = {
-  id: number; productId: number; adjustmentId?: number; adjustmentItemId?: number; purchaseId?: number; purchaseItemId?: number; saleId?: number; saleItemId?: number; sourceType:"ADJUSTMENT"|"PURCHASE"|"SALE";
+  id: number; productId: number; adjustmentId?: number; adjustmentItemId?: number; purchaseId?: number; purchaseItemId?: number; saleId?: number; saleItemId?: number; purchaseReturnId?:number; purchaseReturnItemId?:number; saleReturnId?:number; saleReturnItemId?:number; sourceType:InventorySourceType;
   entryType: InventoryEntryType; quantity: string; balanceBefore: string; balanceAfter: string;
   reason: AdjustmentReason; remark?: string | null;
   productCode: string; productName: string;

@@ -227,6 +227,20 @@ func (r *Repository) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, er
 	if q.ProductID > 0 {
 		d = d.Where("e.product_id=?", q.ProductID)
 	}
+	if q.SourceType != "" {
+		switch q.SourceType {
+		case "ADJUSTMENT":
+			d = d.Where("e.adjustment_id IS NOT NULL")
+		case "PURCHASE":
+			d = d.Where("e.purchase_id IS NOT NULL")
+		case "SALE":
+			d = d.Where("e.sale_id IS NOT NULL")
+		case "PURCHASE_RETURN":
+			d = d.Where("e.purchase_return_id IS NOT NULL")
+		case "SALE_RETURN":
+			d = d.Where("e.sale_return_id IS NOT NULL")
+		}
+	}
 	if q.EntryType != "" {
 		d = d.Where("e.entry_type=?", q.EntryType)
 	}

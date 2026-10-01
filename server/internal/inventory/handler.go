@@ -187,6 +187,7 @@ func (h *Handler) balancePage(c *gin.Context) {
 // @Param page query int false "页码，默认1"
 // @Param pageSize query int false "每页条数，默认10，最大500"
 // @Param productId query int false "商品内部ID"
+// @Param sourceType query string false "来源单据类型" Enums(ADJUSTMENT,PURCHASE,SALE,PURCHASE_RETURN,SALE_RETURN)
 // @Param entryType query string false "流水类型" Enums(ORIGINAL,REVERSAL)
 // @Param occurredFrom query string false "发生时间下界，包含，RFC3339"
 // @Param occurredTo query string false "发生时间上界，不包含，RFC3339"
@@ -195,7 +196,7 @@ func (h *Handler) balancePage(c *gin.Context) {
 // @Failure 401 {object} ApiEnvelope
 // @Router /api/v1/inventory/entries [get]
 func (h *Handler) entryPage(c *gin.Context) {
-	q := EntryQuery{Page: 1, PageSize: 10, EntryType: c.Query("entryType")}
+	q := EntryQuery{Page: 1, PageSize: 10, SourceType: c.Query("sourceType"), EntryType: c.Query("entryType")}
 	for name, target := range map[string]*int{"page": &q.Page, "pageSize": &q.PageSize} {
 		if x, ok := c.GetQuery(name); ok {
 			n, e := strconv.Atoi(x)
