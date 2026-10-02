@@ -1,5 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,9 @@ type ConfirmDialogProps = {
   cancelText?: string;
   danger?: boolean;
   loading?: boolean;
+  role?: "dialog" | "alertdialog";
+  focusCancel?: boolean;
+  restoreFocus?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -33,9 +36,16 @@ export function ConfirmDialog({
   cancelText = "取消",
   danger = false,
   loading = false,
+  role = "dialog",
+  focusCancel = false,
+  restoreFocus = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open && focusCancel && !loading) cancelRef.current?.focus();
+  }, [open, focusCancel, loading]);
   return (
     <Dialog
       open={open}
@@ -45,9 +55,10 @@ export function ConfirmDialog({
       closeOnEscape={!loading}
       closeOnOverlayClick={!loading}
       trapFocus
+      restoreFocus={restoreFocus}
     >
       <DialogOverlay />
-      <DialogContent className="max-w-modal-sm">
+      <DialogContent role={role} className="max-w-modal-sm">
         <DialogHeader>
           <div className="flex min-w-0 items-start gap-space-3">
             {danger && (
@@ -69,7 +80,7 @@ export function ConfirmDialog({
           </DialogClose>
         </DialogHeader>
         <DialogFooter className="border-t-0">
-          <Button variant="secondary" disabled={loading} onClick={onCancel}>
+          <Button ref={cancelRef} variant="secondary" disabled={loading} onClick={onCancel}>
             {cancelText}
           </Button>
           <Button

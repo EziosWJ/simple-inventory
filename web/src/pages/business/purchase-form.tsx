@@ -1,7 +1,9 @@
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
 import { businessReturnTo, withBusinessReturn } from "@/lib/business-navigation";
 import { draftLineAmount as amount, draftMoney as money } from "@/components/business/draft-amount";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { createPurchase, getPartner, getProduct, getPurchase, postPurchase, purchaseSaveResult, resolvePurchaseSave, updatePurchase, type PartnerRecord, type ProductRecord, type PurchaseDraft, type PurchaseInput, type PurchaseSaveResult } from "@/api/business";
 import { PartnerSelect, ProductSelect } from "@/components/business/master-data-select";
 import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
@@ -60,7 +62,7 @@ export function PurchaseFormPage() {
   const dirty = JSON.stringify(form) !== baseline;
   const terminal = document !== null && document.status !== "DRAFT";
   const locked = loading || saving || Boolean(confirmation) || Boolean(pending) || Boolean(postPending) || terminal || Boolean(id && !document);
-  const blocker = useBlocker(dirty || saving || Boolean(pending) || Boolean(postPending));
+  const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving, uncertain: Boolean(pending) || Boolean(postPending) });
 
   const load = useCallback(async (target = documentID, clearMessage = false) => {
     const generation = ++loadGeneration.current;
@@ -108,12 +110,7 @@ export function PurchaseFormPage() {
       if (raw) { const p = JSON.parse(raw); if (Number.isSafeInteger(p.id) && p.id > 0 && Number.isSafeInteger(p.version) && p.version > 0) setPostPending(p); }
     } catch { setError("过账恢复标识无法读取，请核实单据状态。"); }
   }, [postStorageKey]);
-  useEffect(() => {
-    if (!dirty && !pending && !postPending && !saving) return;
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, pending, postPending, saving]);
+
 
   function updateLine(index: number, patch: Partial<Line>) {
     setForm(current => ({ ...current, items: current.items.map((line, n) => n === index ? { ...line, ...patch } : line) }));
@@ -278,10 +275,7 @@ export function PurchaseFormPage() {
         </div>
       </div>
     </form>
-    {blocker.state === "blocked" && <div role="alertdialog" aria-label="离开采购录单" className="space-y-space-3 rounded-control border border-border bg-surface p-space-4">
-      <p>{saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : "有未保存修改，离开将丢弃当前输入。"}</p>
-      <Button onClick={() => blocker.reset()}>继续录单</Button> <Button disabled={saving} onClick={() => blocker.proceed()}>确认离开</Button>
-    </div>}
+    <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
     <FormDialog open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试采购过账" : "确认保存并过账采购"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
       <p>供应商：{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 日期：{preview.businessDate}</p>
       <ol className="my-space-3 space-y-space-2">

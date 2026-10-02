@@ -213,6 +213,7 @@ export function DialogContent({
   onKeyDown,
   "aria-labelledby": labelledBy,
   "aria-describedby": describedBy,
+  role = "dialog",
   ...props
 }: DialogContentProps) {
   const { titleId, descriptionId, hasDescription, contentRef } =
@@ -222,7 +223,7 @@ export function DialogContent({
     <section
       {...props}
       ref={contentRef}
-      role="dialog"
+      role={role}
       aria-modal="true"
       aria-labelledby={labelledBy ?? titleId}
       aria-describedby={
