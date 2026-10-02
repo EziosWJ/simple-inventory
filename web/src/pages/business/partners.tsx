@@ -17,6 +17,8 @@ import {
   type DictSelectOption,
 } from "@/constants/dicts";
 import { useDictOptions } from "@/hooks/use-dict-options";
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
 import {
   businessDictLabel,
   missingBusinessDictValues,
@@ -199,13 +201,16 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
   onCancel: () => void;
   onSave: (value: PartnerDraft, id?: number) => Promise<void>;
 }) {
-  const [values, setValues] = useState<PartnerDraft>(() => ({
+  const [initialValues] = useState<PartnerDraft>(() => ({
     code: record.code, name: record.name, type: record.type, isCustomer: record.isCustomer, isSupplier: record.isSupplier,
     contact: record.contact, phone: record.phone, address: record.address, remark: record.remark, invoiceName: record.invoiceName,
     taxNumber: record.taxNumber, registeredAddress: record.registeredAddress, registeredPhone: record.registeredPhone,
     bankName: record.bankName, bankAccount: record.bankAccount,
   }));
+  const [values, setValues] = useState<PartnerDraft>(initialValues);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const leaveGuard = useBusinessLeaveGuard({ dirty: JSON.stringify(values) !== JSON.stringify(initialValues), busy: saving });
   const fields: [keyof PartnerDraft, string, number][] = [
     ["code", "编码", 50], ["contact", "主要联系人", 100], ["phone", "电话", 50], ["address", "地址", 500],
     ["invoiceName", "开票名称", 200], ["taxNumber", "税号", 100], ["registeredAddress", "注册地址", 500],
@@ -217,13 +222,20 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
       return;
     }
     setError("");
+    setSaving(true);
     try { await onSave({ ...values, name: values.name.trim() }, record.id || undefined); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请检查输入后重试。"); }
+    finally { setSaving(false); }
   }
-  return <FormDialog
+  return <>
+  <FormDialog
     open
+    loading={saving}
     title={record.id ? "编辑往来单位" : "新建往来单位"}
-    onCancel={onCancel}
+    onCancel={() => leaveGuard.requestClose(onCancel)}
+    trapFocus={!leaveGuard.open}
+    closeOnEscape={!leaveGuard.open}
+    closeOnOverlayClick={!leaveGuard.open}
     onSubmit={submit}
     submitDisabled={!record.id && (
       Boolean(typeIssue || identityIssue)
@@ -246,5 +258,7 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
       {typeIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PARTNER_TYPE}：{typeIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryTypes}>重试</Button></div>}
       {identityIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PARTNER_IDENTITY}：{identityIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryIdentities}>重试</Button></div>}
     </div>
-  </FormDialog>;
+  </FormDialog>
+  <BusinessLeaveConfirm guard={leaveGuard} title={record.id ? "放弃往来单位修改？" : "放弃新建往来单位？"} stayText="继续编辑" leaveText="放弃并关闭" />
+  </>;
 }

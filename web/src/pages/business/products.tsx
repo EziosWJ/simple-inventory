@@ -21,6 +21,8 @@ import {
   type DictSelectOption,
 } from "@/constants/dicts";
 import { useDictOptions } from "@/hooks/use-dict-options";
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
 import {
   businessDictLabel,
   missingBusinessDictValues,
@@ -237,12 +239,15 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
   onCancel: () => void;
   onSave: (value: ProductDraft, id?: number) => Promise<void>;
 }) {
-  const [values, setValues] = useState<ProductDraft>(() => ({
+  const [initialValues] = useState<ProductDraft>(() => ({
     code: record.code, name: record.name, type: record.type, brand: record.brand,
     model: record.model, specification: record.specification, category: record.category,
     unit: record.unit, purchasePrice: record.purchasePrice, salePrice: record.salePrice, remark: record.remark,
   }));
+  const [values, setValues] = useState<ProductDraft>(initialValues);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const leaveGuard = useBusinessLeaveGuard({ dirty: JSON.stringify(values) !== JSON.stringify(initialValues), busy: saving });
   // Type and base unit identify a product for inventory purposes: once any
   // ledger line exists the API locks them, so the form does the same.
   const identityLocked = Boolean(record.id) && Boolean(record.inventoryLocked);
@@ -257,17 +262,25 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
       return;
     }
     setError("");
+    setSaving(true);
     try {
       await onSave({ ...values, name: values.name.trim(), unit: values.unit.trim() }, record.id || undefined);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "保存失败，请检查输入后重试。");
+    } finally {
+      setSaving(false);
     }
   }
   return (
+    <>
     <FormDialog
       open
+      loading={saving}
       title={record.id ? "编辑档案" : "新建档案"}
-      onCancel={onCancel}
+      onCancel={() => leaveGuard.requestClose(onCancel)}
+      trapFocus={!leaveGuard.open}
+      closeOnEscape={!leaveGuard.open}
+      closeOnOverlayClick={!leaveGuard.open}
       onSubmit={submit}
       submitDisabled={!record.id && (Boolean(typeIssue) || !typeOptions.some((option) => option.value === values.type))}
       contentClassName="w-[min(720px,95vw)]"
@@ -297,6 +310,8 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
         {typeIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PRODUCT_TYPE}：{typeIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryTypes}>重试</Button></div>}
       </div>
     </FormDialog>
+    <BusinessLeaveConfirm guard={leaveGuard} title={record.id ? "放弃商品修改？" : "放弃新建商品？"} stayText="继续编辑" leaveText="放弃并关闭" />
+    </>
   );
 }
 
