@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ApiPageResult } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ export function PagedRecordSelect<T extends RecordWithID>({
   const id = useId();
   const searchRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const positionPanelRef = useRef<(() => void) | null>(null);
   const [open, setOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
@@ -53,10 +55,71 @@ export function PagedRecordSelect<T extends RecordWithID>({
     return () => { active = false; };
   }, [value, loadRecord, retry]);
 
-  useEffect(() => {
-    if (!open) return;
-    searchRef.current?.focus();
-  }, [open]);
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    if (!open || disabled || !panel || !trigger) return;
+
+    // The native top layer escapes card/dialog clipping while keeping the
+    // panel in DOM order for keyboard navigation and parent focus handling.
+    panel.showPopover();
+    function positionPanel() {
+      if (!panel || !trigger) return;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportWidth = viewport?.width ?? document.documentElement.clientWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const edge = 8;
+      const gap = 4;
+      const rect = trigger.getBoundingClientRect();
+      if (rect.bottom <= viewportTop || rect.top >= viewportTop + viewportHeight) {
+        setOpen(false);
+        return;
+      }
+
+      const width = Math.min(Math.max(rect.width, 320), 480, viewportWidth - edge * 2);
+      panel.style.width = `${width}px`;
+      panel.style.maxHeight = "480px";
+      const below = Math.max(0, viewportTop + viewportHeight - rect.bottom - gap - edge);
+      const above = Math.max(0, rect.top - viewportTop - gap - edge);
+      const preferredHeight = Math.min(panel.scrollHeight, 480);
+      const upwards = below < preferredHeight && above > below;
+      panel.style.maxHeight = `${Math.min(480, upwards ? above : below)}px`;
+      const height = panel.getBoundingClientRect().height;
+      panel.style.left = `${Math.max(viewportLeft + edge, Math.min(rect.left, viewportLeft + viewportWidth - width - edge))}px`;
+      panel.style.top = `${upwards ? rect.top - gap - height : rect.bottom + gap}px`;
+    }
+
+    positionPanelRef.current = positionPanel;
+    positionPanel();
+    searchRef.current?.focus({ preventScroll: true });
+    const observer = new ResizeObserver(positionPanel);
+    observer.observe(panel);
+    observer.observe(trigger);
+    // Capture scrolls in the app's content area and in form dialogs as well.
+    function onScroll(event: Event) {
+      if (event.target instanceof Node && panel?.contains(event.target)) return;
+      positionPanel();
+    }
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", positionPanel);
+    window.visualViewport?.addEventListener("resize", positionPanel);
+    window.visualViewport?.addEventListener("scroll", positionPanel);
+    return () => {
+      positionPanelRef.current = null;
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", positionPanel);
+      window.visualViewport?.removeEventListener("resize", positionPanel);
+      window.visualViewport?.removeEventListener("scroll", positionPanel);
+      if (panel.matches(":popover-open")) panel.hidePopover();
+    };
+  }, [open, disabled]);
+
+  useLayoutEffect(() => {
+    positionPanelRef.current?.();
+  }, [records, loading, error, total]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,22 +154,26 @@ export function PagedRecordSelect<T extends RecordWithID>({
     {selectionLoading && <p role="status" className="text-sm text-text-tertiary">读取已选资料…</p>}
     {currentWarning && <p className="text-sm text-warning">{currentWarning}</p>}
     {selectionError && <div role="alert" className="text-sm text-error">{selectionError} · 保留原选择 <Button size="sm" onClick={() => setRetry(retry + 1)}>重试读取</Button></div>}
-    {open && <div id={id} className="space-y-space-2 rounded-control border border-border bg-surface p-space-2" onKeyDown={event => {
+    {open && !disabled && <div ref={panelRef} id={id} popover="auto" role="region" aria-label={`${label}搜索面板`} className="fixed inset-auto !m-0 flex flex-col gap-space-2 overflow-hidden rounded-control border border-border bg-surface p-space-2 text-text-primary shadow-floating" onToggle={event => {
+      if (event.newState === "closed") setOpen(false);
+    }} onBlur={event => {
+      if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+    }} onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeSearch(); }
       // Searching inside a draft must not submit its parent form on Enter.
       if (event.key === "Enter" && event.target === searchRef.current) event.preventDefault();
     }}>
-      <Input ref={searchRef} disabled={disabled} value={keyword} aria-label={`搜索${label}`} placeholder="输入关键词搜索" onChange={event => { setKeyword(event.target.value); setPage(1); }} />
+      <Input ref={searchRef} className="shrink-0" disabled={disabled} value={keyword} aria-label={`搜索${label}`} placeholder="输入关键词搜索" onChange={event => { setKeyword(event.target.value); setPage(1); }} />
       {loading && <p role="status" className="text-sm text-text-tertiary">搜索中…</p>}
       {error && <div role="alert" className="text-sm text-error">{error} <Button size="sm" onClick={() => setRetry(retry + 1)}>重试搜索</Button></div>}
       {!loading && !error && records.length === 0 && <p role="status" className="text-sm text-text-tertiary">没有匹配资料</p>}
-      <div className="max-h-64 space-y-space-1 overflow-y-auto">
+      <div className="min-h-0 space-y-space-1 overflow-y-auto overscroll-contain">
         {!loading && !error && records.map(record => <Button key={record.id} disabled={disabled || Boolean(warning(record))} aria-pressed={record.id === value} className="!h-auto min-h-9 w-full justify-start whitespace-normal break-words py-space-2 text-left" onClick={() => { setSelected(record); onChange(record); closeSearch(); }}>
           {describe(record)}
         </Button>)}
       </div>
-      <Pagination compact page={page} pageSize={PAGE_SIZE} total={total} disabled={loading || Boolean(error) || disabled} onPageChange={setPage} />
-      <Button size="sm" onClick={closeSearch}>收起搜索</Button>
+      <Pagination compact className="shrink-0" page={page} pageSize={PAGE_SIZE} total={total} disabled={loading || Boolean(error) || disabled} onPageChange={setPage} />
+      <Button size="sm" className="self-start" onClick={closeSearch}>收起搜索</Button>
     </div>}
   </div>;
 }
