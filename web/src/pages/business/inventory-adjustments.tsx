@@ -302,7 +302,7 @@ function AdjustmentItemsDialog({ adjustment, reasons, reasonError, onRetryReason
   const [versionConflict, setVersionConflict] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
   const [reloading, setReloading] = useState(false);
-  const leaveGuard = useBusinessLeaveGuard({ dirty: JSON.stringify(lines) !== JSON.stringify(initialLines), busy: loading || reloading });
+  const leaveGuard = useBusinessLeaveGuard({ dirty: formSnapshot(lines) !== formSnapshot(initialLines), busy: loading || reloading });
   function update(key: number, patch: Partial<DraftLine>) { setLines((current) => current.map((line) => line.key === key ? { ...line, ...patch } : line)); }
   async function submit() {
     const issue = validateLines(lines);
@@ -330,6 +330,7 @@ function AdjustmentItemsDialog({ adjustment, reasons, reasonError, onRetryReason
   const selected = new Set(lines.flatMap((line) => line.product ? [line.product.id] : []));
   return <>
   <FormDialog open title={adjustment ? "编辑库存调整草稿" : "新建库存调整草稿"} description={adjustment ? `单号 ${adjustment.documentNo} · 当前版本 ${adjustment.version}。修改草稿不会改变库存。` : "选择启用实物商品并逐行填写调整数量和原因。保存后单据为草稿，不改变库存。"} loading={loading || reloading} submitDisabled={versionConflict} submitText={adjustment ? "保存修改" : "保存草稿"} onCancel={() => leaveGuard.requestClose(onCancel)} onSubmit={submit} trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} contentClassName="w-[min(1040px,96vw)]" bodyClassName="overflow-auto">
+    <fieldset disabled={loading || reloading} className="contents">
     {reasonError && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-warning/30 p-3 text-sm text-warning"><span>{reasonError}</span><Button type="button" size="sm" variant="secondary" onClick={onRetryReasons}>重试</Button></div>}
     <div className="grid gap-4">{lines.map((line, index) => <section key={line.key} className="grid gap-3 rounded-admin border border-border p-3">
       <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">明细 {index + 1}</h3><Button type="button" size="sm" variant="secondary" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}>移除</Button></div>
@@ -347,9 +348,13 @@ function AdjustmentItemsDialog({ adjustment, reasons, reasonError, onRetryReason
       {versionConflict && (confirmReload ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm"><span>重新加载会放弃当前未保存的输入。是否继续？</span><span className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(false)}>继续编辑</Button><Button type="button" size="sm" variant="danger" disabled={reloading} onClick={() => void reloadLatest()}>{reloading ? "正在加载…" : "放弃输入并重新加载"}</Button></span></div> : <Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(true)}>重新加载最新草稿</Button>)}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </div>
+    </fieldset>
   </FormDialog>
   <BusinessLeaveConfirm guard={leaveGuard} title={adjustment ? "放弃库存调整修改？" : "放弃新建库存调整单？"} stayText="继续编辑" leaveText="放弃并关闭" />
   </>;
+}
+function formSnapshot(value: unknown) {
+  return JSON.stringify(value, (_key, entry) => entry == null || entry === "" ? null : entry);
 }
 function newLine(): DraftLine { return { key: nextLineKey++, product: null, savedSnapshot: false, quantity: "", reason: "", remark: "" }; }
 function lineFromSnapshot(item: InventoryAdjustmentItem): DraftLine {

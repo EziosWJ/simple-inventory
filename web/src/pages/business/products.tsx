@@ -247,7 +247,7 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
   const [values, setValues] = useState<ProductDraft>(initialValues);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const leaveGuard = useBusinessLeaveGuard({ dirty: JSON.stringify(values) !== JSON.stringify(initialValues), busy: saving });
+  const leaveGuard = useBusinessLeaveGuard({ dirty: formSnapshot(values) !== formSnapshot(initialValues), busy: saving });
   // Type and base unit identify a product for inventory purposes: once any
   // ledger line exists the API locks them, so the form does the same.
   const identityLocked = Boolean(record.id) && Boolean(record.inventoryLocked);
@@ -286,6 +286,7 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
       contentClassName="w-[min(720px,95vw)]"
       bodyClassName="overflow-auto"
     >
+      <fieldset disabled={saving} className="contents">
       <div className="grid gap-3 sm:grid-cols-2">
         {textFields.map(([key, label, maxLength]) => {
           const lockedField = identityLocked && key === "unit";
@@ -309,10 +310,15 @@ function ProductForm({ record, typeOptions, typeIssue, retryTypes, onCancel, onS
         {error && <p role="alert" className="col-span-full text-sm text-danger">{error}</p>}
         {typeIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PRODUCT_TYPE}：{typeIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryTypes}>重试</Button></div>}
       </div>
+      </fieldset>
     </FormDialog>
     <BusinessLeaveConfirm guard={leaveGuard} title={record.id ? "放弃商品修改？" : "放弃新建商品？"} stayText="继续编辑" leaveText="放弃并关闭" />
     </>
   );
+}
+
+function formSnapshot(value: unknown) {
+  return JSON.stringify(value, (_key, entry) => entry == null || entry === "" ? null : entry);
 }
 
 function validPrice(value?: string | null): boolean {

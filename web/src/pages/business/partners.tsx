@@ -210,7 +210,7 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
   const [values, setValues] = useState<PartnerDraft>(initialValues);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const leaveGuard = useBusinessLeaveGuard({ dirty: JSON.stringify(values) !== JSON.stringify(initialValues), busy: saving });
+  const leaveGuard = useBusinessLeaveGuard({ dirty: formSnapshot(values) !== formSnapshot(initialValues), busy: saving });
   const fields: [keyof PartnerDraft, string, number][] = [
     ["code", "编码", 50], ["contact", "主要联系人", 100], ["phone", "电话", 50], ["address", "地址", 500],
     ["invoiceName", "开票名称", 200], ["taxNumber", "税号", 100], ["registeredAddress", "注册地址", 500],
@@ -245,6 +245,7 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
     contentClassName="w-[min(760px,95vw)]"
     bodyClassName="overflow-auto"
   >
+    <fieldset disabled={saving} className="contents">
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm">名称<Input required maxLength={200} value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} /></label>
       <label className="grid gap-1 text-sm">编码<Input maxLength={50} value={values.code} onChange={(event) => setValues({ ...values, code: event.target.value })} /></label>
@@ -258,7 +259,12 @@ function PartnerForm({ record, typeOptions, typeIssue, retryTypes, identityOptio
       {typeIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PARTNER_TYPE}：{typeIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryTypes}>重试</Button></div>}
       {identityIssue && <div role="alert" className="col-span-full flex items-center justify-between gap-3 text-sm text-danger"><span>{DICT_CODES.PARTNER_IDENTITY}：{identityIssue}</span><Button type="button" size="sm" variant="secondary" onClick={retryIdentities}>重试</Button></div>}
     </div>
+    </fieldset>
   </FormDialog>
   <BusinessLeaveConfirm guard={leaveGuard} title={record.id ? "放弃往来单位修改？" : "放弃新建往来单位？"} stayText="继续编辑" leaveText="放弃并关闭" />
   </>;
+}
+
+function formSnapshot(value: unknown) {
+  return JSON.stringify(value, (_key, entry) => entry == null || entry === "" ? null : entry);
 }
