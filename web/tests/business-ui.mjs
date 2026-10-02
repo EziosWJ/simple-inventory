@@ -228,7 +228,7 @@ try {
       await page.getByRole('button', { name: title, exact: true }).click();
       await page.getByRole('dialog', { name: title, exact: true }).getByRole('button', { name: name === 'opening-balances' ? '保存并生效' : title, exact: true }).click();
     };
-    writeMode = 'fail'; await save(); await page.getByRole('status').filter({ hasText: '回归保存失败' }).waitFor();
+    writeMode = 'fail'; await save(); await page.locator('main').getByRole('alert').filter({ hasText: '回归保存失败' }).first().waitFor();
     await goSource(page); await (await prompt(page, '继续填写')).getByRole('button', { name: '继续填写', exact: true }).click();
     assert.equal(await amount.inputValue(), '13.25');
     writeMode = 'success'; await save();

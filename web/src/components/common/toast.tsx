@@ -85,7 +85,7 @@ function ToastViewport({
 
   return createPortal(
     <div
-      className="fixed right-space-4 top-space-4 z-50 flex w-[min(360px,calc(100vw-32px))] flex-col gap-space-2"
+      className="pointer-events-none fixed right-space-4 top-space-4 z-[100] flex w-[min(360px,calc(100vw-32px))] flex-col gap-space-2"
       role="region"
       aria-label="消息通知"
     >
@@ -115,7 +115,12 @@ function ToastMessage({
 
   return (
     <div
-      className="flex gap-space-3 rounded-admin border border-border bg-surface p-space-3 text-sm shadow-admin"
+      className={cn("pointer-events-auto flex gap-space-3 rounded-admin border border-l-4 bg-surface p-space-4 text-sm shadow-admin", {
+        "border-success-border border-l-success": item.type === "success",
+        "border-error-border border-l-error": item.type === "error",
+        "border-warning-border border-l-warning": item.type === "warning",
+        "border-info-border border-l-info": item.type === "info",
+      })}
       role={item.type === "error" ? "alert" : "status"}
     >
       <div className="mt-0.5 shrink-0">{icons[item.type]}</div>

@@ -1,3 +1,6 @@
+import { toast } from "@/components/common/toast-store";
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
 import {
   createInventoryAdjustment,
@@ -54,6 +57,7 @@ type DraftLine = { key: number; product: ProductRecord | null; savedSnapshot: bo
 let nextLineKey = 1;
 
 export function InventoryAdjustmentsPage() {
+  const { feedback, notify } = useBusinessFeedback();
   const statusDict = useDictOptions<AdjustmentStatus>(DICT_CODES.INVENTORY_ADJUSTMENT_STATUS, {
     allowedValues: INVENTORY_ADJUSTMENT_STATUS_VALUES, fallback: statusFallback,
   });
@@ -126,7 +130,8 @@ export function InventoryAdjustmentsPage() {
     setDraftFilters(next); setFilters(toApiFilters(next)); setPage(1); setReload((value) => value + 1);
   }
   async function saveDraft(items: InventoryAdjustmentDraftItem[]) {
-    await createInventoryAdjustment({ items });
+    const saved = await createInventoryAdjustment({ items });
+    notify({ type: "success", title: "库存调整草稿保存成功", description: "草稿已保存，尚未过账，库存无变化。", documentNo: saved.documentNo, status: "草稿（未生效）" }, 3000);
     setCreateOpen(false); setPage(1); setReload((value) => value + 1);
   }
   function openEdit(adjustment: InventoryAdjustment) {
@@ -146,18 +151,22 @@ export function InventoryAdjustmentsPage() {
     setCancelAdjustment(adjustment);
   }
   function finishEdit(adjustment: InventoryAdjustment) {
+    notify({ type: "success", title: "库存调整草稿保存成功", description: "草稿已保存，尚未过账，库存无变化。", documentNo: adjustment.documentNo, status: "草稿（未生效）" }, 3000);
     setEditAdjustment(null);
     setDetail(adjustment);
     setPage(1);
     setReload((value) => value + 1);
   }
   function finishCancel(adjustment: InventoryAdjustment) {
+    const posted = cancelAdjustment?.status === "POSTED";
+    notify({ type: "success", title: posted ? "库存调整单冲销取消成功" : "库存调整草稿取消成功", description: posted ? "原库存变动已冲销，原流水与反向流水均保留。" : "草稿已取消，库存无变化。", documentNo: adjustment.documentNo, status: "已取消" });
     setCancelAdjustment(null);
     setDetail(adjustment);
     setPage(1);
     setReload((value) => value + 1);
   }
   function finishPost(adjustment: InventoryAdjustment) {
+    notify({ type: "success", title: "库存调整单过账成功", description: "整单库存调整已生效，库存流水已保留。", documentNo: adjustment.documentNo, status: "已过账" });
     setPostAdjustment(null);
     setDetail(adjustment);
     setPage(1);
@@ -182,6 +191,7 @@ export function InventoryAdjustmentsPage() {
 
   return <>
     <PageHeader title="库存调整" description="查询库存调整单，登记期初、盘盈、盘亏或报损。草稿保存不改变库存。" actions={<Button onClick={() => { setActionError(""); setCreateOpen(true); }}>新建调整单</Button>} />
+    <BusinessFeedback feedback={feedback} />
     <SearchFilterBar actions={<><Button variant="secondary" onClick={() => { setProductFilter(null); applyFilters(blankFilters); }}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
       <Input placeholder="调整单号" value={draftFilters.documentNo} onChange={(event) => setDraftFilters({ ...draftFilters, documentNo: event.target.value })} />
       <Select value={draftFilters.status} onChange={(event) => setDraftFilters({ ...draftFilters, status: event.target.value })}><option value="">全部状态</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
@@ -312,6 +322,7 @@ function AdjustmentItemsDialog({ adjustment, reasons, reasonError, onRetryReason
       const saved = await onSave(lines.map((line) => ({ productId: line.product!.id, productType: line.product!.type, unit: line.product!.unit, quantity: line.quantity.trim(), reason: line.reason as AdjustmentReason, remark: line.remark.trim() || undefined })));
       if (saved && onSaved) onSaved(saved);
     } catch (reason) {
+      toast.error({ title: "保存草稿失败", description: reason instanceof Error ? reason.message : "输入已保留，请核对后重试。", duration: 8000 });
       if (isVersionConflict(reason)) {
         setVersionConflict(true);
         setConfirmReload(false);
@@ -444,6 +455,7 @@ function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onS
     setError(""); setLoading(true);
     try { onSaved(await onSave()); }
     catch (submitError) {
+      toast.error({ title: "过账失败", description: submitError instanceof Error ? submitError.message : "请核对单据状态后重试。", duration: 8000 });
       if (isVersionConflict(submitError)) {
         setVersionConflict(true); setConfirmReload(false);
         setError("单据状态或版本已变化，本次过账没有生效。请查看最新版本后再处理。");
@@ -511,6 +523,7 @@ function CancelAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, o
     setError(""); setLoading(true);
     try { onSaved(await onSave(value)); }
     catch (submitError) {
+      toast.error({ title: posted ? "冲销取消失败" : "取消草稿失败", description: submitError instanceof Error ? submitError.message : "原因已保留，请核对后重试。", duration: 8000 });
       if (isVersionConflict(submitError)) {
         setVersionConflict(true); setConfirmReload(false);
         setError(posted ? "单据状态或版本已变化，本次取消没有生效。请查看最新版本后再处理。" : "草稿状态或版本已变化，本次取消没有生效。请查看最新版本后再处理。");

@@ -13,7 +13,8 @@
     "test:sidebar-scroll": "node tests/sidebar-scroll.mjs",
     "test:delivery-note": "node tests/delivery-note.mjs",
     "test:business-ui": "node tests/business-ui.mjs",
-    "test:print-layout": "node tests/print-layout.mjs"
+    "test:print-layout": "node tests/print-layout.mjs",
+    "test:business-feedback": "node tests/business-feedback.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

@@ -1,3 +1,6 @@
+import { postingImpact, cancellationImpact } from "@/lib/document-feedback";
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useDocumentSearch } from "@/hooks/use-document-search";
 import { withBusinessReturn } from "@/lib/business-navigation";
@@ -30,6 +33,7 @@ import type { DataTableColumn } from "@/types";
 const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
+  const { feedback, notify } = useBusinessFeedback();
   const navigate=useNavigate();
   const location=useLocation();
   const {params:searchParams,setParams: setSearchParams,query,filters,setFilters,page,setPage,apply}=useDocumentSearch();
@@ -91,15 +95,16 @@ export function PurchasesPage() {
         version: cancelTarget.version,
         reason: cancelReason,
       });
-      setCancelTarget(null);
+      notify({ type: "success", title: cancelTarget.status === "POSTED" ? "采购单冲销取消成功" : "采购草稿取消成功", description: cancellationImpact(cancelTarget, "purchase"), documentNo: cancelTarget.documentNo, status: "已取消" });
+      setError(""); setCancelTarget(null);
       setReload((value) => value + 1);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "取消失败，采购草稿仍保留");
+      const message = reason instanceof Error ? reason.message : "取消失败，采购草稿仍保留"; setError(message); notify({ type: "error", title: "取消失败", description: message });
     } finally {
       setSaving(false);
     }
   }
-  async function confirmPost(){if(!postTarget)return;setSaving(true);try{await postPurchase(postTarget.id,postTarget.version);setPostTarget(null);setDetail(null);setReload(v=>v+1);}catch(reason){setError(reason instanceof Error?reason.message:"过账失败，单据仍保留");}finally{setSaving(false);}}
+  async function confirmPost(){if(!postTarget)return;setSaving(true);try{const posted=await postPurchase(postTarget.id,postTarget.version);notify({type:"success",title:"采购单过账成功",description:postingImpact(posted,"purchase"),documentNo:posted.documentNo,status:"已过账"});setError("");setPostTarget(null);setDetail(null);setReload(v=>v+1);}catch(reason){const message=reason instanceof Error?reason.message:"过账失败，单据仍保留";setError(message);notify({type:"error",title:"过账失败",description:message});}finally{setSaving(false);}}
 
   function applyFilters() {
     if (filters.businessFrom && filters.businessTo && filters.businessFrom > filters.businessTo) {
@@ -158,7 +163,8 @@ export function PurchasesPage() {
         description="记录实际收货；草稿保存和取消不改变库存或应付款。"
         actions={<Button onClick={startNew}>新建采购单</Button>}
       />
-      <SearchFilterBar actions={(
+      <BusinessFeedback feedback={feedback} />
+<SearchFilterBar actions={(
         <>
           <Button onClick={applyFilters}>查询</Button>
           <Button variant="secondary" onClick={()=>setReload(v=>v+1)}>刷新</Button>
