@@ -102,7 +102,7 @@ export function OpeningBalancesPage() {
       {message && <p role="status" className="mt-2 text-sm text-text-secondary">{message}</p>}
     </section>
     <PartnerRecords category="OPENING" version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
-    <ConfirmDialog open={confirming} title="确认录入期初" description={balance ? `${balance.partnerName} · ${direction === "CUSTOMER" ? "应收" : "应付"} ${amount} 元 · 余额 ${balance.amount} → ${after} 元` : `期初金额 ${amount} 元 · 余额 0.00 → ${after} 元`} confirmText="保存并生效" loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
+    <ConfirmDialog suspended={leaveGuard.open} open={confirming} title="确认录入期初" description={balance ? `${balance.partnerName} · ${direction === "CUSTOMER" ? "应收" : "应付"} ${amount} 元 · 余额 ${balance.amount} → ${after} 元` : `期初金额 ${amount} 元 · 余额 0.00 → ${after} 元`} confirmText="保存并生效" loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
     <BusinessLeaveConfirm guard={leaveGuard} title="离开期初录入" stayText="继续填写" leaveText="放弃并离开" />
   </div>;
 }

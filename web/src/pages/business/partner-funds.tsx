@@ -114,7 +114,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
       {message && <p role="status" className="mt-2 text-sm text-text-secondary">{message}</p>}
     </section>
     <PartnerRecords category={kind} version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
-    <ConfirmDialog open={confirming} title={`确认${operation}`} description={balance ? `${balance.partnerName} · ${amount} 元 · 余额 ${balance.amount} → ${after} 元 · ${method}` : undefined} confirmText={`确认${operation}`} loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
+    <ConfirmDialog suspended={leaveGuard.open} open={confirming} title={`确认${operation}`} description={balance ? `${balance.partnerName} · ${amount} 元 · 余额 ${balance.amount} → ${after} 元 · ${method}` : undefined} confirmText={`确认${operation}`} loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
     <BusinessLeaveConfirm guard={leaveGuard} title={`离开${refund ? "退款" : "收付款"}`} stayText="继续填写" leaveText="放弃并离开" />
   </div>;
 }

@@ -37,7 +37,12 @@ try {
   await page.getByLabel("成交单价（元）").nth(1).fill("5.00");
   await page.getByText("合计：¥3.76 · 2 行", { exact: true }).waitFor();
   await page.getByRole("button", { name: "返回采购列表" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "继续录单" }).click();
+  const leavePrompt = page.getByRole("alertdialog");
+  assert.ok(await leavePrompt.evaluate(node => { const rect = node.getBoundingClientRect(); return rect.top >= 0 && rect.bottom <= innerHeight; }), "leave confirmation must be inside the viewport before any automatic scrolling");
+  await leavePrompt.getByRole("button", { name: "继续录单" }).waitFor();
+  await page.waitForFunction(() => document.activeElement?.textContent === "继续录单");
+  assert.ok(await leavePrompt.getByRole("button", { name: "继续录单" }).evaluate(node => document.activeElement === node), "leave confirmation defaults to continuing the edit");
+  await leavePrompt.getByRole("button", { name: "继续录单" }).click();
   assert.equal(await page.getByLabel("数量").first().inputValue(), "1.5");
   let created, createCalls = 0;
   await page.route("**/api/v1/purchases", async route => {

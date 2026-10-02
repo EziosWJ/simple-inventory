@@ -111,7 +111,6 @@ export function PurchaseFormPage() {
     } catch { setError("过账恢复标识无法读取，请核实单据状态。"); }
   }, [postStorageKey]);
 
-
   function updateLine(index: number, patch: Partial<Line>) {
     setForm(current => ({ ...current, items: current.items.map((line, n) => n === index ? { ...line, ...patch } : line) }));
   }
@@ -275,8 +274,7 @@ export function PurchaseFormPage() {
         </div>
       </div>
     </form>
-    <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
-    <FormDialog open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试采购过账" : "确认保存并过账采购"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
+    <FormDialog trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试采购过账" : "确认保存并过账采购"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
       <p>供应商：{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 日期：{preview.businessDate}</p>
       <ol className="my-space-3 space-y-space-2">
         {preview.items.map((line, index) => <li key={index}>{index + 1}. {[products.find(p => p.id === line.productId)?.code, products.find(p => p.id === line.productId)?.name, products.find(p => p.id === line.productId)?.model, products.find(p => p.id === line.productId)?.specification].filter(Boolean).join(" · ") || document?.items[index]?.productName || `商品 #${line.productId}`} · 数量 {line.quantity} {line.unit} · 单价 ¥{line.unitPrice} · 金额 ¥{money(amount(line.quantity, line.unitPrice) ?? 0n)}</li>)}
@@ -284,5 +282,6 @@ export function PurchaseFormPage() {
       <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
       <p className="mt-space-3">{preview.directDelivery ? "直送采购：不进入店内库存，增加供应商应付；采购和销售仍需分别过账。" : "确认后增加商品库存和供应商应付。"} 保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>
+    <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
   </div>;
 }

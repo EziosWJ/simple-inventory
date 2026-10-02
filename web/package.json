@@ -11,7 +11,8 @@
     "test:layout": "node tests/operation-column-layout.mjs",
     "test:route-loading": "node tests/route-loading.mjs",
     "test:sidebar-scroll": "node tests/sidebar-scroll.mjs",
-    "test:delivery-note": "node tests/delivery-note.mjs"
+    "test:delivery-note": "node tests/delivery-note.mjs",
+    "test:business-ui": "node tests/business-ui.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

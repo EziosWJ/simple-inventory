@@ -135,7 +135,6 @@ export function SaleFormPage() {
     } catch { setError("过账恢复标识无法读取，请核实单据状态。"); }
   }, [postStorageKey]);
 
-
   function updateLine(index: number, patch: Partial<Line>) {
     setForm(current => ({ ...current, items: current.items.map((line, n) => n === index ? { ...line, ...patch } : line) }));
   }
@@ -316,8 +315,7 @@ export function SaleFormPage() {
         </div>
       </div>
     </form>
-    <BusinessLeaveConfirm guard={leaveGuard} title="离开销售录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
-    <FormDialog open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试销售过账" : "确认保存并过账销售"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
+    <FormDialog trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试销售过账" : "确认保存并过账销售"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
       <p>客户：{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 日期：{preview.businessDate}</p>
       <ol className="my-space-3 space-y-space-2">
         {preview.items.map((line, index) => <li key={index}>{index + 1}. {[products.find(p => p.id === line.productId)?.code, products.find(p => p.id === line.productId)?.name, products.find(p => p.id === line.productId)?.model, products.find(p => p.id === line.productId)?.specification].filter(Boolean).join(" · ") || document?.items[index]?.productName || `商品 #${line.productId}`} · 数量 {line.quantity} {line.unit} · 单价 ¥{line.unitPrice} · 金额 ¥{money(amount(line.quantity, line.unitPrice) ?? 0n)}</li>)}
@@ -328,5 +326,6 @@ export function SaleFormPage() {
       {!preview.directDelivery && [...goodsImpact].map(([id, item]) => <p key={id}>{item.name}：-{item.quantity / 1000n}.{String(item.quantity % 1000n).padStart(3,"0")} {item.unit}</p>)}
       <p>增加客户应收；零金额不产生往来金额流水。保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>
+    <BusinessLeaveConfirm guard={leaveGuard} title="离开销售录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
   </div>;
 }

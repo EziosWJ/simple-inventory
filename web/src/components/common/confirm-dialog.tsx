@@ -24,6 +24,7 @@ type ConfirmDialogProps = {
   role?: "dialog" | "alertdialog";
   focusCancel?: boolean;
   restoreFocus?: boolean;
+  suspended?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -39,22 +40,27 @@ export function ConfirmDialog({
   role = "dialog",
   focusCancel = false,
   restoreFocus = false,
+  suspended = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (open && focusCancel && !loading) cancelRef.current?.focus();
-  }, [open, focusCancel, loading]);
+    if (!open || !focusCancel || loading || suspended) return;
+    // Overlay mousedown can blur focus after its close handler renders this
+    // confirmation. Focus after that native event has finished.
+    const frame = window.requestAnimationFrame(() => cancelRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, focusCancel, loading, suspended]);
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onCancel();
       }}
-      closeOnEscape={!loading}
-      closeOnOverlayClick={!loading}
-      trapFocus
+      closeOnEscape={!loading && !suspended}
+      closeOnOverlayClick={!loading && !suspended}
+      trapFocus={!suspended}
       restoreFocus={restoreFocus}
     >
       <DialogOverlay />
