@@ -23,6 +23,8 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/sales")
 	g.POST("", h.create)
 	g.GET("", h.page)
+	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
+	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
 	g.GET("/:id/delivery-note", h.deliveryNote)
 	g.PUT("/:id", h.edit)
@@ -71,7 +73,7 @@ func meta(ctx *gin.Context) audit.Metadata {
 	return m
 }
 
-// @Description 新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。
+// @Description 可选 requestKey 按操作人和创建操作幂等；同键不同内容返回409，回执含原保存版本。新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。
 // @Summary 新建销售出库草稿
 // @Tags 销售出库
 // @Security BearerAuth
@@ -97,6 +99,47 @@ func (h *Handler) create(c *gin.Context) {
 	platform.OK(c, v)
 }
 
+// @Summary 查询当前操作人的销售草稿保存结果
+// @Description COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。
+// @Tags 销售入库
+// @Security BearerAuth
+// @Produce json
+// @Param operation path string true "创建或编辑" Enums(CREATE,EDIT)
+// @Param requestKey path string true "原保存标识"
+// @Success 200 {object} ApiEnvelope{data=SaveResult}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope
+// @Router /api/v1/sales/save-requests/{operation}/{requestKey} [get]
+func (h *Handler) saveResult(c *gin.Context) {
+	v, e := h.s.SaveResult(c.Request.Context(), meta(c).ActorID, c.Param("operation"), c.Param("requestKey"))
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 核实销售草稿保存并关闭尚未提交的标识
+// @Description 等待同标识原事务结束；已提交返回 COMMITTED，尚未提交则持久关闭原标识并返回 NOT_COMMITTED，防止迟到请求再次建单。
+// @Tags 销售入库
+// @Security BearerAuth
+// @Produce json
+// @Param operation path string true "创建或编辑" Enums(CREATE,EDIT)
+// @Param requestKey path string true "原保存标识"
+// @Success 200 {object} ApiEnvelope{data=SaveResult}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope
+// @Router /api/v1/sales/save-requests/{operation}/{requestKey}/resolve [post]
+func (h *Handler) resolveSave(c *gin.Context) {
+	v, e := h.s.ResolveSave(c.Request.Context(), meta(c), c.Param("operation"), c.Param("requestKey"))
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Description 单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。
 // @Summary 销售出库草稿分页
 // @Tags 销售出库
 // @Security BearerAuth
@@ -183,6 +226,7 @@ func (h *Handler) deliveryNote(c *gin.Context) {
 	platform.OK(c, v)
 }
 
+// @Description 可选 requestKey 按操作人和编辑操作幂等；指纹包含原版本与明细ID，同键不同内容返回409。
 // @Summary 编辑销售出库草稿
 // @Tags 销售出库
 // @Security BearerAuth
@@ -271,7 +315,7 @@ func fail(c *gin.Context, e error) {
 		status, code, msg = 400, 400, e.Error()
 	} else if errors.Is(e, ErrNotFound) {
 		status, code, msg = 404, 404, "销售单不存在"
-	} else if errors.Is(e, ErrConflict) {
+	} else if errors.Is(e, ErrConflict) || errors.Is(e, ErrRequestConflict) {
 		status, code, msg = 409, 409, e.Error()
 	}
 	platform.WriteError(c, status, code, msg, nil)

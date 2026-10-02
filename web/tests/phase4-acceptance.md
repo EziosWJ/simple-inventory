@@ -10,6 +10,7 @@
 - `ACCEPTANCE_USERNAME` / `ACCEPTANCE_PASSWORD`：测试账号；脚本不记录密码或 token。
 - `PLAYWRIGHT_EXECUTABLE_PATH`：可选 Chromium 路径，未指定则使用 Playwright 已安装浏览器。
 - `ACCEPTANCE_OUTPUT_DIR`：可选证据目录，默认 `.task/phase4-acceptance`。
+- `ACCEPTANCE_ISOLATED_LOCAL_CA=1`：仅在隔离部署使用本地 CA 时允许浏览器忽略证书错误；正式证书验证不设置，API 的 CA 校验另行执行。
 - `ACCEPTANCE_LEGACY_ADJUSTMENT_ID`：可选 Phase 3 升级前已过账调整单 ID，含空型号/规格历史快照。
 - `ACCEPTANCE_QUOTA_CHECK`：可选 quota 检查 Python 脚本路径，低于 15% 或请求停止时保存证据退出。
 

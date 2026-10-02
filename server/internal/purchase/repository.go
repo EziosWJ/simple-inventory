@@ -13,6 +13,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -30,6 +31,12 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 	h.DocumentNo = "PI" + stamp.Format("20060102") + "-" + hex.EncodeToString(nonce[:])
 	h.CreateTime = stamp
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if replay, e := beginSave(tx, event.Metadata.ActorID, h.SaveRequest); e != nil {
+			return e
+		} else if replay != nil {
+			out = *replay
+			return nil
+		}
 		if e := validPartnerProduct(tx, h.PartnerID, lines); e != nil {
 			return e
 		}
@@ -50,6 +57,7 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 		v, e := find(tx, h.ID)
 		if e == nil {
 			out = *v
+			e = finishSave(tx, event.Metadata.ActorID, h.SaveRequest, &out)
 		}
 		return e
 	})
@@ -61,6 +69,12 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines []Line, event audit.Event) (Draft, error) {
 	var out Draft
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if replay, e := beginSave(tx, event.Metadata.ActorID, h.SaveRequest); e != nil {
+			return e
+		} else if replay != nil {
+			out = *replay
+			return nil
+		}
 		var old Draft
 		if e := directdelivery.LockPurchase(tx, id, &old); e != nil {
 			return e
@@ -100,6 +114,7 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 		v, e := find(tx, id)
 		if e == nil {
 			out = *v
+			e = finishSave(tx, event.Metadata.ActorID, h.SaveRequest, &out)
 		}
 		return e
 	})
@@ -420,9 +435,8 @@ func (r *Repository) Find(ctx context.Context, id int64) (*Draft, error) {
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Draft{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Draft{})
-	if q.DocumentNo != "" {
-		s := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.DocumentNo)
-		d = d.Where("document_no LIKE ? ESCAPE '\\'", "%"+s+"%")
+	if strings.TrimSpace(q.DocumentNo) != "" {
+		d = platformdatabase.LiteralContains(d, q.DocumentNo, "document_no")
 	}
 	if q.Status != "" {
 		d = d.Where("status=?", q.Status)

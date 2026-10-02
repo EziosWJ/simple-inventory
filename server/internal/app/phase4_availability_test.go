@@ -20,6 +20,10 @@ import (
 
 type purchaseErrorStore struct{ err error }
 
+func (s purchaseErrorStore) SaveResult(_ context.Context, _ int64, _, _ string) (purchase.SaveResult, error) {
+	return purchase.SaveResult{}, s.err
+}
+
 func (s purchaseErrorStore) Create(_ context.Context, _ purchase.Draft, _ []purchase.Line, _ audit.Event) (purchase.Draft, error) {
 	return purchase.Draft{}, s.err
 }
@@ -40,6 +44,17 @@ func (s purchaseErrorStore) Page(_ context.Context, _ purchase.Query) (purchase.
 }
 
 type saleErrorStore struct{ err error }
+
+func (s saleErrorStore) SaveResult(_ context.Context, _ int64, _, _ string) (sale.SaveResult, error) {
+	return sale.SaveResult{}, s.err
+}
+func (s saleErrorStore) ResolveSave(_ context.Context, _ audit.Metadata, _, _ string) (sale.SaveResult, error) {
+	return sale.SaveResult{}, s.err
+}
+
+func (s purchaseErrorStore) ResolveSave(_ context.Context, _ audit.Metadata, _, _ string) (purchase.SaveResult, error) {
+	return purchase.SaveResult{}, s.err
+}
 
 func (s saleErrorStore) Create(_ context.Context, _ sale.Draft, _ []sale.Line, _ audit.Event) (sale.Draft, error) {
 	return sale.Draft{}, s.err

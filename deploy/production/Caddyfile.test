@@ -1,0 +1,12 @@
+# Isolated test only: local CA, never presented as a public production certificate.
+{
+ skip_install_trust
+}
+{$DOMAIN} {
+ tls internal
+ encode zstd gzip
+ reverse_proxy api:8080 {
+  header_up X-Forwarded-For {remote_host}
+  header_up X-Forwarded-Proto {scheme}
+ }
+}

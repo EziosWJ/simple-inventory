@@ -32,8 +32,10 @@ import { InventoryBalancesPage } from "@/pages/business/inventory-balances";
 import { InventoryEntriesPage } from "@/pages/business/inventory-entries";
 import { PrintProfilePage } from "@/pages/business/print-profile";
 import { PurchasesPage } from "@/pages/business/purchases";
+import { PurchaseFormPage } from "@/pages/business/purchase-form";
 import { PurchaseReturnsPage } from "@/pages/business/purchase-returns";
 import { SaleReturnsPage } from "@/pages/business/sale-returns";
+import { SaleFormPage } from "@/pages/business/sale-form";
 import { SalesPage } from "@/pages/business/sales";
 import { DeliveryNotePage } from "@/pages/business/delivery-note";
 import { PartnerLedgerPage } from "@/pages/business/partner-ledger";
@@ -75,9 +77,13 @@ export const router = createBrowserRouter([
       { path: "business/inventory-entries", element: <InventoryEntriesPage /> },
       { path: "business/print-profile", element: <PrintProfilePage /> },
       { path: "business/purchases", element: <PurchasesPage /> },
+      { path: "business/purchases/new", element: <PurchaseFormPage /> },
+      { path: "business/purchases/:id/edit", element: <PurchaseFormPage /> },
       { path: "business/purchase-returns", element: <PurchaseReturnsPage /> },
       { path: "business/sale-returns", element: <SaleReturnsPage /> },
       { path: "business/sales", element: <SalesPage /> },
+      { path: "business/sales/new", element: <SaleFormPage /> },
+      { path: "business/sales/:id/edit", element: <SaleFormPage /> },
       { path: "business/sales/:id/delivery-note", element: <DeliveryNotePage /> },
       { path: "business/partner-balances", element: <PartnerBalancesPage /> },
       { path: "business/settlements", element: <PartnerFundsPage key="settlement" kind="SETTLEMENT" /> },

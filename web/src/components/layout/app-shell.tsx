@@ -1,3 +1,4 @@
+import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppHeader } from "@/components/layout/app-header";
@@ -28,6 +29,7 @@ export function AppShell() {
       >
         <AppHeader onToggleSidebar={() => setCollapsed((value) => !value)} />
         <main id="main-content" className="p-4 md:p-6">
+          <BusinessReturnLink />
           <Outlet />
         </main>
       </div>

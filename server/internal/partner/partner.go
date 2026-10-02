@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	platform "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
 	"gorm.io/gorm"
 	"strings"
@@ -166,10 +167,7 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Partner{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Partner{})
-	if q.Keyword != "" {
-		like := "%" + q.Keyword + "%"
-		d = d.Where("code LIKE ? OR name LIKE ? OR contact LIKE ? OR phone LIKE ?", like, like, like, like)
-	}
+	d = platformdatabase.LiteralContains(d, q.Keyword, "code", "name", "contact", "phone")
 	if q.Type != "" {
 		d = d.Where("type=?", q.Type)
 	}

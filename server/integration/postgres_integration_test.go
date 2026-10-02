@@ -941,7 +941,8 @@ func (database temporaryPostgres) waitUntilReady(t *testing.T) {
 	deadline := time.Now().Add(45 * time.Second)
 	readyStreak := 0
 	for time.Now().Before(deadline) {
-		if err := exec.Command("docker", "exec", database.container, "pg_isready", "-U", "integration", "-d", "integration").Run(); err == nil {
+		// Probe TCP rather than the initialization-only Unix socket server.
+		if err := exec.Command("docker", "exec", database.container, "pg_isready", "-h", "127.0.0.1", "-U", "integration", "-d", "integration").Run(); err == nil {
 			connection, dialErr := net.DialTimeout("tcp", endpoint.Host, time.Second)
 			if dialErr == nil {
 				_ = connection.Close()

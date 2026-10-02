@@ -13,6 +13,7 @@ func TestParseArguments(t *testing.T) {
 		args []string
 		want string
 	}{
+		{name: "readonly all", args: []string{"check", "--kind", migrationKindAll}, want: migrationKindAll},
 		{name: "default schema", args: []string{"up"}, want: migrationKindSchema},
 		{name: "seed", args: []string{"up", "--kind", migrationKindSeed}, want: migrationKindSeed},
 		{name: "all", args: []string{"up", "--kind", migrationKindAll}, want: migrationKindAll},

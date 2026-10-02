@@ -16,6 +16,7 @@ const row = (page, no) => page.getByRole("row").filter({ hasText: no });
 const item = (p, quantity = "10") => ({ productId: p.id, productType: p.type, unit: p.unit, quantity, unitPrice: "1.01" });
 const post = (kind, d, auth = token) => request(`/v1/${kind}/${d.id}/post`, { version: d.version }, "POST", auth);
 async function product(code, type = "GOODS", unit = "台") { return request("/v1/products", { code: `${prefix}-${code}`, name: `${prefix}-${code}`, type, unit }); }
+async function select(page,label,code){const group=page.getByRole("group",{name:label,exact:true});await group.getByRole("button").first().click();await group.getByRole("textbox",{name:`搜索${label}`}).fill(code);await group.locator('button[aria-pressed]').filter({hasText:code}).last().click();}
 try {
   for (let n=0;n<40;n++) {try { if((await fetch(base)).ok) break; }catch{/*starting*/} await delay(250);}
   token = (await request("/auth/login", { username: "admin", password: process.env.PHASE4_UI_PASSWORD ?? "admin123" })).tokenValue;
@@ -51,29 +52,29 @@ try {
       const d = await request(`/v1/${kind}`, { partnerId: partner.id, businessDate: "2026-10-01", items: [item(p, "2.5")] });
       await request(`/v1/products/${p.id}`, { name: p.name, type, unit: "次" }, "PUT");
       await page.goto(`${base}/business/${kind}`); await row(page, d.documentNo).getByRole("button", { name: "编辑", exact: true }).click();
-      const dialog = page.getByRole("dialog"); await dialog.getByRole("button", { name: "确认使用新类型和单位" }).waitFor();
-      assert.equal(await dialog.getByRole("button", { name: "保存", exact: true }).isDisabled(), true);
+      const dialog = page.getByRole("main"); await dialog.getByRole("button", { name: "确认使用新类型和单位" }).waitFor();
+      const saveName = "保存草稿";
+      assert.equal(await dialog.getByRole("button", { name: saveName, exact: true }).isDisabled(), true);
       assert.equal((await request(`/v1/${kind}/${d.id}`)).items[0].unit, "小时");
       await dialog.getByRole("button", { name: "确认使用新类型和单位" }).click();
-      await dialog.getByRole("button", { name: "保存", exact: true }).click(); await dialog.waitFor({ state: "hidden" });
+      const response = page.waitForResponse(r => r.url().endsWith(`/api/v1/${kind}/${d.id}`) && r.request().method() === "PUT");
+      await dialog.getByRole("button", { name: saveName, exact: true }).click(); await response;
+      await page.getByRole("status").filter({hasText:/已保存/}).waitFor();
       const saved = await request(`/v1/${kind}/${d.id}`); assert.equal(saved.items[0].unit, "次"); assert.equal(saved.items[0].quantity, "2.5");
       console.log(`#33 real API + UI ${kind} ${type} confirmation persisted without conversion`);
     }
     // Date and delivery snapshot are verified against the complete sales/print routes.
     await page.clock.setFixedTime(new Date("2026-10-01T16:15:00Z"));
     await page.goto(`${base}/business/sales`); await page.getByRole("button", { name: "新建销售草稿" }).click();
-    const dialog = page.getByRole("dialog"); assert.equal(await dialog.locator('input[type="date"]').inputValue(), "2026-10-02");
-    await dialog.locator("select").first().selectOption(String(partner.id));
-    for (const field of ["送货联系人", "送货电话", "送货地址"]) await dialog.getByLabel(field).fill("");
+    const form = page.locator("form"), dialog = page.getByRole("dialog");
+    assert.equal(await form.locator('input[type="date"]').inputValue(), "2026-10-02");
+    await select(page,"客户",partner.code);
+    for (const field of ["送货联系人", "送货电话", "送货地址"]) await form.getByLabel(field).fill("");
     const service = await product("PRINT-SERVICE", "SERVICE", "次");
-    // Refresh the catalog by reopening the page after creating the service.
-    await dialog.getByRole("button", { name: "取消", exact: true }).click(); await page.reload();
-    await page.getByRole("button", { name: "新建销售草稿" }).click(); await dialog.locator("select").first().selectOption(String(partner.id));
-    for (const field of ["送货联系人", "送货电话", "送货地址"]) await dialog.getByLabel(field).fill("");
-    await dialog.locator("select").last().selectOption(String(service.id));
+    await select(page,"第 1 行商品",service.code);
     const createdResponse = page.waitForResponse(r=>r.url().endsWith("/api/v1/sales")&&r.request().method()==="POST");
-    await dialog.getByRole("button", { name: "保存", exact: true }).click(); const created = (await (await createdResponse).json()).data;
-    await dialog.waitFor({ state: "hidden" }); assert.equal(created.businessDate, "2026-10-02");
+    await form.getByRole("button", { name: "保存草稿", exact: true }).click(); const created = (await (await createdResponse).json()).data;
+    await page.waitForURL(/\/business\/sales\/\d+\/edit(?:\?.*)?$/); assert.equal(created.businessDate, "2026-10-02");
     for (const field of ["deliveryContact", "deliveryPhone", "deliveryAddress"]) assert.equal(created[field], "");
     await post("sales", created);
     await request(`/v1/partners/${partner.id}`, { name: partner.name, type: "COMPANY", isCustomer: true, isSupplier: true, contact: "后来联系人", phone: "456", address: "后来地址" }, "PUT");
@@ -85,11 +86,11 @@ try {
     const g = await product("DIRECT");
     const directPi = await post("purchases", await request("/v1/purchases", { directDelivery: true, partnerId: partner.id, businessDate: "2026-10-01", items: [item(g,"3")] }));
     await page.goto(`${base}/business/sales?directPurchaseId=${directPi.id}`, { waitUntil: "networkidle" });
-    await page.getByRole("heading", { name: "新建销售草稿", exact: true }).waitFor();
-    await dialog.locator("select").nth(1).selectOption(String(partner.id));
-    assert.equal(await dialog.getByRole("button", { name: "保存", exact: true }).isDisabled(), false);
+    await page.getByRole("heading", { name: "新建销售单", exact: true }).waitFor();
+    await select(page,"客户",partner.code);
+    assert.equal(await form.getByRole("button", { name: "保存草稿", exact: true }).isDisabled(), false);
     const directResponse = page.waitForResponse(r=>r.url().endsWith("/api/v1/sales")&&r.request().method()==="POST");
-    await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await form.getByRole("button", { name: "保存草稿", exact: true }).click();
     const directDraft = (await (await directResponse).json()).data;
     assert.equal(directDraft.items[0].unit, "台");
     const directSo = await post("sales", directDraft);
@@ -102,7 +103,7 @@ try {
     assert.equal((await request(`/v1/purchase-returns/${pr.id}`)).status,"DRAFT");
     await row(page,pr.documentNo).getByRole("button", { name: "编辑", exact: true }).click();
     await dialog.getByRole("button", { name: `第一步：销售退货 · ${directSo.documentNo}`, exact: true }).click();
-    await page.waitForURL(`**/business/sale-returns?saleId=${directSo.id}`);
+    await page.waitForURL(`**/business/sale-returns?saleId=${directSo.id}*`);
     await page.getByRole("heading", { name: "新建销售退货草稿", exact: true }).waitFor();
     await dialog.locator('input[inputmode="decimal"]').fill("1");
     const salesReturnResponse=page.waitForResponse(r=>r.url().endsWith("/api/v1/sale-returns")&&r.request().method()==="POST");

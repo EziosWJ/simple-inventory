@@ -185,7 +185,7 @@ func assertInventoryUpgrade(t *testing.T, db *platformdatabase.Database) {
 	for _, test := range []struct {
 		table string
 		want  int64
-	}{{"goose_schema_db_version", 23}, {"goose_seed_db_version", 24}} {
+	}{{"goose_schema_db_version", 25}, {"goose_seed_db_version", 24}} {
 		var version int64
 		if e := db.GORM.Table(test.table).Select("MAX(version_id)").Scan(&version).Error; e != nil || version != test.want {
 			t.Fatalf("upgrade version %s=%d want=%d err=%v", test.table, version, test.want, e)

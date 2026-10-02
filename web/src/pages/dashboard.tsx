@@ -1,69 +1,35 @@
-import { Boxes, Package, ShoppingCart, Truck, Warehouse } from "lucide-react";
+import { FileSearch, ShoppingCart, Truck, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ContentCard } from "@/components/common/content-card";
 import { PageHeader } from "@/components/common/page-header";
+import { useAuthStore } from "@/store/auth-store";
+import type { CurrentUserMenu } from "@/types";
 
-const productAreas = [
-  {
-    title: "基础资料",
-    description: "商品、客户 / 供应商与仓库等核心主数据。",
-    icon: Package,
-  },
-  {
-    title: "采购入库",
-    description: "记录采购单据，并在过账后形成库存入库流水。",
-    icon: Truck,
-  },
-  {
-    title: "销售出库",
-    description: "记录销售单据，校验库存并形成库存出库流水。",
-    icon: ShoppingCart,
-  },
-  {
-    title: "库存管理",
-    description: "查看当前库存、库存流水，并处理库存调整。",
-    icon: Warehouse,
-  },
-];
-
-export function DashboardPage() {
-  return (
-    <>
-      <PageHeader
-        title="工作台"
-        description="简单进销存 · 采购、销售与库存管理"
-      />
-
-      <ContentCard bodyClassName="p-6">
-        <div className="flex items-start gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-primary">
-            <Boxes className="h-6 w-6" aria-hidden />
-          </span>
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary">
-              欢迎使用简单进销存
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
-              当前基础平台已完成产品化，认证、权限、菜单、用户、日志和通知等管理能力已就绪。
-              进销存业务模块将围绕下列核心流程逐步接入。
-            </p>
-          </div>
-        </div>
-      </ContentCard>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {productAreas.map((item) => {
-          const Icon = item.icon;
-          return (
-            <ContentCard key={item.title} bodyClassName="p-5">
-              <Icon className="h-5 w-5 text-primary" aria-hidden />
-              <h3 className="mt-4 font-semibold text-text-primary">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-text-secondary">
-                {item.description}
-              </p>
-            </ContentCard>
-          );
-        })}
-      </div>
-    </>
-  );
+function menuPaths(menus:CurrentUserMenu[]):Set<string>{
+ const paths=new Set<string>();
+ for(const menu of menus){if(menu.visible===1){if(menu.menuType==="MENU")paths.add(menu.path);for(const path of menuPaths(menu.children??[]))paths.add(path)}}
+ return paths;
+}
+export function DashboardPage(){
+ const menus=useAuthStore(s=>s.menus),loading=useAuthStore(s=>s.isLoadingMenus);
+ const paths=menuPaths(menus);
+ const areas=[
+  {title:"开采购单",icon:Truck,description:"搜索供应商和实物商品，保存草稿或确认过账。",links:[{menu:"/business/purchases",path:"/business/purchases/new",label:"新建采购单"}]},
+  {title:"开销售单",icon:ShoppingCart,description:"录入客户、实物或服务和送货资料。",links:[{menu:"/business/sales",path:"/business/sales/new",label:"新建销售单"}]},
+  {title:"查欠款",icon:Wallet,description:"客户应收与供应商应付分别查账，追溯往来来源。",links:[{menu:"/business/partner-balances",path:"/business/partner-balances",label:"查看往来余额"}]},
+  {title:"查单据",icon:FileSearch,description:"按对象、商品、状态和业务日期查询原单。",links:[{menu:"/business/purchases",path:"/business/purchases",label:"查询采购单"},{menu:"/business/sales",path:"/business/sales",label:"查询销售单"}]},
+ ];
+ return <div className="space-y-space-4">
+  <PageHeader title="工作台" description="简单进销存 · 两位经营者共享店铺业务，分别记录实际操作人。"/>
+  {loading&&<p role="status" className="text-sm text-text-secondary">正在读取业务入口…</p>}
+  <div className="grid gap-space-4 md:grid-cols-2 xl:grid-cols-4">
+   {areas.map(area=><ContentCard key={area.title} bodyClassName="space-y-space-3">
+    <area.icon className="h-5 w-5 text-primary" aria-hidden/>
+    <h2 className="text-card-title font-semibold">{area.title}</h2>
+    <p className="text-sm leading-6 text-text-secondary">{area.description}</p>
+    <div className="flex flex-wrap gap-space-3">{area.links.filter(link=>paths.has(link.menu)).map(link=><Link className="text-sm font-medium text-primary underline" key={link.path} to={link.path}>{link.label}</Link>)}</div>
+    {!loading&&!area.links.some(link=>paths.has(link.menu))&&<p className="text-sm text-text-tertiary">暂无该业务菜单，请联系管理员检查账号菜单配置。</p>}
+   </ContentCard>)}
+  </div>
+ </div>;
 }

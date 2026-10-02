@@ -5017,7 +5017,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "关键词",
+                        "description": "编码/名称/联系人/电话片段；去除首尾空白，ASCII 字母忽略大小写，% 和 _ 字面匹配",
                         "name": "keyword",
                         "in": "query"
                     },
@@ -5281,7 +5281,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "关键词",
+                        "description": "编码/名称/品牌/型号/规格片段；去除首尾空白，ASCII 字母忽略大小写，% 和 _ 字面匹配",
                         "name": "keyword",
                         "in": "query"
                     },
@@ -5870,6 +5870,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。",
                 "produces": [
                     "application/json"
                 ],
@@ -5965,6 +5966,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 requestKey 保证同操作人同内容重试不重复建单；回执 savedVersion 表示原保存版本，返回单据为当前状态。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6017,8 +6019,152 @@ const docTemplate = `{
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
                     },
+                    "409": {
+                        "description": "同标识用于不同内容",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
                     "503": {
                         "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/purchases/save-requests/{operation}/{requestKey}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "采购入库"
+                ],
+                "summary": "查询当前操作人的采购草稿保存结果",
+                "parameters": [
+                    {
+                        "enum": [
+                            "CREATE",
+                            "EDIT"
+                        ],
+                        "type": "string",
+                        "description": "创建或编辑",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/purchase.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/purchase.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/purchases/save-requests/{operation}/{requestKey}/resolve": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "等待同标识原事务结束；已提交返回 COMMITTED，尚未提交则持久关闭原标识并返回 NOT_COMMITTED，防止迟到请求再次建单。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "采购入库"
+                ],
+                "summary": "核实采购草稿保存并关闭尚未提交的标识",
+                "parameters": [
+                    {
+                        "enum": [
+                            "CREATE",
+                            "EDIT"
+                        ],
+                        "type": "string",
+                        "description": "创建或编辑",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/purchase.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/purchase.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
@@ -6085,6 +6231,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 requestKey 绑定目标 ID、提交版本和业务内容；相同提交重试返回原回执及单据最新状态，不重复编辑或写成功审计。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6696,6 +6843,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。",
                 "produces": [
                     "application/json"
                 ],
@@ -6791,7 +6939,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。",
+                "description": "可选 requestKey 按操作人和创建操作幂等；同键不同内容返回409，回执含原保存版本。新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6846,6 +6994,144 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sales/save-requests/{operation}/{requestKey}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售入库"
+                ],
+                "summary": "查询当前操作人的销售草稿保存结果",
+                "parameters": [
+                    {
+                        "enum": [
+                            "CREATE",
+                            "EDIT"
+                        ],
+                        "type": "string",
+                        "description": "创建或编辑",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sale.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sales/save-requests/{operation}/{requestKey}/resolve": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "等待同标识原事务结束；已提交返回 COMMITTED，尚未提交则持久关闭原标识并返回 NOT_COMMITTED，防止迟到请求再次建单。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售入库"
+                ],
+                "summary": "核实销售草稿保存并关闭尚未提交的标识",
+                "parameters": [
+                    {
+                        "enum": [
+                            "CREATE",
+                            "EDIT"
+                        ],
+                        "type": "string",
+                        "description": "创建或编辑",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "原保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sale.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -6912,6 +7198,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 requestKey 按操作人和编辑操作幂等；指纹包含原版本与明细ID，同键不同内容返回409。",
                 "consumes": [
                     "application/json"
                 ],
@@ -8394,6 +8681,9 @@ const docTemplate = `{
                 "remark": {
                     "type": "string"
                 },
+                "saveReceipt": {
+                    "$ref": "#/definitions/purchase.SaveReceipt"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -8426,6 +8716,9 @@ const docTemplate = `{
                 "remark": {
                     "type": "string"
                 },
+                "requestKey": {
+                    "type": "string"
+                },
                 "version": {
                     "type": "integer"
                 }
@@ -8450,6 +8743,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "remark": {
+                    "type": "string"
+                },
+                "requestKey": {
                     "type": "string"
                 }
             }
@@ -8543,6 +8839,37 @@ const docTemplate = `{
             "properties": {
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "purchase.SaveReceipt": {
+            "type": "object",
+            "properties": {
+                "documentId": {
+                    "type": "integer"
+                },
+                "operation": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "savedVersion": {
+                    "type": "integer"
+                }
+            }
+        },
+        "purchase.SaveResult": {
+            "type": "object",
+            "properties": {
+                "document": {
+                    "$ref": "#/definitions/purchase.Draft"
+                },
+                "receipt": {
+                    "$ref": "#/definitions/purchase.SaveReceipt"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },
@@ -9333,6 +9660,9 @@ const docTemplate = `{
                 "remark": {
                     "type": "string"
                 },
+                "saveReceipt": {
+                    "$ref": "#/definitions/sale.SaveReceipt"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -9378,6 +9708,9 @@ const docTemplate = `{
                 "remark": {
                     "type": "string"
                 },
+                "requestKey": {
+                    "type": "string"
+                },
                 "version": {
                     "type": "integer"
                 }
@@ -9415,6 +9748,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "remark": {
+                    "type": "string"
+                },
+                "requestKey": {
                     "type": "string"
                 }
             }
@@ -9511,6 +9847,37 @@ const docTemplate = `{
             "properties": {
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "sale.SaveReceipt": {
+            "type": "object",
+            "properties": {
+                "documentId": {
+                    "type": "integer"
+                },
+                "operation": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "savedVersion": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sale.SaveResult": {
+            "type": "object",
+            "properties": {
+                "document": {
+                    "$ref": "#/definitions/sale.Draft"
+                },
+                "receipt": {
+                    "$ref": "#/definitions/sale.SaveReceipt"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -60,6 +61,12 @@ func run(ctx context.Context, args []string) error {
 	}()
 
 	for _, migrationKind := range migrationKinds(kind) {
+		if args[0] == "check" {
+			if err := checkMigrationsForDriver(ctx, db.SQL, cfg.Database.Driver, migrationKind); err != nil {
+				return err
+			}
+			continue
+		}
 		previousVersion, currentVersion, err := applyMigrationsForDriver(ctx, db.SQL, cfg.Database.Driver, migrationKind)
 		if err != nil {
 			return err
@@ -71,7 +78,7 @@ func run(ctx context.Context, args []string) error {
 		}
 	}
 
-	slog.Info("migrations applied", "kind", kind)
+	slog.Info("migration command succeeded", "command", args[0], "kind", kind)
 	return nil
 }
 
@@ -158,18 +165,18 @@ func hasSQLMigrations(directory string) (bool, error) {
 }
 
 func parseArguments(args []string) (string, error) {
-	if len(args) == 0 || args[0] != "up" {
-		return "", errors.New("usage: migrate up [--kind schema|seed|all]")
+	if len(args) == 0 || (args[0] != "up" && args[0] != "check") {
+		return "", errors.New("usage: migrate up|check [--kind schema|seed|all]")
 	}
 
-	flags := flag.NewFlagSet("migrate up", flag.ContinueOnError)
+	flags := flag.NewFlagSet("migrate "+args[0], flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	kind := flags.String("kind", migrationKindSchema, "migration kind: schema, seed, or all")
 	if err := flags.Parse(args[1:]); err != nil {
 		return "", fmt.Errorf("parse migration flags: %w", err)
 	}
 	if flags.NArg() != 0 {
-		return "", errors.New("usage: migrate up [--kind schema|seed|all]")
+		return "", errors.New("usage: migrate up|check [--kind schema|seed|all]")
 	}
 	if *kind != migrationKindSchema && *kind != migrationKindSeed && *kind != migrationKindAll {
 		return "", fmt.Errorf("migration kind must be %q, %q, or %q", migrationKindSchema, migrationKindSeed, migrationKindAll)
@@ -197,4 +204,48 @@ func migrationKinds(kind string) []string {
 		return []string{migrationKindSchema, migrationKindSeed}
 	}
 	return []string{kind}
+}
+
+// check never creates a version table or applies a migration. Compare every
+// migration, including a missing intermediate version and a newer database.
+func checkMigrationsForDriver(ctx context.Context, sqlDB *sql.DB, driver, kind string) error {
+	migrations, err := goose.CollectMigrations(migrationDirectoryForDriver(driver, kind), 0, math.MaxInt64)
+	if err != nil {
+		return fmt.Errorf("read %s migrations: %w", kind, err)
+	}
+	expected := make(map[int64]bool, len(migrations))
+	for _, m := range migrations {
+		expected[m.Version] = true
+	}
+	rows, err := sqlDB.QueryContext(ctx, "SELECT version_id,is_applied FROM "+migrationTableName(kind)+" ORDER BY id DESC")
+	if err != nil {
+		return fmt.Errorf("%s migration state unavailable; run explicit migration: %w", kind, err)
+	}
+	defer rows.Close()
+	applied := map[int64]bool{}
+	for rows.Next() {
+		var version int64
+		var active bool
+		if err := rows.Scan(&version, &active); err != nil {
+			return err
+		}
+		if _, seen := applied[version]; !seen {
+			applied[version] = active
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for version := range expected {
+		if !applied[version] {
+			return fmt.Errorf("%s migration %d is not applied; run explicit migration", kind, version)
+		}
+	}
+	for version, active := range applied {
+		if active && version > 0 && !expected[version] {
+			return fmt.Errorf("%s migration %d is newer or unknown to this release", kind, version)
+		}
+	}
+	slog.Info("migration state matches release", "kind", kind, "migration_count", len(expected))
+	return nil
 }

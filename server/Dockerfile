@@ -30,7 +30,7 @@ FROM alpine:3.22 AS runtime
 
 RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
-COPY server/configs ./configs
+COPY --chown=app:app server/configs ./configs
 # Named-volume mount point: must exist and be writable by the app user,
 # otherwise file uploads fail with permission denied after the first boot.
 RUN mkdir -p /var/lib/simple-inventory/uploads && chown -R app:app /var/lib/simple-inventory
@@ -39,13 +39,15 @@ USER app
 FROM runtime AS api
 
 COPY --from=api-build /out/api ./api
+COPY --from=build /out/migrate ./migrate
+COPY --chown=app:app server/migrations ./migrations
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]
 
 FROM runtime AS migrate
 
 COPY --from=build /out/migrate ./migrate
-COPY server/migrations ./migrations
+COPY --chown=app:app server/migrations ./migrations
 ENTRYPOINT ["/app/migrate"]
 
 FROM runtime AS backup

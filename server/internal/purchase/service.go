@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	ErrInvalid  = errors.New("采购单参数错误")
-	ErrNotFound = errors.New("采购单不存在")
-	ErrConflict = errors.New("采购单状态或版本已变化，请刷新后重试")
+	ErrInvalid         = errors.New("采购单参数错误")
+	ErrNotFound        = errors.New("采购单不存在")
+	ErrConflict        = errors.New("采购单状态或版本已变化，请刷新后重试")
+	ErrRequestConflict = errors.New("保存标识已用于其他内容，请先核实原保存结果")
 )
 
 type Store interface {
@@ -27,6 +28,8 @@ type Store interface {
 	Post(context.Context, int64, int64, audit.Event) (Draft, error)
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
+	SaveResult(context.Context, int64, string, string) (SaveResult, error)
+	ResolveSave(context.Context, audit.Metadata, string, string) (SaveResult, error)
 }
 type Service struct{ store Store }
 
@@ -37,6 +40,10 @@ func (s *Service) Create(ctx context.Context, m audit.Metadata, in Input) (Draft
 		return Draft{}, e
 	}
 	h.CreatedBy = m.ActorID
+	h.SaveRequest, e = prepareSaveRequest(in.RequestKey, "CREATE", 0, 0, h, lines)
+	if e != nil {
+		return Draft{}, e
+	}
 	return s.store.Create(ctx, h, lines, audit.Event{Action: "purchase.draft.create", Resource: "purchase", Summary: "新建采购入库草稿", Metadata: m})
 }
 func (s *Service) Edit(ctx context.Context, m audit.Metadata, id int64, in EditInput) (Draft, error) {
@@ -44,6 +51,10 @@ func (s *Service) Edit(ctx context.Context, m audit.Metadata, id int64, in EditI
 		return Draft{}, ErrInvalid
 	}
 	h, lines, e := validate(in.Input)
+	if e != nil {
+		return Draft{}, e
+	}
+	h.SaveRequest, e = prepareSaveRequest(in.RequestKey, "EDIT", id, in.Version, h, lines)
 	if e != nil {
 		return Draft{}, e
 	}

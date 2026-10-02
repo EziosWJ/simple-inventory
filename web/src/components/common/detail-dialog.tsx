@@ -25,6 +25,7 @@ type DetailDialogProps = {
   trapFocus?: boolean;
   onCancel: () => void;
   children: ReactNode;
+  footer?: ReactNode;
 };
 
 export function DetailDialog({
@@ -40,6 +41,7 @@ export function DetailDialog({
   trapFocus = false,
   onCancel,
   children,
+  footer,
 }: DetailDialogProps) {
   return (
     <Dialog
@@ -78,6 +80,7 @@ export function DetailDialog({
           )}
         >
           {children}
+          {footer && <div className="mt-space-4">{footer}</div>}
         </DialogBody>
       </DialogContent>
     </Dialog>

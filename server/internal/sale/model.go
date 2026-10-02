@@ -29,6 +29,8 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
+	SaveReceipt      *SaveReceipt                 `json:"saveReceipt,omitempty" gorm:"-"`
+	SaveRequest      *SaveRequest                 `json:"-" gorm:"-"`
 	DirectTrace      *directdelivery.Trace        `json:"directTrace" gorm:"-"`
 	DirectPurchaseID *int64                       `json:"directPurchaseId"`
 	DirectDelivery   bool                         `json:"directDelivery"`
@@ -94,10 +96,11 @@ type LineInput struct {
 	Remark      *string `json:"remark"`
 }
 type Input struct {
-	DirectPurchaseID *int64 `json:"directPurchaseId"`
-	DirectDelivery   bool   `json:"directDelivery"`
-	PartnerID        int64  `json:"partnerId"`
-	BusinessDate     string `json:"businessDate"`
+	RequestKey       *string `json:"requestKey,omitempty"`
+	DirectPurchaseID *int64  `json:"directPurchaseId"`
+	DirectDelivery   bool    `json:"directDelivery"`
+	PartnerID        int64   `json:"partnerId"`
+	BusinessDate     string  `json:"businessDate"`
 	// Delivery fields default from the partner only when omitted/null on creation. An explicit empty string is preserved in drafts and posted snapshots.
 	DeliveryContact *string     `json:"deliveryContact"`
 	DeliveryPhone   *string     `json:"deliveryPhone"`

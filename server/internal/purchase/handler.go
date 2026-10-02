@@ -23,6 +23,8 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/purchases")
 	g.POST("", h.create)
 	g.GET("", h.page)
+	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
+	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
 	g.PUT("/:id", h.edit)
 	g.POST("/:id/post", h.post)
@@ -69,6 +71,7 @@ func meta(ctx *gin.Context) audit.Metadata {
 	return m
 }
 
+// @Description 可选 requestKey 保证同操作人同内容重试不重复建单；回执 savedVersion 表示原保存版本，返回单据为当前状态。
 // @Summary 新建采购入库草稿
 // @Tags 采购入库
 // @Security BearerAuth
@@ -78,6 +81,7 @@ func meta(ctx *gin.Context) audit.Metadata {
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
+// @Failure 409 {object} ApiEnvelope "同标识用于不同内容"
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchases [post]
 func (h *Handler) create(c *gin.Context) {
@@ -94,6 +98,47 @@ func (h *Handler) create(c *gin.Context) {
 	platform.OK(c, v)
 }
 
+// @Summary 查询当前操作人的采购草稿保存结果
+// @Description COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。
+// @Tags 采购入库
+// @Security BearerAuth
+// @Produce json
+// @Param operation path string true "创建或编辑" Enums(CREATE,EDIT)
+// @Param requestKey path string true "原保存标识"
+// @Success 200 {object} ApiEnvelope{data=SaveResult}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope
+// @Router /api/v1/purchases/save-requests/{operation}/{requestKey} [get]
+func (h *Handler) saveResult(c *gin.Context) {
+	v, e := h.s.SaveResult(c.Request.Context(), meta(c).ActorID, c.Param("operation"), c.Param("requestKey"))
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 核实采购草稿保存并关闭尚未提交的标识
+// @Description 等待同标识原事务结束；已提交返回 COMMITTED，尚未提交则持久关闭原标识并返回 NOT_COMMITTED，防止迟到请求再次建单。
+// @Tags 采购入库
+// @Security BearerAuth
+// @Produce json
+// @Param operation path string true "创建或编辑" Enums(CREATE,EDIT)
+// @Param requestKey path string true "原保存标识"
+// @Success 200 {object} ApiEnvelope{data=SaveResult}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope
+// @Router /api/v1/purchases/save-requests/{operation}/{requestKey}/resolve [post]
+func (h *Handler) resolveSave(c *gin.Context) {
+	v, e := h.s.ResolveSave(c.Request.Context(), meta(c), c.Param("operation"), c.Param("requestKey"))
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Description 单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。
 // @Summary 采购入库草稿分页
 // @Tags 采购入库
 // @Security BearerAuth
@@ -158,6 +203,7 @@ func (h *Handler) detail(c *gin.Context) {
 	platform.OK(c, v)
 }
 
+// @Description 可选 requestKey 绑定目标 ID、提交版本和业务内容；相同提交重试返回原回执及单据最新状态，不重复编辑或写成功审计。
 // @Summary 编辑采购入库草稿
 // @Tags 采购入库
 // @Security BearerAuth
@@ -246,7 +292,7 @@ func fail(c *gin.Context, e error) {
 		status, code, msg = 400, 400, e.Error()
 	} else if errors.Is(e, ErrNotFound) {
 		status, code, msg = 404, 404, "采购单不存在"
-	} else if errors.Is(e, ErrConflict) {
+	} else if errors.Is(e, ErrConflict) || errors.Is(e, ErrRequestConflict) {
 		status, code, msg = 409, 409, e.Error()
 	}
 	platform.WriteError(c, status, code, msg, nil)

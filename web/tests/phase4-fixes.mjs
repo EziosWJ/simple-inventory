@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 const base = "http://127.0.0.1:4178";
 const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4178", "--strictPort"], { cwd: new URL("..", import.meta.url), stdio: "ignore" });
 const pageData = records => ({ records, total: records.length, page: 1, pageSize: 10 });
+async function select(page,label,text){const group=page.getByRole("group",{name:label,exact:true});await group.getByRole("button").first().click();await group.locator('button[aria-pressed]').filter({hasText:text}).last().click();}
 try {
   for (let n = 0; n < 40; n++) { try { if ((await fetch(`${base}/tests/phase4-fixes.html`)).ok) break; } catch { /* starting */ } await delay(250); }
   const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
@@ -50,7 +51,7 @@ try {
       const page = await browser.newPage({ timezoneId: "Asia/Shanghai" });
       await page.clock.setFixedTime(new Date("2026-10-01T16:15:00Z"));
       const product = { id: 1, code: "UNIT", name: "单位变更商品", type: newType, unit: "次", status: 1 };
-      const partner = { id: 1, name: "客户", contact: "档案联系人", phone: "123", address: "档案地址", status: 1 };
+      const partner = { id: 1, isCustomer: true, isSupplier: true, name: "客户", contact: "档案联系人", phone: "123", address: "档案地址", status: 1 };
       let draft = { id: 1, documentNo: "DRAFT", partnerId: 1, partnerName: "客户", status: "DRAFT", version: 1, businessDate: "2026-10-01", directDelivery: false, directDocuments: [], items: [{ id: 11, productId: 1, productType: type, unit: "小时", quantity: "2.5", unitPrice: "0.00" }] };
       let submitted;
       await page.route("**/api/v1/**", async route => {
@@ -59,33 +60,37 @@ try {
         if (["PUT", "POST"].includes(req.method())) { submitted = req.postDataJSON(); draft = { ...draft, ...submitted }; data = draft; }
         else if (path.endsWith("/products")) data = pageData([product]);
         else if (path.endsWith("/partners")) data = pageData([partner]);
+        else if (path.endsWith("/products/1")) data = product;
+        else if (path.endsWith("/partners/1")) data = partner;
         else if (path.endsWith("/1")) data = draft;
         else data = pageData(path.endsWith(`/${kind}`) ? [draft] : []);
         await route.fulfill({ json: { code: 200, message: "success", data } });
       });
       await page.goto(`${base}/tests/phase4-fixes.html?kind=${kind}`);
       await page.getByRole("button", { name: "编辑", exact: true }).click();
-      const dialog = page.getByRole("dialog");
+      const dialog = page.locator("form");
+      const saveName = "保存草稿";
       await dialog.getByRole("button", { name: "确认使用新类型和单位" }).waitFor();
       assert.match(await dialog.innerText(), /草稿类型 \/ 单位：.*小时/);
-      assert.equal(await dialog.getByRole("button", { name: "保存", exact: true }).isDisabled(), true);
+      assert.equal(await dialog.getByRole("button", { name: saveName, exact: true }).isDisabled(), true);
       assert.equal(submitted, undefined);
       assert.equal(draft.items[0].unit, "小时");
       await dialog.getByRole("button", { name: "确认使用新类型和单位" }).click();
-      await dialog.getByRole("button", { name: "保存", exact: true }).click();
-      await dialog.waitFor({ state: "hidden" });
+      await dialog.getByRole("button", { name: saveName, exact: true }).click();
+      await page.getByText(/已保存 DRAFT/).waitFor();
       assert.equal(submitted.items[0].unit, "次");
       assert.equal(submitted.items[0].productType, newType);
       assert.equal(submitted.items[0].quantity, "2.5");
       console.log(`#33 ${kind} ${type} -> ${newType} explicit confirmation passed`);
       if (kind === "sales") {
+        await page.getByRole("button", { name: "返回销售列表" }).click();
         await page.getByRole("button", { name: "新建销售草稿" }).click();
         assert.equal(await dialog.locator('input[type="date"]').inputValue(), "2026-10-02");
-        await dialog.locator("select").first().selectOption("1");
+        await select(page,"客户","客户");
         for (const field of ["送货联系人", "送货电话", "送货地址"]) await dialog.getByLabel(field).fill("");
-        await dialog.locator("select").last().selectOption("1");
-        await dialog.getByRole("button", { name: "保存", exact: true }).click();
-        await dialog.waitFor({ state: "hidden" });
+        await select(page,"第 1 行商品","单位变更商品");
+        await dialog.getByRole("button", { name: "保存草稿", exact: true }).click();
+        await page.getByText(/已保存 DRAFT/).waitFor();
         assert.equal(submitted.businessDate, "2026-10-02");
         for (const field of ["deliveryContact", "deliveryPhone", "deliveryAddress"]) assert.equal(submitted[field], "");
         console.log("#34 Shanghai 00:15 local date and explicit empty request passed");

@@ -1,23 +1,18 @@
-import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
+import { BusinessReturnLink } from "@/components/business/business-return-link";
+import { useDocumentSearch } from "@/hooks/use-document-search";
+import { withBusinessReturn } from "@/lib/business-navigation";
+import { PartnerSelect, ProductSelect } from "@/components/business/master-data-select";
 import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelPurchase,
-  createPurchase,
   getPurchase,
-  partnerPage,
   postPurchase,
-  productPage,
   purchasePage,
-  updatePurchase,
-  type PartnerRecord,
-  type ProductRecord,
   type PurchaseDraft,
-  type PurchaseInput,
-  type PurchaseLineInput,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { DetailDialog } from "@/components/common/detail-dialog";
 import { Field } from "@/components/common/field";
@@ -31,67 +26,26 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { DataTableColumn } from "@/types";
 
-type Filters = {
-  documentNo: string;
-  partnerId: string;
-  productId: string;
-  status: string;
-  businessFrom: string;
-  businessTo: string;
-};
-type LineForm = {
-  type: "GOODS";
-  unit: string;
-  productId: number;
-  quantity: string;
-  unitPrice: string;
-  remark: string;
-};
-const blankFilters: Filters = {
-  documentNo: "",
-  partnerId: "",
-  productId: "",
-  status: "",
-  businessFrom: "",
-  businessTo: "",
-};
-const blankLine = (): LineForm => ({
-  productId: 0,
-  type: "GOODS",
-  unit: "",
-  quantity: "1",
-  unitPrice: "0.00",
-  remark: "",
-});
 const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
   const navigate=useNavigate();
-  const [searchParams] = useSearchParams();
+  const location=useLocation();
+  const {params:searchParams,setParams: setSearchParams,query,filters,setFilters,page,setPage,apply}=useDocumentSearch();
+  const goTo=(path:string)=>navigate(withBusinessReturn(path,location.pathname+location.search));
   const [records, setRecords] = useState<PurchaseDraft[]>([]);
-  const [partners, setPartners] = useState<PartnerRecord[]>([]);
-  const [products, setProducts] = useState<ProductRecord[]>([]);
-  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState<Filters>(blankFilters);
-  const [query, setQuery] = useState<Filters>(blankFilters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
-  const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState<PurchaseDraft | null>(null);
-  const [partnerId, setPartnerId] = useState(0);
-  const [businessDate, setBusinessDate] = useState(today());
-  const [directDelivery, setDirectDelivery] = useState(false);
-  const [remark, setRemark] = useState("");
-  const [lines, setLines] = useState<LineForm[]>([blankLine()]);
   const [detail, setDetail] = useState<PurchaseDraft | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PurchaseDraft | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [postTarget, setPostTarget] = useState<PurchaseDraft | null>(null);
 
   const load = useCallback(() => {
+    let active=true;
     setLoading(true);
     void purchasePage({
       page,
@@ -104,116 +58,29 @@ export function PurchasesPage() {
       businessTo: query.businessTo,
     })
       .then((result) => {
+        if(!active)return;
         setRecords(result.records);
         setTotal(result.total);
         setError("");
       })
       .catch((reason: unknown) => {
+        if(!active)return;
         setRecords([]);
         setTotal(0);
         setError(reason instanceof Error ? reason.message : "采购单加载失败");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {if(active)setLoading(false);});
+    return ()=>{active=false;};
   }, [page, query]);
 
-  useEffect(() => {
-    void partnerPage({ page: 1, pageSize: 500, identity: "SUPPLIER", status: 1 })
-      .then((result) => setPartners(result.records))
-      .catch(() => setPartners([]));
-    void productPage({ page: 1, pageSize: 500, status: 1 })
-      .then((result) =>
-        setProducts(result.records),
-      )
-      .catch(() => setProducts([]));
-  }, []);
-
   useEffect(() => load(), [load, reload]);
-  useEffect(() => { const id=Number(searchParams.get("purchaseId")); if(id>0) void getPurchase(id).then(setDetail).catch((reason:unknown)=>setError(reason instanceof Error?reason.message:"读取采购单失败")); }, [searchParams]);
+  useEffect(() => { let active=true; const id=Number(searchParams.get("purchaseId")); if(id>0) void getPurchase(id).then(d=>{if(active)setDetail(d)}).catch((reason:unknown)=>{if(active)setError(reason instanceof Error?reason.message:"读取采购单失败")});else setDetail(null); return()=>{active=false;}; }, [searchParams]);
+  function closeDetail(){setDetail(null);const p=new URLSearchParams(searchParams);p.delete("purchaseId");setSearchParams(p,{replace:true});}
 
-  function startNew() {
-    setEditing(null);
-    setDirectDelivery(false);
-    setPartnerId(0);
-    setBusinessDate(today());
-    setRemark("");
-    setLines([blankLine()]);
-    setError("");
-    setFormOpen(true);
-  }
+  function startNew() { goTo("/business/purchases/new"); }
+  function startEdit(record: PurchaseDraft) { goTo(`/business/purchases/${record.id}/edit`); }
 
-  async function startEdit(record: PurchaseDraft) {
-    try {
-      const current = await getPurchase(record.id);
-      const catalog = await productPage({ page: 1, pageSize: 500, status: 1 });
-      setProducts(catalog.records);
-      setEditing(current);
-      setDirectDelivery(current.directDelivery);
-      setPartnerId(current.partnerId);
-      setBusinessDate(current.businessDate);
-      setRemark(current.remark ?? "");
-      setLines(
-        current.items.map((item) => ({
-          productId: item.productId,
-          type: item.productType,
-          unit: item.unit,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          remark: item.remark ?? "",
-        })),
-      );
-      setError("");
-      setFormOpen(true);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "读取采购单失败");
-    }
-  }
-
-  async function openDetail(record: PurchaseDraft) {
-    try {
-      setDetail(await getPurchase(record.id));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "读取采购单失败");
-    }
-  }
-
-  const unitChangePending = lines.some(l => { const p = products.find(p => p.id === l.productId); return !!p && (p.type !== l.type || p.unit !== l.unit); });
-
-  async function saveDraft() {
-    if (unitChangePending) {
-      setError("请先确认商品类型和单位变化，草稿原值已保留");
-      return;
-    }
-    const body: PurchaseInput = {
-      directDelivery,
-      partnerId,
-      businessDate,
-      remark: remark.trim() || undefined,
-      items: lines.map((line) => {
-        return {
-          productId: line.productId,
-          productType: line.type,
-          unit: line.unit,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          remark: line.remark.trim() || undefined,
-        } satisfies PurchaseLineInput;
-      }),
-    };
-    setSaving(true);
-    try {
-      if (editing) {
-        await updatePurchase(editing.id, { ...body, version: editing.version });
-      } else {
-        await createPurchase(body);
-      }
-      setFormOpen(false);
-      setReload((value) => value + 1);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "保存失败，表单输入已保留");
-    } finally {
-      setSaving(false);
-    }
-  }
+  function openDetail(record:PurchaseDraft){const p=new URLSearchParams(searchParams);p.set("purchaseId",String(record.id));setSearchParams(p);}
 
   async function confirmCancel() {
     if (!cancelTarget) return;
@@ -238,14 +105,13 @@ export function PurchasesPage() {
       setError("业务日期起始不能晚于结束日期。");
       return;
     }
-    setPage(1);
-    setQuery({ ...filters });
+    apply(filters);
+    setReload(v=>v+1);
   }
 
   function resetFilters() {
-    setFilters(blankFilters);
-    setQuery(blankFilters);
-    setPage(1);
+    apply({documentNo:"",partnerId:"",productId:"",status:"",businessFrom:"",businessTo:""});
+    setReload(v=>v+1);
   }
 
   const columns: DataTableColumn<PurchaseDraft>[] = [
@@ -278,7 +144,7 @@ export function PurchasesPage() {
               <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>取消</Button>
             </>
           )}
-          {record.status === "POSTED" && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => navigate(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}
+          {record.status === "POSTED" && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => goTo(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}
         </div>
       ),
     },
@@ -294,6 +160,7 @@ export function PurchasesPage() {
       <SearchFilterBar actions={(
         <>
           <Button onClick={applyFilters}>查询</Button>
+          <Button variant="secondary" onClick={()=>setReload(v=>v+1)}>刷新</Button>
           <Button variant="secondary" onClick={resetFilters}>重置</Button>
         </>
       )}>
@@ -301,10 +168,7 @@ export function PurchasesPage() {
           <Input value={filters.documentNo} onChange={(event) => setFilters({ ...filters, documentNo: event.target.value })} placeholder="输入单号" />
         </Field>
         <Field label="供应商">
-          <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.partnerId} onChange={(event) => setFilters({ ...filters, partnerId: event.target.value })}>
-            <option value="">全部供应商</option>
-            {partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}</option>)}
-          </select>
+          <PartnerSelect label="筛选供应商" historical value={Number(filters.partnerId)} onChange={partner => setFilters({ ...filters, partnerId: partner ? String(partner.id) : "" })} />
         </Field>
         <Field label="状态">
           <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
@@ -312,10 +176,7 @@ export function PurchasesPage() {
           </select>
         </Field>
         <Field label="商品">
-          <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.productId} onChange={(event) => setFilters({ ...filters, productId: event.target.value })}>
-            <option value="">全部商品</option>
-            {products.filter(p => p.type === "GOODS").map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}
-          </select>
+          <ProductSelect label="筛选商品" historical value={Number(filters.productId)} onChange={product => setFilters({ ...filters, productId: product ? String(product.id) : "" })} />
         </Field>
         <Field label="业务日期起">
           <Input type="date" value={filters.businessFrom} onChange={(event) => setFilters({ ...filters, businessFrom: event.target.value })} />
@@ -332,85 +193,20 @@ export function PurchasesPage() {
         <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error || undefined} minWidth={960} empty="暂无采购单。" />
       </DataTableCard>
 
-      <FormDialog
-        open={formOpen}
-        title={editing ? "编辑采购入库草稿" : "新建采购入库草稿"}
-        description={editing ? `${editing.documentNo} · 版本 ${editing.version}` : "单据保存后生成唯一单号。"}
-        loading={saving}
-        submitDisabled={unitChangePending}
-        onCancel={() => setFormOpen(false)}
-        onSubmit={saveDraft}
-      >
-        {error && <p role="alert" className="mb-3 text-sm text-error">{error}</p>}
-        <div className="grid gap-space-3 md:grid-cols-2">
-          <Field label="供应商" required>
-            <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={partnerId || ""} onChange={(event) => setPartnerId(Number(event.target.value))}>
-              <option value="">选择启用供应商</option>
-              {partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}</option>)}
-            </select>
-          </Field>
-          <Field label="业务日期" required>
-            <Input type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} />
-          </Field>
-          <Field label="交付方式"><label className="flex items-center gap-2"><input type="checkbox" checked={directDelivery} onChange={e=>setDirectDelivery(e.target.checked)}/>供应商直接送达客户</label></Field>
-          <Field label="备注">
-            <Input value={remark} onChange={(event) => setRemark(event.target.value)} maxLength={500} />
-          </Field>
-        </div>
-        <div className="mt-space-4 space-y-space-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">采购明细</h3>
-            <Button size="sm" variant="secondary" onClick={() => setLines([...lines, blankLine()])}>添加明细</Button>
-          </div>
-          {lines.map((line, index) => {
-            const selected = products.find((product) => product.id === line.productId);
-            return (
-              <div key={index} className="grid gap-space-2 rounded-control border border-border p-space-3 md:grid-cols-[2fr_1fr_1fr_auto]">
-                <Field label={`第 ${index + 1} 行商品`} required>
-                  <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={line.productId || ""} onChange={(event) => {
-                    const productId = Number(event.target.value);
-                    const product = products.find((item) => item.id === productId);
-                    updateLine(setLines, lines, index, {
-                      productId,
-                      type: "GOODS",
-                      unit: product?.unit ?? "",
-                      unitPrice: product?.purchasePrice ?? "0.00",
-                    });
-                  }}>
-                    <option value="">选择启用实物商品</option>
-                    {products.filter(p => p.type === "GOODS").map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}（{product.unit}）</option>)}
-                  </select>
-                  {line.productId > 0 && !products.some(p => p.id === line.productId && p.type === "GOODS") && <span>已保存商品：{selected?.name ?? editing?.items.find(i => i.productId === line.productId)?.productName ?? "当前不可选"}</span>}
-                </Field>
-                <Field label="数量" required>
-                  <Input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(setLines, lines, index, { quantity: event.target.value })} />
-                </Field>
-                <Field label="成交单价（元）" required>
-                  <Input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(setLines, lines, index, { unitPrice: event.target.value })} />
-                </Field>
-                <div className="flex items-end pb-5">
-                  <Button variant="secondary" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, lineIndex) => lineIndex !== index))}>删除</Button>
-                </div>
-                <DraftProductConfirmation type={line.type} unit={line.unit} current={selected} goodsOnly onConfirm={() => { if(selected?.type === "GOODS") updateLine(setLines, lines, index, { type: selected.type, unit: selected.unit }); }} />
-              </div>
-            );
-          })}
-        </div>
-      </FormDialog>
-
-      <DetailDialog
+      <DetailDialog footer={<BusinessReturnLink />}
         open={detail !== null}
         title={`采购入库单${detail ? ` · ${detail.documentNo}` : "详情"}`}
         description={detail ? `${detail.partnerName} · ${detail.businessDate} · ${{DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[detail.status]}` : undefined}
-        onCancel={() => setDetail(null)}
+        onCancel={closeDetail}
       >
         {detail && (
           <>
+            {detail.status === "DRAFT" && <Button onClick={()=>startEdit(detail)}>编辑草稿</Button>}
             <p className="mb-3">{detail.directDelivery ? "直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
-            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>navigate(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${new Date(d.postedAt).toLocaleString()}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>navigate(`/business/sales?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
+            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${new Date(d.postedAt).toLocaleString()}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
             <DataTable
               columns={[
-                { title: "商品", key: "product", render: (_, item) => `${item.productCode} ${item.productName}` },
+                { title: "商品", key: "product", render: (_, item) => [item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ") },
                 { title: "数量", dataIndex: "quantity" },
                 { title: "单位", dataIndex: "unit" },
                 { title: "成交单价", dataIndex: "unitPrice", align: "right" },
@@ -423,12 +219,12 @@ export function PurchasesPage() {
             <p className="mt-space-4 text-right font-medium">合计：¥{detail.totalAmount}</p>
             <p className="mt-space-2 text-sm text-text-tertiary">
               创建人：{detail.createdByName} · 创建时间：{new Date(detail.createTime).toLocaleString()}
-              {detail.postedByName && ` · 过账人：${detail.postedByName}`}
+              {detail.postedByName && ` · 过账人：${detail.postedByName}${detail.postedAt ? ` · 实际过账时间：${new Date(detail.postedAt).toLocaleString()}` : ""}`}
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
             </p>
             <DirectDeliveryTrace trace={detail.directTrace}/>
             {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
-            <Button className="mt-space-3" variant="secondary" onClick={() => navigate(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
+            <Button className="mt-space-3" variant="secondary" onClick={() => goTo(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
           </>
         )}
       </DetailDialog>
@@ -452,21 +248,6 @@ export function PurchasesPage() {
       </FormDialog>
     </div>
   );
-}
-
-function updateLine(
-  setLines: (lines: LineForm[]) => void,
-  lines: LineForm[],
-  index: number,
-  patch: Partial<LineForm>,
-) {
-  setLines(lines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
-}
-
-function today() {
-  const date = new Date();
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
 }
 
 function statusText(s:string){return {DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[s]??s}

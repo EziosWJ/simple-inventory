@@ -29,6 +29,8 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
+	SaveReceipt     *SaveReceipt                 `json:"saveReceipt,omitempty" gorm:"-"`
+	SaveRequest     *SaveRequest                 `json:"-" gorm:"-"`
 	DirectTrace     *directdelivery.Trace        `json:"directTrace" gorm:"-"`
 	DirectDelivery  bool                         `json:"directDelivery"`
 	DirectDocuments []directdelivery.DocumentRef `json:"directDocuments" gorm:"-"`
@@ -86,6 +88,7 @@ type LineInput struct {
 	Remark      *string `json:"remark"`
 }
 type Input struct {
+	RequestKey     *string     `json:"requestKey,omitempty"`
 	DirectDelivery bool        `json:"directDelivery"`
 	PartnerID      int64       `json:"partnerId"`
 	BusinessDate   string      `json:"businessDate"`

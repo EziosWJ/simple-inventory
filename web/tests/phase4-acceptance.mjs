@@ -30,7 +30,7 @@ function quota() {
         throw Error('QUOTA_STOP');
 }
 const browser = await chromium.launch({ ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}), headless: true, args: ['--no-sandbox'] });
-const context = await browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'zh-CN', timezoneId: 'Asia/Shanghai' });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'zh-CN', timezoneId: 'Asia/Shanghai', ignoreHTTPSErrors: process.env.ACCEPTANCE_ISOLATED_LOCAL_CA === '1' });
 const page = await context.newPage();
 page.setDefaultTimeout(12000);
 let auth = '';
@@ -56,6 +56,7 @@ async function goto(path) {
 }
 async function action(path, fn, method = 'POST') {
     const p = page.waitForResponse(r => r.url().includes(path) && r.request().method() === method);
+    void p.catch(() => undefined); // fn may wait longer; preserve the original rejection for await below.
     await fn();
     const r = await p;
     const j = await r.json();
@@ -93,25 +94,33 @@ let { receipts = [], payments = [], refunds = [] } = report.funds ?? {};
 async function purchaseUI(direct = false) {
     await goto('/business/purchases');
     await page.getByRole('button', { name: '新建采购单', exact: true }).click();
-    let d = page.getByRole('dialog');
-    await d.locator('select').nth(0).selectOption(String(partner.id));
-    await d.locator('select').nth(1).selectOption(String(goods.id));
-    await d.locator('input').nth(3).fill(direct ? '3' : '10');
-    await d.locator('input').nth(4).fill('10.00');
+    let d = page.getByRole('main');
+    const selectRecord = async (label, code) => {
+        const selector = d.getByRole('group', { name: label, exact: true });
+        await selector.getByRole('button').first().click();
+        await selector.getByRole('textbox', { name: `搜索${label}` }).fill(code);
+        await selector.locator('button[aria-pressed]').filter({ hasText: code }).last().click();
+    };
+    await selectRecord('供应商', partner.code);
+    await selectRecord('第 1 行商品', goods.code);
+    await d.locator('input[inputmode="decimal"]').nth(0).fill(direct ? '3' : '10');
+    await d.locator('input[inputmode="decimal"]').nth(1).fill('10.00');
     if (direct)
         await d.getByRole('checkbox').check();
     if (!direct) {
         await d.getByRole('button', { name: '添加明细' }).click();
-        await d.locator('select').nth(2).selectOption(String(goods.id));
-        await d.locator('input').nth(5).fill('2');
-        await d.locator('input').nth(6).fill('0.00');
+        await selectRecord('第 2 行商品', goods.code);
+        await d.locator('input[inputmode="decimal"]').nth(2).fill('2');
+        await d.locator('input[inputmode="decimal"]').nth(3).fill('0.00');
     }
     ;
-    const p = await action('/api/v1/purchases', () => d.getByRole('button', { name: '保存', exact: true }).click());
+    const p = await action('/api/v1/purchases', () => d.getByRole('button', { name: '保存草稿', exact: true }).click());
+    await page.getByRole('button', { name: '返回采购列表' }).click();
     await page.getByRole('row').filter({ hasText: p.documentNo }).getByRole('button', { name: '过账', exact: true }).click();
     const posted = await action(`/purchases/${p.id}/post`, () => page.getByRole('button', { name: '确认过账', exact: true }).click());
     return posted;
 }
+async function chooseRecord(label,code){const selector=page.getByRole('group',{name:label,exact:true});await selector.getByRole('button').first().click();await selector.getByRole('textbox',{name:`搜索${label}`}).fill(code);await selector.locator('button[aria-pressed]').filter({hasText:code}).last().click();}
 async function saleUI(p = null) {
     if (p) {
         await goto(`/business/purchases?purchaseId=${p.id}`);
@@ -123,25 +132,28 @@ async function saleUI(p = null) {
         await page.getByRole('button', { name: '新建销售草稿', exact: true }).click();
     }
     ;
-    let d = page.getByRole('dialog');
-    await d.locator('select').nth(p ? 1 : 0).selectOption(String(partner.id));
-    if (p) {
-        await d.getByLabel('成交单价').fill('20.00');
-    }
+    const d = page.locator('form');
+    await chooseRecord('客户',partner.code);
+    if(p) await d.getByLabel('成交单价（元）').fill('20.00');
     else {
-        await d.locator('select').nth(1).selectOption(String(goods.id));
-        await d.getByLabel('数量', { exact: true }).nth(0).fill('4');
-        await d.getByLabel('成交单价').nth(0).fill('20.00');
-        await d.getByRole('button', { name: '增加明细' }).click();
-        await d.locator('select').nth(2).selectOption(String(goods.id));
-        await d.getByLabel('数量', { exact: true }).nth(1).fill('2');
-        await d.getByLabel('成交单价').nth(1).fill('25.00');
-        await d.getByRole('button', { name: '增加明细' }).click();
-        await d.locator('select').nth(3).selectOption(String(service.id));
-        await d.getByLabel('成交单价').nth(2).fill('30.00');
+      await chooseRecord('第 1 行商品',goods.code);
+      await d.getByLabel('数量').first().fill('4');
+      await d.getByLabel('成交单价（元）').first().fill('20.00');
+      await d.getByRole('button',{name:'添加明细'}).click();
+      await chooseRecord('第 2 行商品',goods.code);
+      await d.getByLabel('数量').nth(1).fill('2');
+      await d.getByLabel('成交单价（元）').nth(1).fill('25.00');
+      await d.getByRole('button',{name:'添加明细'}).click();
+      await chooseRecord('第 3 行商品',service.code);
+      await d.getByLabel('成交单价（元）').nth(2).fill('30.00');
     }
-    ;
-    const s = await action('/api/v1/sales', () => d.getByRole('button', { name: '保存', exact: true }).click());
+    const s = await action('/api/v1/sales', () => d.getByRole('button', { name: '保存草稿', exact: true }).click());
+    await page.waitForURL(/\/business\/sales\/\d+\/edit(?:\?.*)?$/);
+    await page.getByRole('button',{name:p?'返回来源页面':'返回销售列表'}).click();
+    if (p) {
+        await page.waitForURL(`**/business/purchases?purchaseId=${p.id}*`);
+        await goto('/business/sales');
+    }
     const posted = await action(`/sales/${s.id}/post`, () => page.getByRole('row').filter({ hasText: s.documentNo }).getByRole('button', { name: '过账', exact: true }).click());
     await page.getByRole('button', { name: '关闭', exact: true }).click();
     return posted;
@@ -226,7 +238,7 @@ try {
         }
         await nav.getByRole('link', { name: '销售出库', exact: true }).click();
         await page.waitForURL('**/business/sales');
-        assert.ok((await page.locator('main').innerText()).includes('销售出库'));
+        await page.getByRole('heading', { name: '销售出库', exact: true }).waitFor();
         await goto('/business/inventory-balances');
         assert.equal(await nav.getByRole('button', { name: '库存管理', exact: true }).getAttribute('aria-expanded'), 'true');
         await page.getByRole('button', { name: '菜单搜索' }).first().click();
@@ -284,7 +296,7 @@ try {
         const rp = await returnUI('purchase', p, '1');
         await goto(`/business/sales?saleId=${s.id}`);
         await page.getByRole('dialog').getByRole('button', { name: new RegExp(p.documentNo) }).first().click();
-        await page.waitForURL(`**/business/purchases?purchaseId=${p.id}`);
+        await page.waitForURL(`**/business/purchases?purchaseId=${p.id}*`);
         await page.getByRole('dialog').getByRole('button', { name: '查看供应商往来' }).click();
         await page.waitForURL('**/business/partner-ledger?*');
         report.direct = { p, s, rs, rp };
@@ -325,7 +337,7 @@ try {
         await page.getByRole('button', { name: '查询', exact: true }).click();
         await page.getByRole('row').filter({ hasText: goods.code }).getByRole('button', { name: '查看流水' }).click();
         await page.waitForURL(`**/business/inventory-entries?productId=${goods.id}`);
-        assert.equal(await page.getByLabel('按商品筛选').inputValue(), String(goods.id));
+        await page.getByLabel('按商品筛选').locator(`option[value="${goods.id}"]:checked`).waitFor({ state: 'attached' });
         for (const source of ['PURCHASE', 'SALE', 'PURCHASE_RETURN', 'SALE_RETURN'])
             for (const type of ['ORIGINAL', 'REVERSAL']) {
                 await goto(`/business/inventory-entries?productId=${goods.id}`);
@@ -341,7 +353,7 @@ try {
                 await page.getByRole('dialog').getByRole('button', { name: `查看${direction}往来` }).click();
                 await page.waitForURL('**/business/partner-ledger?*');
                 assert.ok(page.url().includes(`partnerId=${partner.id}`));
-                assert.ok((await page.locator('body').innerText()).includes(e.records[0].documentNo));
+                await page.getByText(e.records[0].documentNo, { exact: true }).first().waitFor();
             }
         ;
         if (process.env.ACCEPTANCE_LEGACY_ADJUSTMENT_ID) {

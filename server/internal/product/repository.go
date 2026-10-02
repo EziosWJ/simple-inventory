@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -23,10 +24,7 @@ const lockedSelect = "product.*,EXISTS(SELECT 1 FROM inventory_entry e WHERE e.p
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Product{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Product{}).Select(lockedSelect)
-	if q.Keyword != "" {
-		like := "%" + q.Keyword + "%"
-		d = d.Where("code LIKE ? OR name LIKE ? OR brand LIKE ? OR model LIKE ? OR specification LIKE ?", like, like, like, like, like)
-	}
+	d = platformdatabase.LiteralContains(d, q.Keyword, "code", "name", "brand", "model", "specification")
 	if q.Type != "" {
 		d = d.Where("type=?", q.Type)
 	}

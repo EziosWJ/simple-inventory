@@ -34,7 +34,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 // @Security BearerAuth
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页条数"
-// @Param keyword query string false "关键词"
+// @Param keyword query string false "编码/名称/品牌/型号/规格片段；去除首尾空白，ASCII 字母忽略大小写，% 和 _ 字面匹配"
 // @Param type query string false "GOODS 或 SERVICE"
 // @Param category query string false "分类"
 // @Param status query int false "状态"

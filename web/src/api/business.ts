@@ -31,6 +31,7 @@ export const getProduct=(id:number)=>http.get<ProductRecord>(`/api/v1/products/$
 export const saveProduct=(data:Omit<ProductRecord,"id"|"status">,id?:number)=>id?http.put<ProductRecord>(`/api/v1/products/${id}`,data):http.post<ProductRecord>("/api/v1/products",data);
 export const productStatus=(id:number,status:number)=>http.put<void>(`/api/v1/products/${id}/status`,{status});
 export const partnerPage=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerRecord>>("/api/v1/partners",{query});
+export const getPartner=(id:number)=>http.get<PartnerRecord>(`/api/v1/partners/${id}`);
 export const savePartner=(data:Omit<PartnerRecord,"id"|"status">,id?:number)=>id?http.put<PartnerRecord>(`/api/v1/partners/${id}`,data):http.post<PartnerRecord>("/api/v1/partners",data);
 export const partnerStatus=(id:number,status:number)=>http.put<void>(`/api/v1/partners/${id}/status`,{status});
 export const inventoryAdjustmentPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryAdjustment>>("/api/v1/inventory/adjustments",{query});
@@ -54,9 +55,13 @@ export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get
 export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
 export type PurchaseLine = {id:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS";unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
 export type DirectDocument = {id:number;documentNo:string;status:"DRAFT"|"POSTED"|"CANCELLED";partnerName:string;postedAt?:string|null;postedByName?:string;cancelledAt?:string|null;cancelledByName?:string;cancelReason?:string|null};
-export type PurchaseDraft = {directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
+export type PurchaseDraft = {saveReceipt?:PurchaseSaveReceipt;directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
 export type PurchaseLineInput = {productId:number;productType:"GOODS";unit:string;quantity:string;unitPrice:string;remark?:string};
-export type PurchaseInput = {directDelivery?:boolean;partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
+export type PurchaseInput = {requestKey?:string;directDelivery?:boolean;partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
+export type PurchaseSaveReceipt = {requestKey:string;operation:"CREATE"|"EDIT";documentId:number;savedVersion:number};
+export type PurchaseSaveResult = {state:"COMMITTED"|"UNCONFIRMED"|"NOT_COMMITTED";receipt?:PurchaseSaveReceipt;document?:PurchaseDraft};
+export const purchaseSaveResult=(operation:"CREATE"|"EDIT",key:string)=>http.get<PurchaseSaveResult>(`/api/v1/purchases/save-requests/${operation}/${encodeURIComponent(key)}`);
+export const resolvePurchaseSave=(operation:"CREATE"|"EDIT",key:string)=>http.post<PurchaseSaveResult>(`/api/v1/purchases/save-requests/${operation}/${encodeURIComponent(key)}/resolve`,{});
 export const purchasePage=(query:Record<string,string|number>)=>http.get<BusinessPage<PurchaseDraft>>("/api/v1/purchases",{query});
 export const getPurchase=(id:number)=>http.get<PurchaseDraft>(`/api/v1/purchases/${id}`);
 export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api/v1/purchases",data);
@@ -67,6 +72,9 @@ export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"
 export type SaleDraft = {directPurchaseId?:number|null} & Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {postedBy?:number|null;postedByName?:string;postedAt?:string|null;ownerName?:string;ownerPhone?:string;ownerAddress?:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
 export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {id?:number;productType:"GOODS"|"SERVICE"};
 export type SaleInput = {directPurchaseId?:number} & Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};
+export type SaleSaveResult = Omit<PurchaseSaveResult,"document"> & {document?:SaleDraft};
+export const saleSaveResult=(operation:"CREATE"|"EDIT",key:string)=>http.get<SaleSaveResult>(`/api/v1/sales/save-requests/${operation}/${encodeURIComponent(key)}`);
+export const resolveSaleSave=(operation:"CREATE"|"EDIT",key:string)=>http.post<SaleSaveResult>(`/api/v1/sales/save-requests/${operation}/${encodeURIComponent(key)}/resolve`,{});
 export const salePage=(query:Record<string,string|number>)=>http.get<BusinessPage<SaleDraft>>("/api/v1/sales",{query});
 export const getSale=(id:number)=>http.get<SaleDraft>(`/api/v1/sales/${id}`);
 export const createSale=(data:SaleInput)=>http.post<SaleDraft>("/api/v1/sales",data);

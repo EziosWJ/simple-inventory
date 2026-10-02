@@ -15,12 +15,15 @@ import (
 )
 
 var (
-	ErrInvalid  = errors.New("销售单参数错误")
-	ErrNotFound = errors.New("销售单不存在")
-	ErrConflict = errors.New("销售单状态或版本已变化，请刷新后重试")
+	ErrRequestConflict = errors.New("保存标识已用于不同内容，请核实原保存结果")
+	ErrInvalid         = errors.New("销售单参数错误")
+	ErrNotFound        = errors.New("销售单不存在")
+	ErrConflict        = errors.New("销售单状态或版本已变化，请刷新后重试")
 )
 
 type Store interface {
+	SaveResult(context.Context, int64, string, string) (SaveResult, error)
+	ResolveSave(context.Context, audit.Metadata, string, string) (SaveResult, error)
 	Create(context.Context, Draft, []Line, audit.Event) (Draft, error)
 	Edit(context.Context, int64, int64, Draft, []Line, audit.Event) (Draft, error)
 	Cancel(context.Context, int64, int64, string, audit.Event) (Draft, error)
@@ -43,6 +46,10 @@ func (s *Service) Create(ctx context.Context, m audit.Metadata, in Input) (Draft
 		}
 	}
 	h.CreatedBy = m.ActorID
+	h.SaveRequest, e = prepareSaveRequest(in.RequestKey, "CREATE", 0, 0, h, lines)
+	if e != nil {
+		return Draft{}, e
+	}
 	return s.store.Create(ctx, h, lines, audit.Event{Action: "sale.draft.create", Resource: "sale", Summary: "新建销售出库草稿", Metadata: m})
 }
 func (s *Service) Edit(ctx context.Context, m audit.Metadata, id int64, in EditInput) (Draft, error) {
@@ -50,6 +57,10 @@ func (s *Service) Edit(ctx context.Context, m audit.Metadata, id int64, in EditI
 		return Draft{}, ErrInvalid
 	}
 	h, lines, e := validate(in.Input)
+	if e != nil {
+		return Draft{}, e
+	}
+	h.SaveRequest, e = prepareSaveRequest(in.RequestKey, "EDIT", id, in.Version, h, lines)
 	if e != nil {
 		return Draft{}, e
 	}

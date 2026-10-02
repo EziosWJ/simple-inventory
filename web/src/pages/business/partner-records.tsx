@@ -1,3 +1,4 @@
+import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -111,7 +112,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
     <DataTableCard toolbar={<div className="p-3 text-sm">已生效记录 · 共 {total} 笔</div>} pagination={<Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}>
       <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">当前条件下暂无记录，可在上方录入。</p>} />
     </DataTableCard>
-    <DetailDialog open={detail !== null} title={detail ? `${entryTypeLabel[detail.entryType]} · ${detail.documentNo}` : "记录详情"} onCancel={() => setDetail(null)}>
+    <DetailDialog footer={<BusinessReturnLink />} open={detail !== null} title={detail ? `${entryTypeLabel[detail.entryType]} · ${detail.documentNo}` : "记录详情"} onCancel={() => setDetail(null)}>
       {detail && <div className="space-y-3 text-sm">
         <p>{detail.partnerName} · {detail.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}</p>
         <p>金额 {detail.amount} 元 · 余额 {detail.balanceBefore} → {detail.balanceAfter} 元</p>

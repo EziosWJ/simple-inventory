@@ -1,0 +1,100 @@
+name: ${INVENTORY_PROJECT:-simple-inventory}
+
+x-app-environment: &app-environment
+  APP_ENV: prod
+  APP_SWAGGER__ENABLED: "false"
+  APP_HTTP__ADDRESS: ":8080"
+  APP_HTTP__TRUSTED_PROXIES: ${PROXY_IP:-172.30.15.3}
+  APP_DATABASE__DRIVER: postgres
+  APP_DATABASE__URL: postgres://db:5432/${POSTGRES_DB:-simple_inventory}?sslmode=disable
+  APP_DATABASE__USERNAME: ${POSTGRES_USER:-inventory}
+  APP_DATABASE__PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in private .env}
+  APP_JWT__SECRET: ${JWT_SECRET:?Set JWT_SECRET in private .env}
+  APP_FILE__STORAGE_ROOT: /var/lib/simple-inventory/uploads
+  APP_CORS__ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-https://${DOMAIN:?Set DOMAIN}}
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-simple_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-inventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      backend:
+        ipv4_address: ${DB_IP:-172.30.15.2}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  migrate:
+    image: ${INVENTORY_IMAGE_PREFIX:-simple-inventory}-migrate:${INVENTORY_RELEASE:?Set identifiable release}
+    profiles: [tools]
+    restart: "no"
+    environment: *app-environment
+    command: [up, --kind, all]
+    networks: [backend]
+    depends_on:
+      db: {condition: service_healthy}
+
+  api:
+    image: ${INVENTORY_IMAGE_PREFIX:-simple-inventory}-api:${INVENTORY_RELEASE:?Set identifiable release}
+    restart: unless-stopped
+    environment: *app-environment
+    # Verify only; migrations are always a separate explicit command.
+    entrypoint: [/bin/sh, -ec, "/app/migrate check --kind all && exec /app/api"]
+    volumes:
+      - uploads:/var/lib/simple-inventory/uploads
+    networks:
+      backend:
+        ipv4_address: ${API_IP:-172.30.15.4}
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/ready]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    labels:
+      org.opencontainers.image.version: ${INVENTORY_RELEASE}
+
+  proxy:
+    image: ${CADDY_IMAGE:-caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${HTTP_PORT:-80}:80"
+      - "${PUBLIC_BIND:-127.0.0.1}:${HTTPS_PORT:-443}:443"
+    volumes:
+      - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - proxy_data:/data
+      - proxy_config:/config
+    networks:
+      backend:
+        ipv4_address: ${PROXY_IP:-172.30.15.3}
+      edge: {}
+    depends_on:
+      api: {condition: service_healthy}
+
+networks:
+  backend:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${BACKEND_SUBNET:-172.30.15.0/24}
+  edge: {}
+
+volumes:
+  database: {}
+  uploads: {}
+  proxy_data: {}
+  proxy_config: {}

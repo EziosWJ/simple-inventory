@@ -20,3 +20,9 @@ export function localPeriod(from:string,to:string){
  return {from:start.toISOString(),to:end.toISOString()};
 }
 export function localToday(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`}
+
+export function periodDateInput(value:string, exclusiveEnd=false){
+ const d=new Date(value);if(!Number.isFinite(d.getTime()))return "";
+ if(exclusiveEnd)d.setTime(d.getTime()-1);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
