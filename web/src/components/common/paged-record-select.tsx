@@ -83,7 +83,7 @@ export function PagedRecordSelect<T extends RecordWithID>({
   }
   return <div role="group" aria-label={label} className="min-w-0 space-y-space-2">
     <div className="flex gap-space-2">
-      <Button ref={triggerRef} disabled={disabled} aria-expanded={open} aria-controls={id} className="!h-auto min-h-9 min-w-0 flex-1 justify-start whitespace-normal break-words py-space-2 text-left" onClick={() => setOpen(!open)}>
+      <Button ref={triggerRef} disabled={disabled} aria-expanded={open} aria-controls={id} className="!h-auto min-h-9 min-w-0 flex-1 justify-start whitespace-normal break-words py-[7px] text-left" onClick={() => setOpen(!open)}>
         {value > 0 ? (current ? describe(current) : fallback ?? `已选资料 #${value}`) : `选择${label}`}
       </Button>
       {value > 0 && <Button disabled={disabled} size="sm" aria-label={`清除${label}`} onClick={() => { onChange(null); setOpen(false); }}>清除</Button>}
@@ -105,7 +105,7 @@ export function PagedRecordSelect<T extends RecordWithID>({
           {describe(record)}
         </Button>)}
       </div>
-      <Pagination page={page} pageSize={PAGE_SIZE} total={total} disabled={loading || Boolean(error) || disabled} onPageChange={setPage} />
+      <Pagination compact page={page} pageSize={PAGE_SIZE} total={total} disabled={loading || Boolean(error) || disabled} onPageChange={setPage} />
       <Button size="sm" onClick={closeSearch}>收起搜索</Button>
     </div>}
   </div>;

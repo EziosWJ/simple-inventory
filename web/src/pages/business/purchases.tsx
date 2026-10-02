@@ -23,6 +23,7 @@ import { SearchFilterBar } from "@/components/common/search-filter-bar";
 import { TableToolbar } from "@/components/common/table-toolbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { DataTableColumn } from "@/types";
 
@@ -171,9 +172,9 @@ export function PurchasesPage() {
           <PartnerSelect label="筛选供应商" historical value={Number(filters.partnerId)} onChange={partner => setFilters({ ...filters, partnerId: partner ? String(partner.id) : "" })} />
         </Field>
         <Field label="状态">
-          <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
+          <Select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
             <option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option>
-          </select>
+          </Select>
         </Field>
         <Field label="商品">
           <ProductSelect label="筛选商品" historical value={Number(filters.productId)} onChange={product => setFilters({ ...filters, productId: product ? String(product.id) : "" })} />

@@ -15,6 +15,7 @@ import { DataTable } from "@/components/common/data-table";
 import { Pagination } from "@/components/common/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { DataTableColumn } from "@/types";
 
 export function SalesPage(){
@@ -45,7 +46,7 @@ export function SalesPage(){
     <Field label="销售单号"><Input aria-label="销售单号" placeholder="销售单号" value={filters.documentNo} onChange={e=>setFilters({...filters,documentNo:e.target.value})}/></Field>
     <Field label="客户"><PartnerSelect label="客户筛选" historical value={Number(filters.partnerId)} onChange={p=>setFilters({...filters,partnerId:p?String(p.id):""})}/></Field>
     <Field label="商品/服务"><ProductSelect label="商品或服务筛选" historical value={Number(filters.productId)} onChange={p=>setFilters({...filters,productId:p?String(p.id):""})}/></Field>
-    <Field label="状态"><select className="h-control rounded border px-3" aria-label="销售状态" value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option></select></Field>
+    <Field label="状态"><Select aria-label="销售状态" value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option></Select></Field>
     <Field label="业务日期起"><Input aria-label="业务日期起" type="date" value={filters.businessFrom} onChange={e=>setFilters({...filters,businessFrom:e.target.value})}/></Field>
     <Field label="业务日期止"><Input aria-label="业务日期止" type="date" value={filters.businessTo} onChange={e=>setFilters({...filters,businessTo:e.target.value})}/></Field>
   </SearchFilterBar>
