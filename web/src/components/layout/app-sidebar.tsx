@@ -187,11 +187,11 @@ export function AppSidebar({ collapsed }: AppSidebarProps) {
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden border-r border-border bg-surface transition-[width] md:block",
+        "fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-border bg-surface transition-[width] md:flex",
         collapsed ? "w-16" : "w-60",
       )}
     >
-      <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-4">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
           <Boxes className="h-5 w-5" aria-hidden />
         </span>
@@ -205,7 +205,7 @@ export function AppSidebar({ collapsed }: AppSidebarProps) {
         )}
       </div>
 
-      <nav className="space-y-1 px-3 py-4" aria-label="主导航">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-y-contain px-3 py-4" aria-label="主导航">
         {sidebarNavItems.map((item) => renderNavItem(item))}
       </nav>
     </aside>

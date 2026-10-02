@@ -10,6 +10,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:layout": "node tests/operation-column-layout.mjs",
     "test:route-loading": "node tests/route-loading.mjs",
+    "test:sidebar-scroll": "node tests/sidebar-scroll.mjs",
     "test:delivery-note": "node tests/delivery-note.mjs"
   },
   "dependencies": {
