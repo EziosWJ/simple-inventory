@@ -22,6 +22,19 @@
 | [#30](https://github.com/EziosWJ/simple-inventory/issues/30) | [往来明细分页、实际生效期间对账与 A4 打印](16-partner-statements.md) | [#28](https://github.com/EziosWJ/simple-inventory/issues/28) |
 | [#31](https://github.com/EziosWJ/simple-inventory/issues/31) | [库存多业务来源筛选、追溯贯通与整阶段验收](17-phase4-traceability-acceptance.md) | [#22](https://github.com/EziosWJ/simple-inventory/issues/22)、[#29](https://github.com/EziosWJ/simple-inventory/issues/29)、[#30](https://github.com/EziosWJ/simple-inventory/issues/30) |
 
+## Review follow-ups
+
+以下任务修复已交付 Phase 4 路径的审查缺陷；原始 17 项任务及其状态不变。验收依据为[Phase 4 规格](../phase-4-spec.md)中的补充场景 11–16。
+
+| GitHub issue | 任务 | Related |
+| --- | --- | --- |
+| [#32](https://github.com/EziosWJ/simple-inventory/issues/32) | [退货草稿编辑按稳定原明细 ID 对应](../phase-4-fixes/01-return-draft-line-mapping.md) | [#24](https://github.com/EziosWJ/simple-inventory/issues/24)、[#26](https://github.com/EziosWJ/simple-inventory/issues/26) |
+| [#33](https://github.com/EziosWJ/simple-inventory/issues/33) | [采购与销售草稿编辑时重新确认商品单位](../phase-4-fixes/02-draft-product-unit-confirmation.md) | [#17](https://github.com/EziosWJ/simple-inventory/issues/17)、[#19](https://github.com/EziosWJ/simple-inventory/issues/19) |
+| [#34](https://github.com/EziosWJ/simple-inventory/issues/34) | [修正销售默认业务日期并保留明确清空的送货资料](../phase-4-fixes/03-sale-date-and-empty-delivery-snapshot.md) | [#19](https://github.com/EziosWJ/simple-inventory/issues/19)、[#21](https://github.com/EziosWJ/simple-inventory/issues/21) |
+| [#35](https://github.com/EziosWJ/simple-inventory/issues/35) | [执行直送退货先销售后采购的顺序规则](../phase-4-fixes/04-direct-return-order.md) | [#23](https://github.com/EziosWJ/simple-inventory/issues/23)、[#29](https://github.com/EziosWJ/simple-inventory/issues/29) |
+| [#36](https://github.com/EziosWJ/simple-inventory/issues/36) | [保留退货历史查询并展示销售退货过账人](../phase-4-fixes/05-return-history-and-posted-operator.md) | [#25](https://github.com/EziosWJ/simple-inventory/issues/25)、[#27](https://github.com/EziosWJ/simple-inventory/issues/27) |
+| [#37](https://github.com/EziosWJ/simple-inventory/issues/37) | [SQLite 暂时不可用时返回 HTTP 503](../phase-4-fixes/06-sqlite-temporary-unavailable.md) | [#14](https://github.com/EziosWJ/simple-inventory/issues/14) |
+
 ## 推进规则
 
 - 当前可独立开始：#15 期初应收应付、#17 采购草稿、#20 经营者打印资料。完成 #15 后可做 #16 收付款。
