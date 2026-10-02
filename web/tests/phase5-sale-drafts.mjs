@@ -38,7 +38,7 @@ try {
   await page.goto(`${base}/business/sales/new`);
   await select(page, "客户", partner.code); await select(page, "第 1 行商品", product.code);
   assert.equal(await page.getByLabel("送货联系人").inputValue(), "默认联系人");
-  for (const label of ["送货联系人", "送货电话", "送货地址"]) await page.getByLabel(label).fill("");
+  for (const label of ["送货联系人", "收货人电话", "送货地址"]) await page.getByLabel(label).fill("");
   await page.getByLabel("数量").fill("1.5");
   await page.getByRole("button", { name: "添加明细" }).click(); await select(page, "第 2 行商品", product.code);
   await page.getByLabel("数量").nth(1).fill("0.001");

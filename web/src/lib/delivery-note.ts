@@ -1,7 +1,7 @@
 import type { DeliveryNoteLine } from "@/api/business";
 
-// Rows per printed A4 page. Kept constant so the page split, the page count and
-// the last-page totals are deterministic and can be checked without a browser.
+// Upper bound per printed A4 page. The print sheet also measures row heights
+// and reduces the count when long content needs more room.
 export const DELIVERY_NOTE_ROWS_PER_PAGE = 18;
 
 // paginateLines splits delivery note lines into printable A4 pages. An empty

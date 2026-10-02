@@ -69,7 +69,7 @@ try {
     const form = page.locator("form"), dialog = page.getByRole("dialog");
     assert.equal(await form.locator('input[type="date"]').inputValue(), "2026-10-02");
     await select(page,"客户",partner.code);
-    for (const field of ["送货联系人", "送货电话", "送货地址"]) await form.getByLabel(field).fill("");
+    for (const field of ["送货联系人", "收货人电话", "送货地址"]) await form.getByLabel(field).fill("");
     const service = await product("PRINT-SERVICE", "SERVICE", "次");
     await select(page,"第 1 行商品",service.code);
     const createdResponse = page.waitForResponse(r=>r.url().endsWith("/api/v1/sales")&&r.request().method()==="POST");

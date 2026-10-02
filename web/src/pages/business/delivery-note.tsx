@@ -4,7 +4,6 @@ import { getDeliveryNote, type DeliveryNote } from "@/api/business";
 import { PageHeader } from "@/components/common/page-header";
 import { DeliveryNoteSheet } from "@/components/common/delivery-note-sheet";
 import { Button } from "@/components/ui/button";
-import { paginateLines } from "@/lib/delivery-note";
 import "./delivery-note.css";
 
 export function DeliveryNotePage() {
@@ -14,6 +13,7 @@ export function DeliveryNotePage() {
   const [error, setError] = useState("");
   const [showAmount, setShowAmount] = useState(params.get("showAmount") !== "false");
   const [loading, setLoading] = useState(false);
+  const [pageCount, setPageCount] = useState(0);
   const saleId = Number(id);
 
   const load = useCallback(() => {
@@ -28,8 +28,6 @@ export function DeliveryNotePage() {
       .finally(() => setLoading(false));
   }, [saleId]);
   useEffect(() => load(), [load]);
-
-  const pageCount = note ? paginateLines(note.items).length : 0;
 
   return (
     <div className="space-y-space-4">
@@ -54,7 +52,7 @@ export function DeliveryNotePage() {
           </p>
         )}
       </div>
-      {note && <DeliveryNoteSheet note={note} showAmount={showAmount} />}
+      {note && <DeliveryNoteSheet note={note} showAmount={showAmount} onPageCountChange={setPageCount} />}
     </div>
   );
 }
