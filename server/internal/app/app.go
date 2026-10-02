@@ -29,6 +29,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
+	"github.com/EziosWJ/simple-inventory/server/internal/webui"
 )
 
 // Dependencies holds the named business services the HTTP application assembles.
@@ -188,6 +189,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 
 	if cfg.Environment == config.EnvironmentDev && cfg.Swagger.Enabled {
 		registerSwaggerUI(router)
+	}
+	if err := webui.Register(router); err != nil {
+		return nil, fmt.Errorf("register embedded frontend: %w", err)
 	}
 
 	return &Application{Router: router, Logger: logger}, nil
