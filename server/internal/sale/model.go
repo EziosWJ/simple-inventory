@@ -94,15 +94,16 @@ type LineInput struct {
 	Remark      *string `json:"remark"`
 }
 type Input struct {
-	DirectPurchaseID *int64      `json:"directPurchaseId"`
-	DirectDelivery   bool        `json:"directDelivery"`
-	PartnerID        int64       `json:"partnerId"`
-	BusinessDate     string      `json:"businessDate"`
-	DeliveryContact  *string     `json:"deliveryContact"`
-	DeliveryPhone    *string     `json:"deliveryPhone"`
-	DeliveryAddress  *string     `json:"deliveryAddress"`
-	Remark           *string     `json:"remark"`
-	Items            []LineInput `json:"items"`
+	DirectPurchaseID *int64 `json:"directPurchaseId"`
+	DirectDelivery   bool   `json:"directDelivery"`
+	PartnerID        int64  `json:"partnerId"`
+	BusinessDate     string `json:"businessDate"`
+	// Delivery fields default from the partner only when omitted/null on creation. An explicit empty string is preserved in drafts and posted snapshots.
+	DeliveryContact *string     `json:"deliveryContact"`
+	DeliveryPhone   *string     `json:"deliveryPhone"`
+	DeliveryAddress *string     `json:"deliveryAddress"`
+	Remark          *string     `json:"remark"`
+	Items           []LineInput `json:"items"`
 }
 type EditInput struct {
 	Version int64 `json:"version"`

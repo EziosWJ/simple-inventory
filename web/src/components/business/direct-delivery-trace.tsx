@@ -21,6 +21,7 @@ export function DirectDeliveryTrace({ trace }: { trace?: DirectTrace | null }) {
   return <section className="mt-space-4 space-y-space-3 border-t border-border pt-space-4" aria-label="直送业务与退货追溯">
     <h3 className="font-medium">直送业务与退货追溯</h3>
     <p className="text-sm text-text-secondary">客户直接退给供应商时，先单独过账销售退货增加库存，再单独过账采购退货扣减库存。两边按各自原明细和原价办理，可分次部分退货；客户应收和供应商应付分别抵减。每侧失败会保留另一侧已完成状态。</p>
+    {trace.purchase.status === "POSTED" && !hasSalesReturn && <p role="alert" className="text-sm text-error">直送采购退货过账前，须先办理并过账关联销售退货。请从下方“第一步：销售退货”进入。</p>}
     <div className="flex flex-wrap gap-2">
       {currentSales.map(d => <Button key={d.id} variant="secondary" onClick={() => navigate(`/business/sale-returns?saleId=${d.id}`)}>第一步：销售退货 · {d.documentNo}</Button>)}
       {hasSalesReturn && trace.purchase.status === "POSTED" && <Button variant="secondary" onClick={() => navigate(`/business/purchase-returns?purchaseId=${trace.purchase.id}`)}>第二步：采购退货</Button>}

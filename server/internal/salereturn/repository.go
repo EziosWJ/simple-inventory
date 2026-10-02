@@ -572,7 +572,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 }
 func find(db *gorm.DB, id int64) (*Document, error) {
 	var h Document
-	e := db.Table("sale_return_document d").Select("d.*,sd.document_no AS sale_no,p.name AS partner_name,COALESCE(NULLIF(c.nickname,''),c.username) AS created_by_name,COALESCE(NULLIF(u.nickname,''),u.username) AS cancelled_by_name").Joins("JOIN sale_document sd ON sd.id=d.sale_id").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user c ON c.id=d.created_by").Joins("LEFT JOIN sys_user u ON u.id=d.cancelled_by").Where("d.id=?", id).Take(&h).Error
+	e := db.Table("sale_return_document d").Select("d.*,sd.document_no AS sale_no,p.name AS partner_name,COALESCE(NULLIF(c.nickname,''),c.username) AS created_by_name,COALESCE(NULLIF(u.nickname,''),u.username) AS cancelled_by_name,COALESCE(NULLIF(pu.nickname,''),pu.username) AS posted_by_name").Joins("JOIN sale_document sd ON sd.id=d.sale_id").Joins("JOIN partner p ON p.id=d.partner_id").Joins("LEFT JOIN sys_user c ON c.id=d.created_by").Joins("LEFT JOIN sys_user u ON u.id=d.cancelled_by").Joins("LEFT JOIN sys_user pu ON pu.id=d.posted_by").Where("d.id=?", id).Take(&h).Error
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
 	}
@@ -610,14 +610,15 @@ func find(db *gorm.DB, id int64) (*Document, error) {
 		l.Quantity = milliText(l.QuantityMilli)
 		l.UnitPrice = moneyText(l.UnitPriceCents)
 		l.PriorAmount = moneyText(sums.Amount)
-		if sums.Qty > math.MaxInt64-l.QuantityMilli {
-			return nil, ErrInvalid
-		}
-		target, e := roundAmount(sums.Qty+l.QuantityMilli, l.UnitPriceCents)
-		if e != nil {
-			return nil, e
-		}
+		// Historical amounts are immutable; preview arithmetic applies only to drafts.
 		if h.Status == "DRAFT" {
+			if sums.Qty > math.MaxInt64-l.QuantityMilli {
+				return nil, ErrInvalid
+			}
+			target, e := roundAmount(sums.Qty+l.QuantityMilli, l.UnitPriceCents)
+			if e != nil {
+				return nil, e
+			}
 			l.AmountCents = target - sums.Amount
 			if l.AmountCents < 0 {
 				l.AmountCents = 0

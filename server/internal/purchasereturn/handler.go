@@ -51,6 +51,7 @@ func meta(c *gin.Context) audit.Metadata {
 // @Param body body Input true "原采购单与退货明细"
 // @Success 200 {object} ApiEnvelope{data=Document}
 // @Failure 401 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns [post]
 func (h *Handler) create(c *gin.Context) {
 	var in Input
@@ -76,6 +77,7 @@ func (h *Handler) create(c *gin.Context) {
 // @Param partnerId query int false "供应商ID"
 // @Param status query string false "状态"
 // @Success 200 {object} ApiEnvelope{data=Page}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns [get]
 func (h *Handler) page(c *gin.Context) {
 	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
@@ -109,6 +111,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Security BearerAuth
 // @Param id path int true "退货单ID"
 // @Success 200 {object} ApiEnvelope{data=Document}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns/{id} [get]
 func (h *Handler) detail(c *gin.Context) {
 	id, e := pathID(c)
@@ -131,6 +134,7 @@ func (h *Handler) detail(c *gin.Context) {
 // @Param id path int true "退货单ID"
 // @Param body body EditInput true "带版本草稿"
 // @Success 200 {object} ApiEnvelope{data=Document}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns/{id} [put]
 func (h *Handler) edit(c *gin.Context) {
 	id, e := pathID(c)
@@ -147,6 +151,7 @@ func (h *Handler) edit(c *gin.Context) {
 	platform.OK(c, v)
 }
 
+// @Description 直送采购必须先有已过账的关联销售退货；不满足时返回 409，整笔不生效。两侧退货分别过账。
 // @Summary 整单过账采购退货
 // @Tags 采购退货
 // @Security BearerAuth
@@ -154,6 +159,7 @@ func (h *Handler) edit(c *gin.Context) {
 // @Param id path int true "退货单ID"
 // @Param body body PostInput true "版本"
 // @Success 200 {object} ApiEnvelope{data=Document}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns/{id}/post [post]
 func (h *Handler) post(c *gin.Context) {
 	id, e := pathID(c)
@@ -177,6 +183,7 @@ func (h *Handler) post(c *gin.Context) {
 // @Param id path int true "退货单ID"
 // @Param body body CancelInput true "版本和原因"
 // @Success 200 {object} ApiEnvelope{data=Document}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns/{id}/cancel [post]
 func (h *Handler) cancel(c *gin.Context) {
 	id, e := pathID(c)
@@ -222,6 +229,10 @@ func int64Q(c *gin.Context, k string) (int64, error) {
 	return n, nil
 }
 func fail(c *gin.Context, e error) {
+	if platform.IsTemporaryUnavailable(e) {
+		platform.TemporaryUnavailable(c)
+		return
+	}
 	status, code, msg := 500, 500, "服务暂不可用"
 	if errors.Is(e, ErrInvalid) {
 		status, code, msg = 400, 400, e.Error()
@@ -238,6 +249,7 @@ func fail(c *gin.Context, e error) {
 // @Security BearerAuth
 // @Param purchaseId path int true "原采购单ID"
 // @Success 200 {object} ApiEnvelope{data=Document}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchase-returns/source/{purchaseId} [get]
 func (h *Handler) source(c *gin.Context) {
 	id, e := strconv.ParseInt(c.Param("purchaseId"), 10, 64)

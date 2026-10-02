@@ -40,6 +40,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 // @Param body body PostInput true "确认当前草稿版本"
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/{id}/post [post]
 func (h *Handler) post(c *gin.Context) {
 	id, e := pathID(c)
@@ -70,6 +71,7 @@ func meta(ctx *gin.Context) audit.Metadata {
 	return m
 }
 
+// @Description 新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。
 // @Summary 新建销售出库草稿
 // @Tags 销售出库
 // @Security BearerAuth
@@ -79,6 +81,7 @@ func meta(ctx *gin.Context) audit.Metadata {
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales [post]
 func (h *Handler) create(c *gin.Context) {
 	var in Input
@@ -107,6 +110,7 @@ func (h *Handler) create(c *gin.Context) {
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
 // @Success 200 {object} ApiEnvelope{data=Page}
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales [get]
 func (h *Handler) page(c *gin.Context) {
 	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
@@ -141,6 +145,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Param id path int true "销售单ID"
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 404 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/{id} [get]
 func (h *Handler) detail(c *gin.Context) {
 	id, e := pathID(c)
@@ -162,6 +167,7 @@ func (h *Handler) detail(c *gin.Context) {
 // @Param id path int true "销售单ID"
 // @Success 200 {object} ApiEnvelope{data=DeliveryNote}
 // @Failure 404 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/{id}/delivery-note [get]
 func (h *Handler) deliveryNote(c *gin.Context) {
 	id, e := pathID(c)
@@ -185,6 +191,7 @@ func (h *Handler) deliveryNote(c *gin.Context) {
 // @Param body body EditInput true "带版本的草稿内容"
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/{id} [put]
 func (h *Handler) edit(c *gin.Context) {
 	id, e := pathID(c)
@@ -209,6 +216,7 @@ func (h *Handler) edit(c *gin.Context) {
 // @Param body body CancelInput true "版本和必填原因"
 // @Success 200 {object} ApiEnvelope{data=Draft}
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/{id}/cancel [post]
 func (h *Handler) cancel(c *gin.Context) {
 	id, e := pathID(c)
@@ -254,6 +262,10 @@ func int64Query(c *gin.Context, k string) (int64, error) {
 	return n, nil
 }
 func fail(c *gin.Context, e error) {
+	if platform.IsTemporaryUnavailable(e) {
+		platform.TemporaryUnavailable(c)
+		return
+	}
 	status, code, msg := http.StatusInternalServerError, 500, "服务暂不可用"
 	if errors.Is(e, ErrInvalid) {
 		status, code, msg = 400, 400, e.Error()

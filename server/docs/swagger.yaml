@@ -1403,6 +1403,9 @@ definitions:
       deliveryAddress:
         type: string
       deliveryContact:
+        description: Delivery fields default from the partner only when omitted/null
+          on creation. An explicit empty string is preserved in drafts and posted
+          snapshots.
         type: string
       deliveryPhone:
         type: string
@@ -1428,6 +1431,9 @@ definitions:
       deliveryAddress:
         type: string
       deliveryContact:
+        description: Delivery fields default from the partner only when omitted/null
+          on creation. An explicit empty string is preserved in drafts and posted
+          snapshots.
         type: string
       deliveryPhone:
         type: string
@@ -4541,6 +4547,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 查询客户应收与供应商应付余额
@@ -4600,6 +4610,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 按实际生效时间分页查询完整来源往来明细
@@ -4627,6 +4641,10 @@ paths:
               type: object
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
@@ -4666,6 +4684,10 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 冲销期初、收付款或退款记录
@@ -4700,6 +4722,10 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
@@ -4742,6 +4768,10 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 向客户退款或收到供应商退款（保存即生效）
@@ -4776,6 +4806,10 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
@@ -4827,6 +4861,10 @@ paths:
             $ref: '#/definitions/receivable.ApiEnvelope'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/receivable.ApiEnvelope'
       security:
@@ -4963,6 +5001,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/printprofile.envelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/printprofile.envelope'
       security:
       - BearerAuth: []
       summary: 查询经营者打印资料
@@ -4981,6 +5023,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/printprofile.envelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/printprofile.envelope'
       security:
@@ -5145,6 +5191,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Page'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 采购退货分页
@@ -5177,6 +5227,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/purchasereturn.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 新建采购退货草稿
@@ -5200,6 +5254,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 采购退货详情
@@ -5230,6 +5288,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 编辑采购退货草稿
@@ -5261,6 +5323,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 取消采购退货草稿
@@ -5270,6 +5336,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 直送采购必须先有已过账的关联销售退货；不满足时返回 409，整笔不生效。两侧退货分别过账。
       parameters:
       - description: 退货单ID
         in: path
@@ -5292,6 +5359,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 整单过账采购退货
@@ -5315,6 +5386,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchasereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchasereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 读取可退货的已过账采购单明细
@@ -5371,6 +5446,10 @@ paths:
                 data:
                   $ref: '#/definitions/purchase.Page'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 采购入库草稿分页
@@ -5406,6 +5485,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 新建采购入库草稿
@@ -5431,6 +5514,10 @@ paths:
               type: object
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/purchase.ApiEnvelope'
       security:
@@ -5467,6 +5554,10 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 编辑采购入库草稿
@@ -5500,6 +5591,10 @@ paths:
               type: object
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/purchase.ApiEnvelope'
       security:
@@ -5538,6 +5633,10 @@ paths:
               type: object
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/purchase.ApiEnvelope'
       security:
@@ -5580,6 +5679,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Page'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 销售退货分页
@@ -5612,6 +5715,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/salereturn.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 新建销售退货草稿
@@ -5635,6 +5742,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 销售退货详情
@@ -5665,6 +5776,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 编辑销售退货草稿
@@ -5696,6 +5811,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 取消销售退货草稿
@@ -5727,6 +5846,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 整单过账销售退货
@@ -5750,6 +5873,10 @@ paths:
                 data:
                   $ref: '#/definitions/salereturn.Document'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/salereturn.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 读取可退货的已过账销售单明细
@@ -5806,6 +5933,10 @@ paths:
                 data:
                   $ref: '#/definitions/sale.Page'
               type: object
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 销售出库草稿分页
@@ -5814,6 +5945,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。
       parameters:
       - description: 销售客户、业务日期和实物/服务明细
         in: body
@@ -5841,6 +5973,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 新建销售出库草稿
@@ -5866,6 +6002,10 @@ paths:
               type: object
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
       security:
@@ -5900,6 +6040,10 @@ paths:
               type: object
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
       security:
@@ -5937,6 +6081,10 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
       security:
       - BearerAuth: []
       summary: 取消销售出库草稿
@@ -5962,6 +6110,10 @@ paths:
               type: object
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
       security:
@@ -6000,6 +6152,10 @@ paths:
               type: object
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
           schema:
             $ref: '#/definitions/sale.ApiEnvelope'
       security:
