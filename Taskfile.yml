@@ -147,12 +147,26 @@ tasks:
       - frontend:build
 
   build:
-    desc: Build backend and frontend
+    desc: Build release binaries with the production frontend embedded in the API
     deps:
       - frontend:build
     dir: server
     cmds:
-      - go build ./cmd/api ./cmd/migrate ./cmd/backup
+      - rm -rf internal/webui/dist
+      - mkdir -p internal/webui/dist ../bin
+      - cp -R ../web/dist/. internal/webui/dist/
+      - go build -tags=embedweb -trimpath -o ../bin/simple-inventory-api ./cmd/api
+      - go build -trimpath -o ../bin/simple-inventory-migrate ./cmd/migrate
+      - go build -trimpath -o ../bin/simple-inventory-backup ./cmd/backup
+
+  build:check:
+    desc: Build the release and verify tests and vet with embedded frontend assets
+    deps:
+      - build
+    dir: server
+    cmds:
+      - go test -tags=embedweb ./...
+      - go vet -tags=embedweb ./...
 
   test:
     desc: Run the default test suite

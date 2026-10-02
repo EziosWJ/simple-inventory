@@ -8,3 +8,4 @@ configs/config.prod.yaml
 !configs/config.dev.example.yaml
 !configs/config.prod.example.yaml
 coverage.out
+internal/webui/dist/

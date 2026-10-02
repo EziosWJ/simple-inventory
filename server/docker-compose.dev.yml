@@ -18,7 +18,8 @@ services:
 
   migrate:
     build:
-      context: .
+      context: ..
+      dockerfile: server/Dockerfile
       target: migrate
     environment:
       APP_ENV: dev
@@ -36,7 +37,8 @@ services:
 
   api:
     build:
-      context: .
+      context: ..
+      dockerfile: server/Dockerfile
       target: api
     environment:
       APP_ENV: dev
@@ -45,6 +47,7 @@ services:
       APP_DATABASE__PASSWORD: ${POSTGRES_PASSWORD}
       APP_JWT__SECRET: ${APP_JWT__SECRET:?set APP_JWT__SECRET in .env}
       APP_SWAGGER__ENABLED: "true"
+      APP_HTTP__ADDRESS: ":8080"
       APP_LOG__LEVEL: debug
       APP_LOG__FORMAT: text
     depends_on:
