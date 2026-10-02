@@ -30,6 +30,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 // @Tags 经营者打印资料
 // @Security BearerAuth
 // @Success 200 {object} envelope
+// @Failure 503 {object} envelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/print-profile [get]
 func (h *Handler) get(c *gin.Context) {
 	profile, err := h.service.Get(c.Request.Context())
@@ -46,6 +47,7 @@ func (h *Handler) get(c *gin.Context) {
 // @Accept json
 // @Param body body Profile true "经营者名称、电话和地址"
 // @Success 200 {object} envelope
+// @Failure 503 {object} envelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/print-profile [put]
 func (h *Handler) update(c *gin.Context) {
 	var profile Profile
@@ -75,6 +77,10 @@ func metadata(c *gin.Context) audit.Metadata {
 }
 
 func fail(c *gin.Context, err error) {
+	if platform.IsTemporaryUnavailable(err) {
+		platform.TemporaryUnavailable(c)
+		return
+	}
 	status, code, message := http.StatusInternalServerError, http.StatusInternalServerError, "服务暂不可用"
 	if errors.Is(err, ErrInvalid) {
 		status, code, message = http.StatusBadRequest, http.StatusBadRequest, "经营者名称必填；名称、电话或地址超过长度限制"

@@ -4456,6 +4456,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -4551,6 +4557,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -4599,6 +4611,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -4665,6 +4683,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -4724,6 +4748,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -4795,6 +4825,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -4854,6 +4890,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -4936,6 +4978,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -5158,6 +5206,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/printprofile.envelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/printprofile.envelope"
+                        }
                     }
                 }
             },
@@ -5188,6 +5242,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/printprofile.envelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/printprofile.envelope"
                         }
@@ -5457,6 +5517,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
+                        }
                     }
                 }
             },
@@ -5512,6 +5578,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/purchasereturn.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -5554,6 +5626,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -5595,6 +5673,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -5647,6 +5731,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -5702,6 +5792,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -5713,6 +5809,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "直送采购必须先有已过账的关联销售退货；不满足时返回 409，整笔不生效。两侧退货分别过账。",
                 "consumes": [
                     "application/json"
                 ],
@@ -5755,6 +5852,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchasereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -5847,6 +5950,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
                     }
                 }
             },
@@ -5907,6 +6016,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -5952,6 +6067,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
@@ -6013,6 +6134,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6070,6 +6197,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
@@ -6134,6 +6267,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
@@ -6205,6 +6344,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
+                        }
                     }
                 }
             },
@@ -6260,6 +6405,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/salereturn.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6302,6 +6453,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6343,6 +6500,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -6395,6 +6558,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -6450,6 +6619,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6503,6 +6678,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/salereturn.ApiEnvelope"
                         }
                     }
                 }
@@ -6595,6 +6776,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
                     }
                 }
             },
@@ -6604,6 +6791,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "新建时省略或 null 的送货字段默认取客户档案；明确空字符串保持为空。过账快照与重印保留保存值。",
                 "consumes": [
                     "application/json"
                 ],
@@ -6655,6 +6843,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6700,6 +6894,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -6758,6 +6958,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -6821,6 +7027,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
                     }
                 }
             }
@@ -6866,6 +7078,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -6930,6 +7148,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -9130,6 +9354,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "deliveryContact": {
+                    "description": "Delivery fields default from the partner only when omitted/null on creation. An explicit empty string is preserved in drafts and posted snapshots.",
                     "type": "string"
                 },
                 "deliveryPhone": {
@@ -9168,6 +9393,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "deliveryContact": {
+                    "description": "Delivery fields default from the partner only when omitted/null on creation. An explicit empty string is preserved in drafts and posted snapshots.",
                     "type": "string"
                 },
                 "deliveryPhone": {

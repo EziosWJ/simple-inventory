@@ -1,3 +1,4 @@
+import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
 import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -39,6 +40,8 @@ type Filters = {
   businessTo: string;
 };
 type LineForm = {
+  type: "GOODS";
+  unit: string;
   productId: number;
   quantity: string;
   unitPrice: string;
@@ -54,6 +57,8 @@ const blankFilters: Filters = {
 };
 const blankLine = (): LineForm => ({
   productId: 0,
+  type: "GOODS",
+  unit: "",
   quantity: "1",
   unitPrice: "0.00",
   remark: "",
@@ -115,9 +120,9 @@ export function PurchasesPage() {
     void partnerPage({ page: 1, pageSize: 500, identity: "SUPPLIER", status: 1 })
       .then((result) => setPartners(result.records))
       .catch(() => setPartners([]));
-    void productPage({ page: 1, pageSize: 500, type: "GOODS", status: 1 })
+    void productPage({ page: 1, pageSize: 500, status: 1 })
       .then((result) =>
-        setProducts(result.records.filter((product) => product.type === "GOODS" && product.status === 1)),
+        setProducts(result.records),
       )
       .catch(() => setProducts([]));
   }, []);
@@ -139,6 +144,8 @@ export function PurchasesPage() {
   async function startEdit(record: PurchaseDraft) {
     try {
       const current = await getPurchase(record.id);
+      const catalog = await productPage({ page: 1, pageSize: 500, status: 1 });
+      setProducts(catalog.records);
       setEditing(current);
       setDirectDelivery(current.directDelivery);
       setPartnerId(current.partnerId);
@@ -147,6 +154,8 @@ export function PurchasesPage() {
       setLines(
         current.items.map((item) => ({
           productId: item.productId,
+          type: item.productType,
+          unit: item.unit,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           remark: item.remark ?? "",
@@ -167,18 +176,23 @@ export function PurchasesPage() {
     }
   }
 
+  const unitChangePending = lines.some(l => { const p = products.find(p => p.id === l.productId); return !!p && (p.type !== l.type || p.unit !== l.unit); });
+
   async function saveDraft() {
+    if (unitChangePending) {
+      setError("请先确认商品类型和单位变化，草稿原值已保留");
+      return;
+    }
     const body: PurchaseInput = {
       directDelivery,
       partnerId,
       businessDate,
       remark: remark.trim() || undefined,
       items: lines.map((line) => {
-        const product = products.find((item) => item.id === line.productId);
         return {
           productId: line.productId,
-          productType: "GOODS",
-          unit: product?.unit ?? "",
+          productType: line.type,
+          unit: line.unit,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           remark: line.remark.trim() || undefined,
@@ -300,7 +314,7 @@ export function PurchasesPage() {
         <Field label="商品">
           <select className="h-control w-full rounded-control border border-border bg-surface px-space-3" value={filters.productId} onChange={(event) => setFilters({ ...filters, productId: event.target.value })}>
             <option value="">全部商品</option>
-            {products.map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}
+            {products.filter(p => p.type === "GOODS").map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}
           </select>
         </Field>
         <Field label="业务日期起">
@@ -323,6 +337,7 @@ export function PurchasesPage() {
         title={editing ? "编辑采购入库草稿" : "新建采购入库草稿"}
         description={editing ? `${editing.documentNo} · 版本 ${editing.version}` : "单据保存后生成唯一单号。"}
         loading={saving}
+        submitDisabled={unitChangePending}
         onCancel={() => setFormOpen(false)}
         onSubmit={saveDraft}
       >
@@ -357,13 +372,15 @@ export function PurchasesPage() {
                     const product = products.find((item) => item.id === productId);
                     updateLine(setLines, lines, index, {
                       productId,
+                      type: "GOODS",
+                      unit: product?.unit ?? "",
                       unitPrice: product?.purchasePrice ?? "0.00",
                     });
                   }}>
                     <option value="">选择启用实物商品</option>
-                    {products.map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}（{product.unit}）</option>)}
+                    {products.filter(p => p.type === "GOODS").map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}（{product.unit}）</option>)}
                   </select>
-                  {selected && <span className="text-helper text-text-tertiary">基本单位：{selected.unit}</span>}
+                  {line.productId > 0 && !products.some(p => p.id === line.productId && p.type === "GOODS") && <span>已保存商品：{selected?.name ?? editing?.items.find(i => i.productId === line.productId)?.productName ?? "当前不可选"}</span>}
                 </Field>
                 <Field label="数量" required>
                   <Input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(setLines, lines, index, { quantity: event.target.value })} />
@@ -374,6 +391,7 @@ export function PurchasesPage() {
                 <div className="flex items-end pb-5">
                   <Button variant="secondary" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, lineIndex) => lineIndex !== index))}>删除</Button>
                 </div>
+                <DraftProductConfirmation type={line.type} unit={line.unit} current={selected} goodsOnly onConfirm={() => { if(selected?.type === "GOODS") updateLine(setLines, lines, index, { type: selected.type, unit: selected.unit }); }} />
               </div>
             );
           })}

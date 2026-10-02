@@ -1,0 +1,11 @@
+import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
+import { PurchaseReturnsPage } from "@/pages/business/purchase-returns";
+import { SaleReturnsPage } from "@/pages/business/sale-returns";
+import { PurchasesPage } from "@/pages/business/purchases";
+import { SalesPage } from "@/pages/business/sales";
+import "@/styles/globals.css";
+const kind = new URLSearchParams(location.search).get("kind") ?? "purchase-returns";
+const pages = { "purchase-returns": PurchaseReturnsPage, "sale-returns": SaleReturnsPage, purchases: PurchasesPage, sales: SalesPage };
+const Page = pages[kind as keyof typeof pages];
+createRoot(document.getElementById("root")!).render(<MemoryRouter><Page /></MemoryRouter>);

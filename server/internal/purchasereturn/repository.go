@@ -199,15 +199,35 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		var origin struct {
 			ID, PartnerID                    int64
 			Status, DocumentNo, BusinessDate string
+			DirectDelivery                   bool
 		}
 		if h.PurchaseID != originID {
 			return ErrConflict
 		}
-		if e := tx.Table("purchase_document").Select("id,partner_id,status,document_no,business_date").Where("id=?", h.PurchaseID).Take(&origin).Error; e != nil || origin.Status != "POSTED" {
+		if e := tx.Table("purchase_document").Select("id,partner_id,status,document_no,business_date,direct_delivery").Where("id=?", h.PurchaseID).Take(&origin).Error; e != nil || origin.Status != "POSTED" {
 			return fmt.Errorf("%w：原采购单必须仍为已过账", ErrConflict)
 		}
 		if origin.PartnerID != h.PartnerID {
 			return ErrConflict
+		}
+		if origin.DirectDelivery {
+			// Serialize the prerequisite with sale-return posting/cancellation.
+			// The shared lock order is purchase, sale, balances, products.
+			var sales []struct{ ID int64 }
+			sq := tx.Table("sale_document").Select("id").Where("direct_purchase_id=?", originID).Order("id")
+			if tx.Dialector.Name() == "postgres" {
+				sq = sq.Clauses(clause.Locking{Strength: "UPDATE"})
+			}
+			if e := sq.Find(&sales).Error; e != nil {
+				return e
+			}
+			var count int64
+			if e := tx.Table("sale_return_document r").Joins("JOIN sale_document s ON s.id=r.sale_id").Where("s.direct_purchase_id=? AND r.status='POSTED'", originID).Count(&count).Error; e != nil {
+				return e
+			}
+			if count == 0 {
+				return fmt.Errorf("%w：直送退货请先办理并过账关联销售退货，再过账采购退货", ErrConflict)
+			}
 		}
 		var lines []Item
 		if e := tx.Where("document_id=?", id).Order("id").Find(&lines).Error; e != nil {
@@ -605,14 +625,15 @@ func find(db *gorm.DB, id int64) (*Document, error) {
 		l.Quantity = milliText(l.QuantityMilli)
 		l.UnitPrice = moneyText(l.UnitPriceCents)
 		l.PriorAmount = moneyText(sums.Amount)
-		if sums.Qty > int64(^uint64(0)>>1)-l.QuantityMilli {
-			return nil, ErrInvalid
-		}
-		target, e := roundAmount(sums.Qty+l.QuantityMilli, l.UnitPriceCents)
-		if e != nil {
-			return nil, e
-		}
+		// Historical amounts are immutable; preview arithmetic applies only to drafts.
 		if h.Status == "DRAFT" {
+			if sums.Qty > int64(^uint64(0)>>1)-l.QuantityMilli {
+				return nil, ErrInvalid
+			}
+			target, e := roundAmount(sums.Qty+l.QuantityMilli, l.UnitPriceCents)
+			if e != nil {
+				return nil, e
+			}
 			l.AmountCents = target - sums.Amount
 			if l.AmountCents < 0 {
 				l.AmountCents = 0

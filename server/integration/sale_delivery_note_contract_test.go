@@ -151,8 +151,8 @@ func assertSaleDeliveryNoteContract(t *testing.T, router http.Handler, db *platf
 		t.Fatalf("add partner contact: %d %s", r.Code, r.Body.String())
 	}
 	blank := inventoryData[deliveryNoteResponse](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/sales/%d/delivery-note", blankSale), "", token), 200)
-	if blank.DeliveryContact != nil {
-		t.Fatalf("posted note fell back to the current partner contact: %+v", blank.DeliveryContact)
+	if blank.DeliveryContact == nil || *blank.DeliveryContact != "" {
+		t.Fatalf("posted note lost the explicitly cleared contact: %+v", blank.DeliveryContact)
 	}
 	// A cancelled sale must not pass itself off as an effective delivery note.
 	if r := serveJSON(router, http.MethodPost, fmt.Sprintf("/api/v1/sales/%d/cancel", draftID), `{"version":2,"reason":"录错"}`, token); r.Code != 200 {

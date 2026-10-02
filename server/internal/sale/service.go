@@ -124,15 +124,15 @@ func validate(in Input) (Draft, []Line, error) {
 	if e != nil {
 		return Draft{}, nil, e
 	}
-	contact, e := clean(in.DeliveryContact, 100)
+	contact, e := cleanDelivery(in.DeliveryContact, 100)
 	if e != nil {
 		return Draft{}, nil, e
 	}
-	phone, e := clean(in.DeliveryPhone, 50)
+	phone, e := cleanDelivery(in.DeliveryPhone, 50)
 	if e != nil {
 		return Draft{}, nil, e
 	}
-	address, e := clean(in.DeliveryAddress, 500)
+	address, e := cleanDelivery(in.DeliveryAddress, 500)
 	if e != nil {
 		return Draft{}, nil, e
 	}
@@ -172,6 +172,18 @@ func validate(in Input) (Draft, []Line, error) {
 	h.TotalAmount = moneyText(total)
 	h.Items = lines
 	return h, lines, nil
+}
+
+// cleanDelivery preserves a supplied empty value; only omission defaults to the partner archive.
+func cleanDelivery(p *string, max int) (*string, error) {
+	if p == nil {
+		return nil, nil
+	}
+	v := strings.TrimSpace(*p)
+	if utf8.RuneCountInString(v) > max {
+		return nil, ErrInvalid
+	}
+	return &v, nil
 }
 func clean(p *string, max int) (*string, error) {
 	if p == nil {

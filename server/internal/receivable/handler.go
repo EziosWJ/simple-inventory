@@ -40,6 +40,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 // @Success 200 {object} ApiEnvelope{data=Entry}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/settlements [post]
 func (h *Handler) settle(c *gin.Context) {
 	var in SettlementInput
@@ -49,6 +50,10 @@ func (h *Handler) settle(c *gin.Context) {
 	}
 	v, e := h.s.Settle(c.Request.Context(), metadata(c.Request.Context()), in)
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
@@ -71,6 +76,7 @@ func (h *Handler) settle(c *gin.Context) {
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/refunds [post]
 func (h *Handler) refund(c *gin.Context) {
 	var in SettlementInput
@@ -80,6 +86,10 @@ func (h *Handler) refund(c *gin.Context) {
 	}
 	v, e := h.s.Refund(c.Request.Context(), metadata(c.Request.Context()), in)
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
@@ -116,6 +126,7 @@ func metadata(ctx context.Context) audit.Metadata {
 // @Param partnerId query int false "往来单位ID"
 // @Success 200 {object} ApiEnvelope{data=BalancePage}
 // @Failure 401 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances [get]
 func (h *Handler) balances(c *gin.Context) {
 	p, e := paramInt(c, "page", 1)
@@ -138,6 +149,10 @@ func (h *Handler) balances(c *gin.Context) {
 	}
 	v, e := h.s.Balances(c.Request.Context(), partnerID, p, size, c.Query("direction"))
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		platform.WriteError(c, 400, 400, e.Error(), nil)
 		return
 	}
@@ -157,6 +172,7 @@ func (h *Handler) balances(c *gin.Context) {
 // @Failure 401 {object} ApiEnvelope
 // @Param from query string false "RFC3339生效起点（包含）"
 // @Param to query string false "RFC3339生效终点（不包含）"
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/entries [get]
 func (h *Handler) page(c *gin.Context) {
 	p, e := paramInt(c, "page", 1)
@@ -179,6 +195,10 @@ func (h *Handler) page(c *gin.Context) {
 	}
 	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		platform.WriteError(c, 400, 400, e.Error(), nil)
 		return
 	}
@@ -192,6 +212,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Param id path int true "金额记录ID"
 // @Success 200 {object} ApiEnvelope{data=Entry}
 // @Failure 404 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/entries/{id} [get]
 func (h *Handler) detail(c *gin.Context) {
 	id, e := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -201,6 +222,10 @@ func (h *Handler) detail(c *gin.Context) {
 	}
 	v, e := h.s.Detail(c.Request.Context(), id)
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		platform.WriteError(c, 404, 404, e.Error(), nil)
 		return
 	}
@@ -216,6 +241,7 @@ func (h *Handler) detail(c *gin.Context) {
 // @Success 200 {object} ApiEnvelope{data=Entry}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/opening [post]
 func (h *Handler) create(c *gin.Context) {
 	var in Input
@@ -225,6 +251,10 @@ func (h *Handler) create(c *gin.Context) {
 	}
 	v, e := h.s.Create(c.Request.Context(), metadata(c.Request.Context()), in)
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
@@ -246,6 +276,7 @@ func (h *Handler) create(c *gin.Context) {
 // @Param body body object true "冲销原因"
 // @Success 200 {object} ApiEnvelope{data=Entry}
 // @Failure 409 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/entries/{id}/reverse [post]
 func (h *Handler) reverse(c *gin.Context) {
 	id, e := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -258,6 +289,10 @@ func (h *Handler) reverse(c *gin.Context) {
 	}
 	v, e := h.s.Reverse(c.Request.Context(), metadata(c.Request.Context()), id, in.Reason)
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrNotFound) {
@@ -293,6 +328,7 @@ func paramInt(c *gin.Context, key string, def int) (int, error) {
 // @Success 200 {object} ApiEnvelope{data=Statement}
 // @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/statement [get]
 func (h *Handler) statement(c *gin.Context) {
 	id, e := strconv.ParseInt(c.Query("partnerId"), 10, 64)
@@ -302,6 +338,10 @@ func (h *Handler) statement(c *gin.Context) {
 	}
 	v, e := h.s.Statement(c.Request.Context(), EntryFilter{PartnerID: id, Direction: c.Query("direction"), From: c.Query("from"), To: c.Query("to")})
 	if e != nil {
+		if platform.IsTemporaryUnavailable(e) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
 		if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, "期间或方向无效，请使用RFC3339且开始早于结束", nil)
 		} else if errors.Is(e, ErrNotFound) {
