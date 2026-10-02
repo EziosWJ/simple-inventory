@@ -84,11 +84,36 @@ task frontend:lint
 task frontend:build
 task check
 task db:check
+task build
+task build:check
 ```
 
 前端默认开发地址为 `http://localhost:5173`。本机直接启动 Go API 时默认监听 `:8099`；Docker Compose API 映射到 `127.0.0.1:8080`。
 
 开发环境首次 migration 会创建内置管理员 `admin / admin123`。该账号仅用于本地开发，部署环境必须调整安全策略。
+
+## 单二进制提供前端与 API
+
+安装前端依赖后，在仓库根目录构建：
+
+```bash
+npm --prefix web ci
+task build
+```
+
+产物为 `bin/simple-inventory-api`、`bin/simple-inventory-migrate` 和 `bin/simple-inventory-backup`。API 使用 Go `embed` 内嵌 React 生产构建；部署时无需 `web/dist`、Node.js 或单独的静态文件服务。
+
+沿用已有配置与数据库迁移流程，例如本地 SQLite：
+
+```bash
+cd server
+APP_CONFIG_PROFILE=sqlite ../bin/simple-inventory-migrate up --kind all
+APP_CONFIG_PROFILE=sqlite ../bin/simple-inventory-api
+```
+
+准备好 `configs/config.dev.yaml` 中的 JWT 配置与 `.data` 目录后，可访问 `http://localhost:8099`。页面与 API 使用同一地址，直接访问或刷新业务页面、打印页面均受支持。部署时仍需提供 `configs/`、数据库及可写的上传目录；migration 工具还需要 `migrations/`。生产环境按 [后端配置说明](server/README.md)设置 `APP_ENV=prod`。
+
+`task build:check` 会构建产物，再运行带 `embedweb` 标签的测试与 vet。普通 `task api` / `go run ./cmd/api` 保持 API 开发模式，前端通过 `task web` 启动。Docker Compose 构建的 API 镜像也内嵌前端。
 
 ## 架构原则
 

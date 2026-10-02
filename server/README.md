@@ -8,6 +8,22 @@
 - Docker 与 Docker Compose（运行本地 PostgreSQL、Docker Compose 开发模式及集成测试）
 - 使用 VS Code 调试时，安装官方 Go 扩展
 
+## 内嵌前端的发布构建
+
+从仓库根目录执行 `npm --prefix web ci` 和 `task build`，将生成 `bin/simple-inventory-api`，内嵌本次 React 生产构建，以及独立的 migration、backup 工具。发布构建使用 `embedweb` Go build tag；构建前端后将 `web/dist` 复制到 `server/internal/webui/dist`，随后编译 API。前端构建产物不提交 Git。手动使用 `go build -tags=embedweb` 时，必须先完成该资源准备步骤。
+
+API 同时提供 `/` 下的管理页面与既有 API。页面直接访问和刷新回退到 `index.html`，缺失的静态资源和未知 `/api/**`、运维接口、关闭的 Swagger 路径仍返回 JSON 404。前端响应使用 `Cache-Control: no-cache`，避免浏览器直接复用旧版本页面和资源。
+
+运行时无需前端目录或 Node.js，但配置、数据库、上传目录与 migration 文件仍按本文要求提供。可在 `server` 目录执行 `../bin/simple-inventory-api`，或将产物和 `configs/` 部署到同一个工作目录。`task build:check` 验证带前端构建；`task api` 等日常开发任务继续配合独立 Vite 服务使用。
+
+Docker 构建上下文为仓库根目录：
+
+```zsh
+docker build -f server/Dockerfile --target api -t simple-inventory-api .
+```
+
+API 镜像通过 Node 构建阶段生成前端并嵌入 Go 二进制；最终镜像无需 Node。`migrate`、`backup` target 不执行前端构建。开发 Compose 已同步使用该构建上下文。
+
 ## 配置说明
 
 应用按以下顺序加载配置，后者覆盖前者：
@@ -118,7 +134,7 @@ Compose 按以下顺序启动：`postgres`（健康检查通过）→ `migrate`�
 
 启动后可访问：
 
-- API：<http://127.0.0.1:8080>
+- 管理页面与 API：<http://127.0.0.1:8080>
 - Swagger：<http://127.0.0.1:8080/swagger/index.html>
 - 存活检查：`curl http://127.0.0.1:8080/health`
 - 数据库就绪检查：`curl http://127.0.0.1:8080/ready`
