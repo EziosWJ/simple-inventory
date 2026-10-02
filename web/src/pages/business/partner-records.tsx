@@ -1,3 +1,5 @@
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -31,6 +33,7 @@ function belongsToCategory(entry: PartnerBalanceEntry, category: RecordCategory)
 }
 
 export function PartnerRecords({ category, version = 0, onChanged }: { category: RecordCategory; version?: number; onChanged?: () => void }) {
+  const { feedback, notify } = useBusinessFeedback();
   const [params] = useSearchParams();
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
   const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
@@ -74,14 +77,14 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
     setSaving(true);
     setMessage("");
     try {
-      await reversePartnerEntry(reverseTarget.id, reason.trim());
+      const reversed = await reversePartnerEntry(reverseTarget.id, reason.trim());
       setReverseTarget(null);
       setReason("");
-      setMessage("冲销已生效，原记录和冲销记录均保留在往来明细中。");
+      notify({ type: "success", title: "往来记录冲销成功", description: `${reverseTarget.partnerName ?? "往来单位"} · ${reversed.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${reversed.balanceBefore} → ${reversed.balanceAfter} 元。原记录和冲销记录均保留在往来明细中。`, documentNo: reversed.documentNo, status: "已生效" });
       if (onChanged) onChanged();
       else setRevision(value => value + 1);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "冲销失败，请核对当前余额");
+      const message = e instanceof Error ? e.message : "冲销失败，请核对当前余额"; setMessage(message); notify({ type: "error", title: "往来冲销失败", description: message });
     } finally {
       setSaving(false);
     }
@@ -99,6 +102,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
   ];
 
   return <>
+    <BusinessFeedback feedback={feedback} />
     <SearchFilterBar actions={<Button variant="secondary" onClick={() => setRevision(value => value + 1)}>刷新</Button>}>
       <Select aria-label="筛选往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setPage(1); }}>
         <option value="">全部往来单位</option>
@@ -108,7 +112,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
         <option value="">客户及供应商</option><option value="CUSTOMER">客户</option><option value="SUPPLIER">供应商</option>
       </Select>
     </SearchFilterBar>
-    {message && <p role="status" className="mb-3 text-sm text-text-secondary">{message}</p>}
+    {message && <p role="alert" className="mb-3 text-sm text-error">{message}</p>}
     <DataTableCard toolbar={<div className="p-3 text-sm">已生效记录 · 共 {total} 笔</div>} pagination={<Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}>
       <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">当前条件下暂无记录，可在上方录入。</p>} />
     </DataTableCard>

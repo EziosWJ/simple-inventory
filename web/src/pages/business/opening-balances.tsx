@@ -1,3 +1,5 @@
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { createOpeningBalance, partnerBalances, partnerPage, type PartnerBalance, type PartnerRecord } from "@/api/business";
@@ -13,6 +15,7 @@ import { PartnerRecords } from "./partner-records";
 type Direction = "CUSTOMER" | "SUPPLIER";
 
 export function OpeningBalancesPage() {
+  const { feedback, notify } = useBusinessFeedback();
   const [params] = useSearchParams();
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
   const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
@@ -51,19 +54,19 @@ export function OpeningBalancesPage() {
     setSaving(true);
     setMessage("");
     try {
-      await createOpeningBalance({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, description: description.trim() });
+      const saved = await createOpeningBalance({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, description: description.trim() });
       setAmount("");
       setDescription("");
       setRequestKey(crypto.randomUUID());
       setConfirming(false);
       setBalanceReady(false);
       setVersion(value => value + 1);
-      setMessage("期初金额已生效");
+      notify({ type: "success", title: direction === "CUSTOMER" ? "期初应收录入成功" : "期初应付录入成功", description: `${saved.partnerName ?? balance?.partnerName ?? partners.find(p => p.id === saved.partnerId)?.name ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
     } catch (e) {
       setConfirming(false);
       setBalanceReady(false);
       setVersion(value => value + 1);
-      setMessage(e instanceof Error ? e.message : "保存失败，请检查期初金额");
+      const message = e instanceof Error ? e.message : "保存失败，请检查期初金额"; setMessage(message); notify({ type: "error", title: "保存失败", description: message });
     } finally {
       setSaving(false);
     }
@@ -71,6 +74,7 @@ export function OpeningBalancesPage() {
 
   return <div className="space-y-4">
     <PageHeader title="期初录入" description="补录启用系统前的应收或应付。不补造历史销售、采购单；录错在原记录详情中冲销。" />
+    <BusinessFeedback feedback={feedback} />
     <section className="rounded-admin border border-border bg-surface p-4" aria-label="录入期初应收应付">
       <h2 className="mb-3 font-medium">录入期初应收 / 应付</h2>
       <div className="grid gap-3 md:grid-cols-3">
@@ -84,7 +88,7 @@ export function OpeningBalancesPage() {
         <p className="text-sm">当前余额：<strong>{balance?.amount ?? "0.00"} 元</strong>；确认后：<strong>{after} 元</strong></p>
         <Button disabled={!valid || saving} onClick={() => setConfirming(true)}>确认录入期初</Button>
       </div>
-      {message && <p role="status" className="mt-2 text-sm text-text-secondary">{message}</p>}
+      {message && <p role="alert" className="mt-2 text-sm text-error">{message}</p>}
     </section>
     <PartnerRecords category="OPENING" version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
     <ConfirmDialog open={confirming} title="确认录入期初" description={balance ? `${balance.partnerName} · ${direction === "CUSTOMER" ? "应收" : "应付"} ${amount} 元 · 余额 ${balance.amount} → ${after} 元` : `期初金额 ${amount} 元 · 余额 0.00 → ${after} 元`} confirmText="保存并生效" loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />

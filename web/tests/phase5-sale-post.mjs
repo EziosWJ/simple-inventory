@@ -37,12 +37,12 @@ try {
   await call(`/v1/partners/${partner.id}/status`, { status: 0 }, "PUT");
   let posts = 0;
   page.on("request", r => { if (r.url().endsWith("/post") && r.method() === "POST") posts++; });
-  await confirm(); await page.getByRole("alert").waitFor(); assert.equal(posts, 0);
+  await confirm(); await page.locator('p[role="alert"]').first().waitFor(); assert.equal(posts, 0);
   await call(`/v1/partners/${partner.id}/status`, { status: 1 }, "PUT");
   // Commit posting, lose the response, and verify the actual state.
   let created, postCalls = 0;
   await page.route("**/api/v1/sales/*/post", async route => { postCalls++; const response = await route.fetch(); created = (await response.json()).data; await route.abort("failed"); });
-  await confirm(); await page.getByText(/库存与应收已生效/).waitFor();
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   assert.equal(postCalls, 1); assert.equal(created.status, "POSTED");
   assert.equal((await call(`/v1/sales/${created.id}`)).status, "POSTED");
   await page.unroute("**/api/v1/sales/*/post");
@@ -60,7 +60,7 @@ try {
   await page.getByRole("button", { name: "重新核对并重试过账" }).click();
   const response = page.waitForResponse(r => r.url().endsWith(`/sales/${unknownID}/post`));
   await page.getByRole("dialog").getByRole("button", { name: "确认保存并过账" }).dblclick();
-  await response; await page.getByText(/库存与应收已生效/).waitFor();
+  await response; await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   assert.equal(creations, 1); assert.equal((await call(`/v1/sales/${unknownID}`)).status, "POSTED");
   page.off("request", countCreates);
   // Fail posting through real master-data validation after a successful save.
@@ -77,7 +77,7 @@ try {
   await call(`/v1/products/${product.id}/status`, { status: 1 }, "PUT");
   // Keep the same saved draft and explicitly confirm retry through safe save+post.
   await page.waitForURL(`**/business/sales/${savedID}/edit*`);
-  await confirm(); await page.getByText(/库存与应收已生效/).waitFor();
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   assert.equal((await call(`/v1/sales/${savedID}`)).status, "POSTED");
   // Another operator's change between saving and posting stops old confirmation.
   await newForm(); let changedID;
@@ -87,7 +87,7 @@ try {
     await call(`/v1/sales/${changedID}/cancel`, { version: d.version, reason: "确认期间取消" }, "POST", other);
     await route.continue();
   });
-  await confirm(); await page.getByText(/原过账已停止/).waitFor();
+  await confirm(); await page.locator('p[role="alert"]').filter({ hasText: "原过账已停止" }).waitFor();
   assert.equal((await call(`/v1/sales/${changedID}`)).status, "CANCELLED");
   assert.equal(await page.getByRole("button", { name: "保存并过账", exact: true }).isDisabled(), true);
   assert.equal(await page.getByText(/正在过账/).count(), 0);
@@ -100,7 +100,7 @@ try {
     await call(`/v1/sales/${editedID}`, { requestKey: `${prefix}-edit`, version: d.version, partnerId: d.partnerId, businessDate: d.businessDate, items: d.items.map(i => ({ id:i.id, productId: i.productId, productType: i.productType, unit: i.unit, quantity: "2", unitPrice: i.unitPrice })) }, "PUT", other);
     await route.continue();
   });
-  await confirm(); await page.getByText(/原过账已停止/).waitFor();
+  await confirm(); await page.locator('p[role="alert"]').filter({ hasText: "原过账已停止" }).waitFor();
   const changed = await call(`/v1/sales/${editedID}`);
   assert.equal(changed.status, "DRAFT"); assert.equal(changed.version, 2);
   assert.equal(await page.getByRole("button", { name: "保存并过账", exact: true }).isDisabled(), true);
@@ -113,19 +113,19 @@ try {
   const shortageID=Number(page.url().match(/sales\/(\d+)\/edit/)[1]);
   assert.equal(await page.getByLabel("数量").isDisabled(),false);
   assert.equal((await call(`/v1/sales/${shortageID}`)).status,"DRAFT");
-  await page.getByLabel("数量").fill("1"); await confirm(); await page.getByText(/库存与应收已生效/).waitFor();
+  await page.getByLabel("数量").fill("1"); await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   assert.equal((await call(`/v1/sales/${shortageID}`)).status,"POSTED");
   // Same-product split lines aggregate stock; a zero-total sale still posts.
   await newForm(); await page.getByLabel("成交单价（元）").fill("0");
   await page.getByRole("button",{name:"添加明细"}).click(); await select(page,"第 2 行商品",product.code); await page.getByLabel("成交单价（元）").last().fill("0");
   await page.getByRole("button",{name:"保存并过账",exact:true}).click();
   await page.getByRole("dialog").getByText(/过账商品：-2.000 台/).waitFor();
-  await page.getByRole("dialog").getByRole("button",{name:"确认保存并过账"}).click(); await page.getByText(/库存与应收已生效/).waitFor();
+  await page.getByRole("dialog").getByRole("button",{name:"确认保存并过账"}).click(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   // Pure service has no stock, including a lost save response followed by posting.
   const service=await call("/v1/products",{code:`${prefix}-SERVICE`,name:"无库存服务",type:"SERVICE",unit:"次",salePrice:"0.00"});
   await page.goto(`${base}/business/sales/new`); await select(page,"客户",partner.code); await select(page,"第 1 行商品",service.code);
   await page.route("**/api/v1/sales",async route=>{ if(route.request().method()!=="POST")return route.continue();await route.fetch();await route.abort("failed"); });
-  await confirm(); await page.getByText(/库存无变化，应收已处理/).waitFor(); await page.unroute("**/api/v1/sales");
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "库存无变化" }).waitFor(); await page.unroute("**/api/v1/sales");
   // Direct source must be posted first; retry stays on the same sales document.
   const direct=await call("/v1/purchases",{directDelivery:true,partnerId:partner.id,businessDate:"2026-10-02",items:[{productId:product.id,productType:"GOODS",unit:"台",quantity:"2",unitPrice:"1.00"}]});
   await page.goto(`${base}/business/sales/new?directPurchaseId=${direct.id}`); await select(page,"客户",partner.code);
@@ -133,7 +133,7 @@ try {
   const directID=Number(page.url().match(/sales\/(\d+)\/edit/)[1]);
   assert.equal((await call(`/v1/sales/${directID}`)).status,"DRAFT");
   await call(`/v1/purchases/${direct.id}/post`,{version:direct.version});
-  await confirm(); await page.getByText(/库存无变化，应收已处理/).waitFor();
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "库存无变化" }).waitFor();
   assert.equal((await call(`/v1/sales/${directID}`)).directPurchaseId,direct.id);
   await page.getByRole("button",{name:"打印已保存送货单"}).click(); await page.locator(".delivery-page").waitFor();
   assert.deepEqual(errors, []);

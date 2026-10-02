@@ -35,12 +35,12 @@ try {
   await call(`/v1/partners/${partner.id}/status`, { status: 0 }, "PUT");
   let posts = 0;
   page.on("request", r => { if (r.url().endsWith("/post") && r.method() === "POST") posts++; });
-  await confirm(); await page.getByRole("alert").waitFor(); assert.equal(posts, 0);
+  await confirm(); await page.locator('p[role="alert"]').first().waitFor(); assert.equal(posts, 0);
   await call(`/v1/partners/${partner.id}/status`, { status: 1 }, "PUT");
   // Commit posting, lose the response, and verify the actual state.
   let created, postCalls = 0;
   await page.route("**/api/v1/purchases/*/post", async route => { postCalls++; const response = await route.fetch(); created = (await response.json()).data; await route.abort("failed"); });
-  await confirm(); await page.getByText(/库存与应付已生效/).waitFor();
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "采购单过账成功" }).waitFor();
   assert.equal(postCalls, 1); assert.equal(created.status, "POSTED");
   assert.equal((await call(`/v1/purchases/${created.id}`)).status, "POSTED");
   await page.unroute("**/api/v1/purchases/*/post");
@@ -58,7 +58,7 @@ try {
   await page.getByRole("button", { name: "重新核对并重试过账" }).click();
   const response = page.waitForResponse(r => r.url().endsWith(`/purchases/${unknownID}/post`));
   await page.getByRole("dialog").getByRole("button", { name: "确认保存并过账" }).dblclick();
-  await response; await page.getByText(/库存与应付已生效/).waitFor();
+  await response; await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "采购单过账成功" }).waitFor();
   assert.equal(creations, 1); assert.equal((await call(`/v1/purchases/${unknownID}`)).status, "POSTED");
   page.off("request", countCreates);
   // Fail posting through real master-data validation after a successful save.
@@ -75,7 +75,7 @@ try {
   await call(`/v1/products/${product.id}/status`, { status: 1 }, "PUT");
   // Keep the same saved draft and explicitly confirm retry through safe save+post.
   await page.waitForURL(`**/business/purchases/${savedID}/edit*`);
-  await confirm(); await page.getByText(/库存与应付已生效/).waitFor();
+  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "采购单过账成功" }).waitFor();
   assert.equal((await call(`/v1/purchases/${savedID}`)).status, "POSTED");
   // Another operator's change between saving and posting stops old confirmation.
   await newForm(); let changedID;
@@ -85,7 +85,7 @@ try {
     await call(`/v1/purchases/${changedID}/cancel`, { version: d.version, reason: "确认期间取消" }, "POST", other);
     await route.continue();
   });
-  await confirm(); await page.getByText(/原过账已停止/).waitFor();
+  await confirm(); await page.locator('p[role="alert"]').filter({ hasText: "原过账已停止" }).waitFor();
   assert.equal((await call(`/v1/purchases/${changedID}`)).status, "CANCELLED");
   assert.equal(await page.getByRole("button", { name: "保存并过账", exact: true }).isDisabled(), true);
   assert.equal(await page.getByText(/正在过账/).count(), 0);
@@ -98,7 +98,7 @@ try {
     await call(`/v1/purchases/${editedID}`, { requestKey: `${prefix}-edit`, version: d.version, partnerId: d.partnerId, businessDate: d.businessDate, items: d.items.map(i => ({ productId: i.productId, productType: i.productType, unit: i.unit, quantity: "2", unitPrice: i.unitPrice })) }, "PUT", other);
     await route.continue();
   });
-  await confirm(); await page.getByText(/原过账已停止/).waitFor();
+  await confirm(); await page.locator('p[role="alert"]').filter({ hasText: "原过账已停止" }).waitFor();
   const changed = await call(`/v1/purchases/${editedID}`);
   assert.equal(changed.status, "DRAFT"); assert.equal(changed.version, 2);
   assert.equal(await page.getByRole("button", { name: "保存并过账", exact: true }).isDisabled(), true);

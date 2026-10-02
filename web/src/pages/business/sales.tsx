@@ -1,3 +1,6 @@
+import { postingImpact, cancellationImpact } from "@/lib/document-feedback";
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useDocumentSearch } from "@/hooks/use-document-search";
 import { withBusinessReturn } from "@/lib/business-navigation";
@@ -18,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import type { DataTableColumn } from "@/types";
 
 export function SalesPage(){
+  const { feedback, notify } = useBusinessFeedback();
  const navigate=useNavigate();
  const location=useLocation();
  const {params:searchParams,setParams:setSearchParams,query,filters,setFilters,page,setPage,apply}=useDocumentSearch();
@@ -36,12 +40,13 @@ export function SalesPage(){
  function openDetail(d:SaleDraft){const p=new URLSearchParams(searchParams);p.set("saleId",String(d.id));setSearchParams(p)}
  function newDraft(){goTo("/business/sales/new")}
  function editDraft(row:SaleDraft){goTo(`/business/sales/${row.id}/edit`)}
- async function cancel(d:SaleDraft){const reason=window.prompt("请输入取消原因");if(!reason?.trim())return;try{await cancelSale(d.id,{version:d.version,reason});setReload(v=>v+1)}catch(e){setError(e instanceof Error?e.message:"取消失败")}}
- async function post(d:SaleDraft){const goods=new Map<string,number>();for(const i of d.items)if(i.productType==="GOODS")goods.set(i.productName,(goods.get(i.productName)??0)+Number(i.quantity));const impact=[...goods].map(([name,n])=>`${name}：-${n}`).join("\n")||"无实物库存变化";if(!window.confirm(`确认过账 ${d.documentNo}？\n客户应收增加 ¥${d.totalAmount}\n${impact}`))return;try{const posted=await postSale(d.id,d.version);setDetail(posted);setReload(v=>v+1)}catch(e){setError(e instanceof Error?e.message:"过账失败，单据内容已保留")}}
+ async function cancel(d:SaleDraft){const reason=window.prompt("请输入取消原因");if(!reason?.trim())return;try{await cancelSale(d.id,{version:d.version,reason});setError("");notify({type:"success",title:d.status==="POSTED"?"销售单冲销取消成功":"销售草稿取消成功",description:cancellationImpact(d,"sale"),documentNo:d.documentNo,status:"已取消"});setReload(v=>v+1)}catch(e){const message=e instanceof Error?e.message:"取消失败";setError(message);notify({type:"error",title:"取消失败",description:message})}}
+ async function post(d:SaleDraft){const goods=new Map<string,number>();for(const i of d.items)if(i.productType==="GOODS")goods.set(i.productName,(goods.get(i.productName)??0)+Number(i.quantity));const impact=[...goods].map(([name,n])=>`${name}：-${n}`).join("\n")||"无实物库存变化";if(!window.confirm(`确认过账 ${d.documentNo}？\n客户应收增加 ¥${d.totalAmount}\n${impact}`))return;try{const posted=await postSale(d.id,d.version);setError("");notify({type:"success",title:"销售单过账成功",description:postingImpact(posted,"sale"),documentNo:posted.documentNo,status:"已过账"});setDetail(posted);setReload(v=>v+1)}catch(e){const message=e instanceof Error?e.message:"过账失败，单据内容已保留";setError(message);notify({type:"error",title:"过账失败",description:message})}}
  const columns:DataTableColumn<SaleDraft>[]=[{title:"单号",dataIndex:"documentNo"},{title:"客户",dataIndex:"partnerName"},{title:"业务日期",dataIndex:"businessDate"},{title:"状态",dataIndex:"status",render:v=>v==="DRAFT"?"草稿":v==="POSTED"?"已过账":"已取消"},{title:"金额",dataIndex:"totalAmount",render:v=>`¥${v}`},{title:"操作",dataIndex:"id",render:(_,r)=><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>openDetail(r)}>详情</Button>{r.status==="DRAFT"&&<><Button size="sm" variant="secondary" onClick={()=>editDraft(r)}>编辑</Button><Button size="sm" onClick={()=>void post(r)}>过账</Button><Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消</Button></>}{r.status==="POSTED"&&<Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消已过账单</Button>}</div>}];
  return <div className="space-y-4"><PageHeader title="销售出库" description="维护客户交付草稿；草稿不改变库存或应收。" actions={<Button onClick={newDraft}>新建销售草稿</Button>}/>
   {error&&<div role="alert" className="rounded border border-red-300 p-3 text-red-700">{error}</div>}
-  <SearchFilterBar actions={<><Button onClick={search}>查询</Button><Button onClick={reset}>重置</Button><Button onClick={()=>setReload(v=>v+1)}>刷新</Button></>}>
+  <BusinessFeedback feedback={feedback} />
+<SearchFilterBar actions={<><Button onClick={search}>查询</Button><Button onClick={reset}>重置</Button><Button onClick={()=>setReload(v=>v+1)}>刷新</Button></>}>
     <Field label="销售单号"><Input aria-label="销售单号" placeholder="销售单号" value={filters.documentNo} onChange={e=>setFilters({...filters,documentNo:e.target.value})}/></Field>
     <Field label="客户"><PartnerSelect label="客户筛选" historical value={Number(filters.partnerId)} onChange={p=>setFilters({...filters,partnerId:p?String(p.id):""})}/></Field>
     <Field label="商品/服务"><ProductSelect label="商品或服务筛选" historical value={Number(filters.productId)} onChange={p=>setFilters({...filters,productId:p?String(p.id):""})}/></Field>

@@ -1,7 +1,10 @@
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
+import { postingImpact } from "@/lib/document-feedback";
 import { businessReturnTo, withBusinessReturn } from "@/lib/business-navigation";
 import { draftLineAmount as amount, draftMoney as money } from "@/components/business/draft-amount";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { createSale, getPartner, getProduct, getSale, getPurchase, postSale, saleSaveResult, resolveSaleSave, updateSale, type PartnerRecord, type ProductRecord, type SaleDraft, type SaleInput, type SaleSaveResult, type PurchaseDraft } from "@/api/business";
 import { PartnerSelect, ProductSelect, PurchaseSourceSelect } from "@/components/business/master-data-select";
 import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
@@ -50,7 +53,7 @@ export function SaleFormPage() {
   const [loading, setLoading] = useState(Boolean(documentID || directSourceID));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const { feedback, setFeedback, notify } = useBusinessFeedback();
   const [conflict, setConflict] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [recoveryLoaded, setRecoveryLoaded] = useState(false);
@@ -77,10 +80,10 @@ export function SaleFormPage() {
       const next = fromDraft(d);
       setDocument(d); setProducts(selected); setPartner(supplier); setSource(linked); setForm(next); setBaseline(JSON.stringify(next));
       setError(""); setConflict(false);
-      if (clearMessage) setNotice("");
+      if (clearMessage) setFeedback(null);
     } catch (e) { if (generation === loadGeneration.current) setError(e instanceof Error ? e.message : "销售草稿加载失败"); }
     finally { if (generation === loadGeneration.current) setLoading(false); }
-  }, [documentID]);
+  }, [documentID, setFeedback]);
 
   const chooseSource = useCallback(async (p: PurchaseDraft | null) => {
     if (!p) { setSource(null); setForm(current => ({ ...current, directDelivery: false, directPurchaseId: undefined })); return; }
@@ -98,7 +101,7 @@ export function SaleFormPage() {
   useEffect(() => {
     if (id && savedRoute.current === documentID) { savedRoute.current = null; setLoading(false); }
     else if (id) void load();
-    else { const next = initialForm(); setForm(next); setBaseline(JSON.stringify(next)); setDocument(null); setProducts([]); setPartner(null); setConflict(false); setError(""); setNotice("");
+    else { const next = initialForm(); setForm(next); setBaseline(JSON.stringify(next)); setDocument(null); setProducts([]); setPartner(null); setConflict(false); setError(""); setFeedback(null);
       if (directSourceID) {
         const target = Number(directSourceID);
         const generation = loadGeneration.current;
@@ -108,7 +111,7 @@ export function SaleFormPage() {
       } else setLoading(false);
     }
     return invalidateLoad;
-  }, [id, documentID, load, directSourceID, chooseSource, invalidateLoad]);
+  }, [id, documentID, load, directSourceID, chooseSource, invalidateLoad, setFeedback]);
   useEffect(() => {
     if (!documentID && document && !dirty && !pending && !postPending && !saving && !conflict) navigate(withBusinessReturn(`/business/sales/${document.id}/edit`, returnTo), { replace: true });
   }, [documentID, document, dirty, pending, postPending, saving, conflict, navigate, returnTo]);
@@ -151,15 +154,21 @@ export function SaleFormPage() {
     if (storageKey) localStorage.removeItem(storageKey);
     setPending(null); pendingBody.current = null;
   }
-  function acceptSaved(d: SaleDraft, originalVersion: number) {
+  function acceptSaved(d: SaleDraft, originalVersion: number, announce = true) {
     if (!documentID) savedRoute.current = d.id;
     clearPending(); setDocument(d);
     // Preserve the user's input after their save, unless another operation has
     // subsequently changed the document. Reload is explicit in that case.
     const next = d.version === originalVersion ? { ...form, items: form.items.map((l, i) => ({ ...l, id: d.items[i]?.id })) } : form;
     setForm(next); setBaseline(JSON.stringify(next)); setConflict(false);
-    setNotice(`已保存 ${d.documentNo}，原保存版本 ${originalVersion}；当前版本 ${d.version}，状态 ${d.status === "DRAFT" ? "草稿（未生效）" : d.status === "POSTED" ? "已过账" : "已取消"}。`);
-    if (d.version !== originalVersion) { setConflict(true); setError("原保存已成功，单据随后被修改。请重新加载最新内容后继续编辑。"); }
+    const changed = d.version !== originalVersion;
+    const result = { type: changed ? "warning" as const : "success" as const, title: changed ? "原保存成功，单据随后有变化" : "销售草稿保存成功",
+      description: changed ? "请重新加载最新内容后继续。" : "草稿已保存，尚未过账，库存与往来余额无变化。",
+      documentNo: d.documentNo, status: d.status === "DRAFT" ? "草稿（未生效）" : d.status === "POSTED" ? "已过账" : "已取消",
+      detail: `原保存版本 ${originalVersion} · 当前版本 ${d.version}` };
+    if (announce || changed) notify(result, changed ? 8000 : 3000);
+    else setFeedback({ ...result, type: "info", title: "草稿已保存，正在过账", description: "请等待过账结果。" });
+    if (changed) { setConflict(true); setError("原保存已成功，单据随后被修改。请重新加载最新内容后继续编辑。"); }
     else setError("");
   }
   function clearPost() {
@@ -169,10 +178,21 @@ export function SaleFormPage() {
   function showPostState(d: SaleDraft, expected: number, definiteFailure = false, failure = "") {
     setDocument(d);
     if (document?.id !== d.id) { const next = fromDraft(d); setForm(next); setBaseline(JSON.stringify(next)); }
-    if (d.status === "POSTED") { clearPost(); setConflict(false); setError(""); setNotice(`已过账 ${d.documentNo}，当前版本 ${d.version}；${d.directDelivery || d.items.every(i => i.productType === "SERVICE") ? "库存无变化，应收已处理" : "库存与应收已生效"}。`); }
-    else if (d.status === "CANCELLED" || d.version !== expected) { clearPost(); setNotice(""); setConflict(true); setError(`原过账已停止：${d.documentNo} 当前${d.status === "CANCELLED" ? "已取消" : `版本 ${d.version}，已被修改`}，请重新加载核对。`); }
-    else if (definiteFailure) { clearPost(); setNotice(`已保存 ${d.documentNo}，仍为草稿，尚未过账。`); setError(`${failure}；已保存 ${d.documentNo}，仍为草稿，输入已保留，可修改后重新确认。`); }
-    else { setNotice(`已保存 ${d.documentNo}，过账结果尚待核实。`); setPostRetryReady(true); setError(`${d.documentNo} 当前仍为草稿，原过账结果尚未确认；请再次核实，或重新核对后按同一 ID 和版本安全重试。`); }
+    if (d.status === "POSTED") {
+      clearPost(); setConflict(false); setError("");
+      notify({ type: "success", title: "销售单过账成功", description: postingImpact(d, "sale"), documentNo: d.documentNo, status: "已过账", detail: `当前版本 ${d.version} · 单据已锁定，不能编辑` });
+    } else if (d.status === "CANCELLED" || d.version !== expected) {
+      clearPost(); setConflict(true);
+      const message = `原过账已停止：${d.documentNo} 当前${d.status === "CANCELLED" ? "已取消" : `版本 ${d.version}，已被修改`}，请重新加载核对。`;
+      setError(message); notify({ type: "warning", title: "单据状态已变化", description: message, documentNo: d.documentNo });
+    } else if (definiteFailure) {
+      clearPost();
+      setError(`${failure}；已保存 ${d.documentNo}，仍为草稿，输入已保留，可修改后重新确认。`);
+      notify({ type: "warning", title: "草稿已保存，过账未完成", description: failure || "请核对原因后重新确认过账。", documentNo: d.documentNo, status: "草稿（尚未过账）" });
+    } else {
+      setPostRetryReady(true); setError(`${d.documentNo} 当前仍为草稿，原过账结果尚未确认；请再次核实，或重新核对后按同一 ID 和版本安全重试。`);
+      notify({ type: "warning", title: "过账结果尚待核实", description: "请核实原单据状态，避免重复提交。", documentNo: d.documentNo, status: "待核实" });
+    }
   }
   async function postSaved(d: SaleDraft, version: number) {
     if (d.status === "POSTED") { showPostState(d, version); return; }
@@ -180,36 +200,36 @@ export function SaleFormPage() {
     if (!postStorageKey) return;
     const target = { id: d.id, version };
     try { localStorage.setItem(postStorageKey, JSON.stringify(target)); }
-    catch { setError(`已保存 ${d.documentNo}，无法保留过账恢复标识，尚未过账。`); return; }
-    setPostPending(target); setPostRetryReady(false); setNotice(`已保存 ${d.documentNo}，正在过账…`);
+    catch { const message = `已保存 ${d.documentNo}，无法保留过账恢复标识，尚未过账。`; setError(message); notify({ type: "warning", title: "草稿已保存，过账未开始", description: message, documentNo: d.documentNo }); return; }
+    setPostPending(target); setPostRetryReady(false); setFeedback({ type: "info", title: "草稿已保存，正在过账", description: "正在提交过账，请等待结果。", documentNo: d.documentNo });
     try { showPostState(await postSale(d.id, version), version); }
     catch (e) {
       const message = e instanceof Error ? e.message : "过账结果未知";
-      setError(`${message}，正在核实单据实际状态。`);
+      setError(`${message}，正在核实单据实际状态。`); setFeedback({ type: "info", title: "正在核实过账结果", description: "正在读取原单据实际状态，请等待。", documentNo: d.documentNo });
       try { showPostState(await getSale(d.id), version, e instanceof ApiError && [400, 404, 409].includes(e.status ?? 0), message); }
-      catch { setNotice(`已保存 ${d.documentNo}，过账结果尚待核实。`); setError(`${message}；暂时无法核实过账，请保留原单号并重查。`); }
+      catch { notify({ type: "warning", title: "过账结果尚待核实", description: "暂时无法核实，请保留原单号并重查。", documentNo: d.documentNo }); setError(`${message}；暂时无法核实过账，请保留原单号并重查。`); }
     }
   }
   async function verifyPost() {
     if (!postPending || savingRef.current) return;
     savingRef.current = true; setSaving(true);
     try { showPostState(await getSale(postPending.id), postPending.version); }
-    catch (e) { setError(e instanceof Error ? e.message : "过账状态核实失败"); }
+    catch (e) { const message = e instanceof Error ? e.message : "过账状态核实失败"; setError(message); notify({ type: "warning", title: "过账结果尚待核实", description: message }); }
     finally { savingRef.current = false; setSaving(false); }
   }
   async function applyResult(result: SaleSaveResult, postAfter = false) {
     if (result.state === "COMMITTED" && result.document && result.receipt) {
-      acceptSaved(result.document, result.receipt.savedVersion);
+      acceptSaved(result.document, result.receipt.savedVersion, !postAfter);
       if (postAfter) await postSaved(result.document, result.receipt.savedVersion);
     }
-    else if (result.state === "NOT_COMMITTED") { clearPending(); setError("已核实原保存未提交，可以继续修改并保存。"); }
-    else setError("保存结果尚未确认，原请求可能仍在执行。请再次核实，或核实并关闭原标识后继续。");
+    else if (result.state === "NOT_COMMITTED") { clearPending(); setError(""); notify({ type: "info", title: "原保存未提交", description: "已核实原保存未提交，可以继续修改并保存。" }); }
+    else { setError("保存结果尚未确认，原请求可能仍在执行。请再次核实，或核实并关闭原标识后继续。"); notify({ type: "warning", title: "保存结果尚待核实", description: "请核实原保存结果，输入已保留。" }); }
   }
   async function verify(resolve = false) {
     if (!pending || savingRef.current) return;
     savingRef.current = true; setSaving(true);
     try { await applyResult(await (resolve ? resolveSaleSave(pending.operation, pending.key) : saleSaveResult(pending.operation, pending.key)), pending.postAfter === true); }
-    catch (e) { setError(e instanceof Error ? e.message : "核实失败，请稍后重查。"); }
+    catch (e) { const message = e instanceof Error ? e.message : "核实失败，请稍后重查。"; setError(message); notify({ type: "warning", title: "保存结果尚待核实", description: message }); }
     finally { savingRef.current = false; setSaving(false); }
   }
   async function save(retry = false, postAfter = false) {
@@ -218,21 +238,21 @@ export function SaleFormPage() {
     const body: SaleInput = retry && pendingBody.current ? pendingBody.current : { ...form, requestKey: p.key, remark: form.remark.trim() || undefined, items: form.items.map(l => ({ ...l, remark: l.remark.trim() || undefined })) };
     if (retry && !pendingBody.current) return;
     try { localStorage.setItem(storageKey, JSON.stringify(p)); }
-    catch { setError("无法保存恢复标识，尚未提交。请检查浏览器存储后再试。"); return; }
+    catch { const message = "无法保存恢复标识，尚未提交。请检查浏览器存储后再试。"; setError(message); notify({ type: "error", title: "保存未提交", description: message }); return; }
     setPending(p); pendingBody.current = body;
-    savingRef.current = true; setSaving(true); setError("");
+    savingRef.current = true; setSaving(true); setError(""); setFeedback(null);
     try {
       const d = p.operation === "EDIT" ? await updateSale(p.id, { ...body, version: p.version }) : await createSale(body);
-      acceptSaved(d, d.saveReceipt?.savedVersion ?? d.version);
+      acceptSaved(d, d.saveReceipt?.savedVersion ?? d.version, !p.postAfter);
       if (p.postAfter) await postSaved(d, d.saveReceipt?.savedVersion ?? d.version);
     } catch (e) {
       const message = e instanceof Error ? e.message : "保存失败，输入已保留。";
       if (e instanceof ApiError && (e.status === 400 || e.status === 404 || e.status === 409)) {
-        clearPending(); setError(message); if (e.status === 409) setConflict(true);
+        clearPending(); setError(message); notify({ type: "error", title: "保存失败", description: message }); if (e.status === 409) setConflict(true);
       } else {
-        setError(`${message}，正在核实原保存结果。`);
+        setError(`${message}，正在核实原保存结果。`); setFeedback({ type: "info", title: "正在核实保存结果", description: "正在查询原保存回执，请等待。" });
         try { await applyResult(await saleSaveResult(p.operation, p.key), p.postAfter === true); }
-        catch { setError(`${message}；暂时无法核实，请保留页面并重查。`); }
+        catch { setError(`${message}；暂时无法核实，请保留页面并重查。`); notify({ type: "warning", title: "保存结果尚待核实", description: "暂时无法核实，请保留页面并重查。" }); }
       }
     } finally { savingRef.current = false; setSaving(false); }
   }
@@ -259,7 +279,12 @@ export function SaleFormPage() {
   }
   return <div className="mx-auto max-w-[1200px] space-y-space-4">
     <PageHeader title={document ? `销售录单 · ${document.documentNo}` : "新建销售单"} description={document ? `版本 ${document.version} · ${document.status === "DRAFT" ? "草稿，未改变库存与应收" : "单据已生效或取消，不能编辑"}` : "保存草稿后生成单号；草稿不改变库存或应收。"} actions={<Button onClick={() => navigate(returnTo)}>{returnTo.split("?")[0] === "/business/sales" ? "返回销售列表" : "返回来源页面"}</Button>} />
-    {notice && <p role="status" className="text-sm text-success">{notice}</p>}
+    <BusinessFeedback feedback={feedback}>
+      {document?.status === "POSTED" && <>
+        {!document.directDelivery && document.items.some(i => i.productType === "GOODS") && <Link className="text-sm text-primary hover:underline" to={withBusinessReturn("/business/inventory-entries", `/business/sales/${document.id}/edit`)}>查看库存流水</Link>}
+        <Link className="text-sm text-primary hover:underline" to={withBusinessReturn(`/business/partner-ledger?partnerId=${document.partnerId}&direction=CUSTOMER`, `/business/sales/${document.id}/edit`)}>查看客户往来</Link>
+      </>}
+    </BusinessFeedback>
     {error && <p role="alert" className="text-sm text-error">{error}</p>}
     {loading && <p role="status">加载销售草稿…</p>}
     {document && document.status !== "CANCELLED" && <Button onClick={() => navigate(`/business/sales/${document.id}/delivery-note`)}>打印已保存送货单</Button>}

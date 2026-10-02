@@ -76,6 +76,7 @@ export function showToast(type: ToastType, options: string | ToastOptions) {
 }
 
 export const toast = {
+  show: showToast,
   success(options: string | ToastOptions) {
     return showToast("success", options);
   },

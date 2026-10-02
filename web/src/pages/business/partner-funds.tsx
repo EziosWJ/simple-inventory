@@ -1,3 +1,5 @@
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { createRefund, createSettlement, partnerBalances, partnerPage, type PartnerBalance, type PartnerRecord } from "@/api/business";
@@ -14,6 +16,7 @@ type Direction = "CUSTOMER" | "SUPPLIER";
 type Kind = "SETTLEMENT" | "REFUND";
 
 export function PartnerFundsPage({ kind }: { kind: Kind }) {
+  const { feedback, notify } = useBusinessFeedback();
   const refund = kind === "REFUND";
   const [params] = useSearchParams();
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
@@ -59,18 +62,18 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
     setSaving(true);
     setMessage("");
     try {
-      await (refund ? createRefund : createSettlement)({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, paymentMethod: method, transactionNo, remark });
+      const saved = await (refund ? createRefund : createSettlement)({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, paymentMethod: method, transactionNo, remark });
       setConfirming(false);
       setAmount("");
       setTransactionNo("");
       setRemark("");
       setRequestKey(crypto.randomUUID());
-      setMessage(`${operation}已生效`);
+      notify({ type: "success", title: `${operation}成功`, description: `${saved.partnerName ?? balance?.partnerName ?? partners.find(p => p.id === saved.partnerId)?.name ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
       setBalanceReady(false);
       setVersion(value => value + 1);
     } catch (e) {
       setConfirming(false);
-      setMessage(e instanceof Error ? e.message : "保存失败，请核对当前余额");
+      const message = e instanceof Error ? e.message : "保存失败，请核对当前余额"; setMessage(message); notify({ type: "error", title: "保存失败", description: message });
       setBalanceReady(false);
       setVersion(value => value + 1);
     } finally {
@@ -80,6 +83,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
 
   return <div className="space-y-4">
     <PageHeader title={refund ? "退款" : "收付款"} description={refund ? "待退款时记录实际退还客户或收到供应商的款项。退款不绑定单张退货单。" : "按往来单位的当前总欠款记录客户收款或供应商付款。"} />
+    <BusinessFeedback feedback={feedback} />
     <section className="rounded-admin border border-border bg-surface p-4" aria-label={refund ? "办理退款" : "办理收付款"}>
       <h2 className="mb-3 font-medium">{operation}</h2>
       <div className="grid gap-3 md:grid-cols-3">
@@ -96,7 +100,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
         <Button disabled={!valid || saving} onClick={() => setConfirming(true)}>确认{operation}</Button>
       </div>
       {partnerId && !valid && !amount && <p className="mt-2 text-sm text-text-secondary">{refund ? "当前没有可退余额时不能办理退款；退货可能已抵减原有欠款。" : "当前没有正欠款时不能办理收付款。"}</p>}
-      {message && <p role="status" className="mt-2 text-sm text-text-secondary">{message}</p>}
+      {message && <p role="alert" className="mt-2 text-sm text-error">{message}</p>}
     </section>
     <PartnerRecords category={kind} version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
     <ConfirmDialog open={confirming} title={`确认${operation}`} description={balance ? `${balance.partnerName} · ${amount} 元 · 余额 ${balance.amount} → ${after} 元 · ${method}` : undefined} confirmText={`确认${operation}`} loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />

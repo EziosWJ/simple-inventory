@@ -93,7 +93,8 @@ try {
     await route.abort("failed");
   });
   await page.getByRole("button", { name: "保存草稿", exact: true }).click();
-  await page.getByText(/原保存版本 3；当前版本 4，状态 已过账/).waitFor();
+  await page.getByText(/原保存版本 3 · 当前版本 4/).waitFor();
+  await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "已过账" }).waitFor();
   assert.equal(await page.getByRole("button", { name: "保存草稿", exact: true }).isDisabled(), true);
   await page.unroute(`**/api/v1/sales/${created.id}`);
   await page.getByRole("button", { name: "返回销售列表" }).click();
@@ -111,7 +112,7 @@ try {
   await page.unroute("**/api/v1/sales");
   await page.reload();
   await page.getByRole("button", { name: "核实并解除等待" }).click();
-  await page.getByText("已核实原保存未提交，可以继续修改并保存。").waitFor();
+  await page.getByRole("status", { name: "操作结果" }).getByText("已核实原保存未提交，可以继续修改并保存。").waitFor();
   const late = await fetch(`${api}/api/v1/sales`, { method: "POST", headers: { Authorization: token, "Content-Type": "application/json" }, body: JSON.stringify(lateBody) });
   assert.equal(late.status, 409);
   await page.goto(`${base}/business/sales/${created.id}/edit`);
