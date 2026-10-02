@@ -1,12 +1,12 @@
 .partner-statement-print { overflow-x: auto; justify-items: start; }
 .statement-page { flex-shrink: 0; }
-.statement-meta { display: grid; gap: 4px; margin-top: 8px; line-height: 18px; overflow-wrap: anywhere; }
-.statement-table { font-size: 10px; }
-.statement-table td { height: 9mm; vertical-align: middle; line-height: 13px; }
-.statement-table tr { break-inside: avoid; }
-.statement-totals { text-align: right; font-weight: 600; line-height: 20px; }
-.statement-check { margin-top: 12px; font-weight: 400; }
+.statement-note { margin-top: 8px; font-size: 11px; color: #4b5563; }
+.statement-table { font-size: 12px; }
+.statement-table td { height: 9mm; vertical-align: middle; line-height: 17px; }
+.statement-source-no { display: block; overflow-wrap: anywhere; }
+.statement-table .statement-money { text-align: right; font-variant-numeric: tabular-nums; }
+.statement-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 20px; text-align: right; }
+.statement-check { margin-top: 24px; }
 @media print {
- .partner-statement-print { overflow: visible; }
- .statement-page { width: 210mm; height: 297mm; min-height: 297mm; }
+  .partner-statement-print { overflow: visible; }
 }

@@ -87,7 +87,7 @@ try {
         await page.getByRole("button", { name: "新建销售草稿" }).click();
         assert.equal(await dialog.locator('input[type="date"]').inputValue(), "2026-10-02");
         await select(page,"客户","客户");
-        for (const field of ["送货联系人", "送货电话", "送货地址"]) await dialog.getByLabel(field).fill("");
+        for (const field of ["送货联系人", "收货人电话", "送货地址"]) await dialog.getByLabel(field).fill("");
         await select(page,"第 1 行商品","单位变更商品");
         await dialog.getByRole("button", { name: "保存草稿", exact: true }).click();
         await page.getByText(/已保存 DRAFT/).waitFor();

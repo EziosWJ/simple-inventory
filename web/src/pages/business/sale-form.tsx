@@ -287,8 +287,8 @@ export function SaleFormPage() {
             {source && <p>{source.documentNo} · {source.partnerName} · {source.status === "POSTED" ? "采购已过账" : "采购尚未过账"}</p>}
           </Field>
           <Field label="送货联系人" htmlFor="sale-contact"><Input id="sale-contact" maxLength={100} value={form.deliveryContact} onChange={e => setForm({ ...form, deliveryContact: e.target.value })} /></Field>
-          <Field label="送货电话" htmlFor="sale-phone"><Input id="sale-phone" maxLength={50} value={form.deliveryPhone} onChange={e => setForm({ ...form, deliveryPhone: e.target.value })} /></Field>
-          <Field label="送货地址" htmlFor="sale-address"><Input id="sale-address" maxLength={500} value={form.deliveryAddress} onChange={e => setForm({ ...form, deliveryAddress: e.target.value })} /></Field>
+          <Field label="收货人电话" htmlFor="sale-phone"><Input id="sale-phone" maxLength={50} value={form.deliveryPhone} onChange={e => setForm({ ...form, deliveryPhone: e.target.value })} /></Field>
+          <Field label="送货地址" htmlFor="sale-address" help="请填写完整地址，包含楼栋、楼层及房间号"><Textarea id="sale-address" rows={3} maxLength={500} placeholder="例如：南屯为民服务中心 3楼301室" value={form.deliveryAddress} onChange={e => setForm({ ...form, deliveryAddress: e.target.value })} /></Field>
           <Field label="整单备注" htmlFor="sale-remark"><Textarea id="sale-remark" maxLength={500} value={form.remark} onChange={e => setForm({ ...form, remark: e.target.value })} /></Field>
         </FormSection>
         <FormSection title="销售明细" description="可将同一商品按不同成交价分别录入；金额按行四舍五入至分。">
