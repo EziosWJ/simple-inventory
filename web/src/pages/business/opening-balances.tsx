@@ -15,7 +15,7 @@ import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
 type Direction = "CUSTOMER" | "SUPPLIER";
 
 function formSignature(value: { partnerId: string; direction: Direction; amount: string; date: string; description: string }) {
-  return JSON.stringify(value);
+  return JSON.stringify([value.partnerId, value.direction, value.amount, value.date, value.description]);
 }
 
 export function OpeningBalancesPage() {
@@ -89,11 +89,11 @@ export function OpeningBalancesPage() {
     <section className="rounded-admin border border-border bg-surface p-4" aria-label="录入期初应收应付">
       <h2 className="mb-3 font-medium">录入期初应收 / 应付</h2>
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">方向<Select className="mt-1" aria-label="期初方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">期初应收</option><option value="SUPPLIER">期初应付</option></Select></label>
-        <label className="text-sm">往来单位<Select className="mt-1" aria-label="期初往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="">选择往来单位</option>{partners.filter(partner => direction === "CUSTOMER" ? partner.isCustomer : partner.isSupplier).map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}</Select></label>
-        <label className="text-sm">金额（元）<Input className="mt-1" aria-label="期初金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></label>
-        <label className="text-sm">业务日期<Input className="mt-1" aria-label="期初业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-        <label className="text-sm md:col-span-2">说明（必填）<Textarea className="mt-1" aria-label="期初说明" value={description} onChange={e => setDescription(e.target.value)} /></label>
+        <label className="text-sm">方向<Select disabled={saving} className="mt-1" aria-label="期初方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">期初应收</option><option value="SUPPLIER">期初应付</option></Select></label>
+        <label className="text-sm">往来单位<Select disabled={saving} className="mt-1" aria-label="期初往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="">选择往来单位</option>{partners.filter(partner => direction === "CUSTOMER" ? partner.isCustomer : partner.isSupplier).map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}</Select></label>
+        <label className="text-sm">金额（元）<Input disabled={saving} className="mt-1" aria-label="期初金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></label>
+        <label className="text-sm">业务日期<Input disabled={saving} className="mt-1" aria-label="期初业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+        <label className="text-sm md:col-span-2">说明（必填）<Textarea disabled={saving} className="mt-1" aria-label="期初说明" value={description} onChange={e => setDescription(e.target.value)} /></label>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-sm">当前余额：<strong>{balance?.amount ?? "0.00"} 元</strong>；确认后：<strong>{after} 元</strong></p>

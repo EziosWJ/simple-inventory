@@ -16,7 +16,7 @@ type Direction = "CUSTOMER" | "SUPPLIER";
 type Kind = "SETTLEMENT" | "REFUND";
 
 function formSignature(value: { partnerId: string; direction: Direction; amount: string; date: string; method: string; transactionNo: string; remark: string }) {
-  return JSON.stringify(value);
+  return JSON.stringify([value.partnerId, value.direction, value.amount, value.date, value.method, value.transactionNo, value.remark]);
 }
 
 export function PartnerFundsPage({ kind }: { kind: Kind }) {
@@ -98,13 +98,13 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
     <section className="rounded-admin border border-border bg-surface p-4" aria-label={refund ? "办理退款" : "办理收付款"}>
       <h2 className="mb-3 font-medium">{operation}</h2>
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">方向<Select className="mt-1" aria-label="资金方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">{refund ? "向客户退款" : "客户收款"}</option><option value="SUPPLIER">{refund ? "收到供应商退款" : "供应商付款"}</option></Select></label>
-        <label className="text-sm">往来单位<Select className="mt-1" aria-label="资金往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="">选择往来单位</option>{partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}</Select></label>
-        <label className="text-sm">金额（元）<Input className="mt-1" aria-label="资金金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></label>
-        <label className="text-sm">业务日期<Input className="mt-1" aria-label="资金业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-        <label className="text-sm">方式<Select className="mt-1" aria-label="资金方式" value={method} onChange={e => setMethod(e.target.value)}><option value="CASH">现金</option><option value="WECHAT">微信</option><option value="ALIPAY">支付宝</option><option value="BANK_TRANSFER">银行转账</option><option value="OTHER">其他</option></Select></label>
-        <label className="text-sm">交易流水号（选填）<Input className="mt-1" value={transactionNo} onChange={e => setTransactionNo(e.target.value)} /></label>
-        <label className="text-sm md:col-span-3">备注（选填）<Textarea className="mt-1" value={remark} onChange={e => setRemark(e.target.value)} /></label>
+        <label className="text-sm">方向<Select disabled={saving} className="mt-1" aria-label="资金方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">{refund ? "向客户退款" : "客户收款"}</option><option value="SUPPLIER">{refund ? "收到供应商退款" : "供应商付款"}</option></Select></label>
+        <label className="text-sm">往来单位<Select disabled={saving} className="mt-1" aria-label="资金往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="">选择往来单位</option>{partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}</Select></label>
+        <label className="text-sm">金额（元）<Input disabled={saving} className="mt-1" aria-label="资金金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></label>
+        <label className="text-sm">业务日期<Input disabled={saving} className="mt-1" aria-label="资金业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+        <label className="text-sm">方式<Select disabled={saving} className="mt-1" aria-label="资金方式" value={method} onChange={e => setMethod(e.target.value)}><option value="CASH">现金</option><option value="WECHAT">微信</option><option value="ALIPAY">支付宝</option><option value="BANK_TRANSFER">银行转账</option><option value="OTHER">其他</option></Select></label>
+        <label className="text-sm">交易流水号（选填）<Input disabled={saving} className="mt-1" value={transactionNo} onChange={e => setTransactionNo(e.target.value)} /></label>
+        <label className="text-sm md:col-span-3">备注（选填）<Textarea disabled={saving} className="mt-1" value={remark} onChange={e => setRemark(e.target.value)} /></label>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-sm">当前余额：<strong>{balance?.amount ?? "0.00"} 元</strong>；确认后：<strong>{after} 元</strong></p>
