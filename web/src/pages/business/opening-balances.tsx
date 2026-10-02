@@ -9,24 +9,38 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cents, localToday, money } from "@/lib/partner-ledger";
 import { PartnerRecords } from "./partner-records";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
 
 type Direction = "CUSTOMER" | "SUPPLIER";
 
+function formSignature(value: { partnerId: string; direction: Direction; amount: string; date: string; description: string }) {
+  return JSON.stringify(value);
+}
+
 export function OpeningBalancesPage() {
   const [params] = useSearchParams();
+  const [initial] = useState(() => ({
+    partnerId: params.get("partnerId") ?? "",
+    direction: (params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER") as Direction,
+    date: localToday(),
+  }));
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
-  const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
-  const [direction, setDirection] = useState<Direction>(params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
+  const [partnerId, setPartnerId] = useState(initial.partnerId);
+  const [direction, setDirection] = useState<Direction>(initial.direction);
   const [balance, setBalance] = useState<PartnerBalance | null>(null);
   const [balanceReady, setBalanceReady] = useState(false);
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(localToday());
+  const [date, setDate] = useState(initial.date);
   const [description, setDescription] = useState("");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
   const [message, setMessage] = useState("");
+  const [baseline, setBaseline] = useState(() => formSignature({ ...initial, amount: "", description: "" }));
+  const dirty = formSignature({ partnerId, direction, amount, date, description }) !== baseline;
+  const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
   useEffect(() => {
     void partnerPage({ page: 1, pageSize: 500 }).then(result => setPartners(result.records)).catch(e => setMessage(String(e)));
@@ -54,6 +68,7 @@ export function OpeningBalancesPage() {
       await createOpeningBalance({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, description: description.trim() });
       setAmount("");
       setDescription("");
+      setBaseline(formSignature({ partnerId, direction, amount: "", date, description: "" }));
       setRequestKey(crypto.randomUUID());
       setConfirming(false);
       setBalanceReady(false);
@@ -88,5 +103,6 @@ export function OpeningBalancesPage() {
     </section>
     <PartnerRecords category="OPENING" version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
     <ConfirmDialog open={confirming} title="确认录入期初" description={balance ? `${balance.partnerName} · ${direction === "CUSTOMER" ? "应收" : "应付"} ${amount} 元 · 余额 ${balance.amount} → ${after} 元` : `期初金额 ${amount} 元 · 余额 0.00 → ${after} 元`} confirmText="保存并生效" loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
+    <BusinessLeaveConfirm guard={leaveGuard} title="离开期初录入" stayText="继续填写" leaveText="放弃并离开" />
   </div>;
 }

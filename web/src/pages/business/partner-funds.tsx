@@ -9,20 +9,31 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cents, localToday, money } from "@/lib/partner-ledger";
 import { PartnerRecords } from "./partner-records";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
 
 type Direction = "CUSTOMER" | "SUPPLIER";
 type Kind = "SETTLEMENT" | "REFUND";
 
+function formSignature(value: { partnerId: string; direction: Direction; amount: string; date: string; method: string; transactionNo: string; remark: string }) {
+  return JSON.stringify(value);
+}
+
 export function PartnerFundsPage({ kind }: { kind: Kind }) {
   const refund = kind === "REFUND";
   const [params] = useSearchParams();
+  const [initial] = useState(() => ({
+    partnerId: params.get("partnerId") ?? "",
+    direction: (params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER") as Direction,
+    date: localToday(),
+  }));
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
-  const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
-  const [direction, setDirection] = useState<Direction>(params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
+  const [partnerId, setPartnerId] = useState(initial.partnerId);
+  const [direction, setDirection] = useState<Direction>(initial.direction);
   const [balance, setBalance] = useState<PartnerBalance | null>(null);
   const [balanceReady, setBalanceReady] = useState(false);
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(localToday());
+  const [date, setDate] = useState(initial.date);
   const [method, setMethod] = useState("CASH");
   const [transactionNo, setTransactionNo] = useState("");
   const [remark, setRemark] = useState("");
@@ -31,6 +42,9 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [version, setVersion] = useState(0);
+  const [baseline, setBaseline] = useState(() => formSignature({ ...initial, amount: "", method: "CASH", transactionNo: "", remark: "" }));
+  const dirty = formSignature({ partnerId, direction, amount, date, method, transactionNo, remark }) !== baseline;
+  const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
   useEffect(() => {
     void partnerPage({ page: 1, pageSize: 500 }).then(result => setPartners(result.records)).catch(e => setMessage(String(e)));
@@ -64,6 +78,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
       setAmount("");
       setTransactionNo("");
       setRemark("");
+      setBaseline(formSignature({ partnerId, direction, amount: "", date, method, transactionNo: "", remark: "" }));
       setRequestKey(crypto.randomUUID());
       setMessage(`${operation}已生效`);
       setBalanceReady(false);
@@ -100,5 +115,6 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
     </section>
     <PartnerRecords category={kind} version={version} onChanged={() => { setBalanceReady(false); setVersion(value => value + 1); }} />
     <ConfirmDialog open={confirming} title={`确认${operation}`} description={balance ? `${balance.partnerName} · ${amount} 元 · 余额 ${balance.amount} → ${after} 元 · ${method}` : undefined} confirmText={`确认${operation}`} loading={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()} />
+    <BusinessLeaveConfirm guard={leaveGuard} title={`离开${refund ? "退款" : "收付款"}`} stayText="继续填写" leaveText="放弃并离开" />
   </div>;
 }

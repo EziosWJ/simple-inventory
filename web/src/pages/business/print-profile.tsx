@@ -7,21 +7,36 @@ import { toast } from "@/components/common/toast-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
+import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
 import { getErrorMessage } from "@/lib/api-error";
 
 const emptyProfile: PrintProfile = { name: "", phone: "", address: "" };
 
 export function PrintProfilePage() {
   const [profile, setProfile] = useState(emptyProfile);
+  const [baseline, setBaseline] = useState<PrintProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const dirty = baseline !== null && (profile.name !== baseline.name || profile.phone !== baseline.phone || profile.address !== baseline.address);
+  const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
   useEffect(() => {
+    let active = true;
     getPrintProfile()
-      .then(setProfile)
-      .catch((reason: unknown) => setError(getErrorMessage(reason, "读取经营者打印资料失败")))
-      .finally(() => setLoading(false));
+      .then((value) => {
+        if (!active) return;
+        setProfile(value);
+        setBaseline(value);
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        setError(getErrorMessage(reason, "读取经营者打印资料失败"));
+        setBaseline(emptyProfile);
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   async function save() {
@@ -30,6 +45,7 @@ export function PrintProfilePage() {
     try {
       const updated = await updatePrintProfile(profile);
       setProfile(updated);
+      setBaseline(updated);
       toast.success("经营者打印资料已保存");
     } catch (reason) {
       const message = getErrorMessage(reason, "保存失败，请检查资料后重试");
@@ -46,13 +62,13 @@ export function PrintProfilePage() {
       <ContentCard>
         <div className="max-w-2xl space-y-5">
           <Field label="经营者名称" required>
-            <Input maxLength={200} value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} placeholder="请输入经营者或店铺名称" disabled={loading} />
+            <Input maxLength={200} value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} placeholder="请输入经营者或店铺名称" disabled={loading || saving} />
           </Field>
           <Field label="联系电话" help="选填，最多 50 个字符">
-            <Input maxLength={50} value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} disabled={loading} />
+            <Input maxLength={50} value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} disabled={loading || saving} />
           </Field>
           <Field label="经营地址" help="选填，最多 500 个字符">
-            <Textarea maxLength={500} rows={3} value={profile.address} onChange={(event) => setProfile({ ...profile, address: event.target.value })} disabled={loading} />
+            <Textarea maxLength={500} rows={3} value={profile.address} onChange={(event) => setProfile({ ...profile, address: event.target.value })} disabled={loading || saving} />
           </Field>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end">
@@ -60,6 +76,7 @@ export function PrintProfilePage() {
           </div>
         </div>
       </ContentCard>
+      <BusinessLeaveConfirm guard={leaveGuard} title="离开经营者打印资料" stayText="继续编辑" leaveText="放弃并离开" />
     </div>
   );
 }
