@@ -7,6 +7,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	platform "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
 	"github.com/gin-gonic/gin"
 )
@@ -29,9 +30,13 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("/settlements", h.settle)
 	g.POST("/refunds", h.refund)
 	g.POST("/entries/:id/reverse", h.reverse)
+	g.GET("/entries/:id/attachments", h.attachments)
+	g.POST("/entries/:id/attachments", h.addAttachments)
+	g.DELETE("/entries/:id/attachments/:attachmentId", h.removeAttachment)
 }
 
 // @Summary 按往来余额记录客户收款或供应商付款
+// @Description 可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致，重试须保持初始附件集合不变。
 // @Tags 往来余额
 // @Security BearerAuth
 // @Accept json
@@ -54,7 +59,9 @@ func (h *Handler) settle(c *gin.Context) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
-		if errors.Is(e, ErrInvalid) {
+		if errors.Is(e, filemgmt.ErrForbidden) {
+			platform.WriteError(c, 403, 403, e.Error(), nil)
+		} else if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
 			platform.WriteError(c, 409, 409, e.Error(), nil)
@@ -67,6 +74,7 @@ func (h *Handler) settle(c *gin.Context) {
 }
 
 // @Summary 向客户退款或收到供应商退款（保存即生效）
+// @Description 可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致。
 // @Tags 往来余额
 // @Security BearerAuth
 // @Accept json
@@ -90,7 +98,9 @@ func (h *Handler) refund(c *gin.Context) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
-		if errors.Is(e, ErrInvalid) {
+		if errors.Is(e, filemgmt.ErrForbidden) {
+			platform.WriteError(c, 403, 403, e.Error(), nil)
+		} else if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
 			platform.WriteError(c, 409, 409, e.Error(), nil)
@@ -233,6 +243,7 @@ func (h *Handler) detail(c *gin.Context) {
 }
 
 // @Summary 录入期初应收应付
+// @Description 可选 attachmentIds，最多五个期初临时附件；业务生效与附件绑定事务一致。
 // @Tags 往来余额
 // @Security BearerAuth
 // @Accept json
@@ -255,7 +266,9 @@ func (h *Handler) create(c *gin.Context) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
-		if errors.Is(e, ErrInvalid) {
+		if errors.Is(e, filemgmt.ErrForbidden) {
+			platform.WriteError(c, 403, 403, e.Error(), nil)
+		} else if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrConflict) {
 			platform.WriteError(c, 409, 409, e.Error(), nil)
@@ -293,7 +306,9 @@ func (h *Handler) reverse(c *gin.Context) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
-		if errors.Is(e, ErrInvalid) {
+		if errors.Is(e, filemgmt.ErrForbidden) {
+			platform.WriteError(c, 403, 403, e.Error(), nil)
+		} else if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, e.Error(), nil)
 		} else if errors.Is(e, ErrNotFound) {
 			platform.WriteError(c, 404, 404, e.Error(), nil)
@@ -342,7 +357,9 @@ func (h *Handler) statement(c *gin.Context) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
-		if errors.Is(e, ErrInvalid) {
+		if errors.Is(e, filemgmt.ErrForbidden) {
+			platform.WriteError(c, 403, 403, e.Error(), nil)
+		} else if errors.Is(e, ErrInvalid) {
 			platform.WriteError(c, 400, 400, "期间或方向无效，请使用RFC3339且开始早于结束", nil)
 		} else if errors.Is(e, ErrNotFound) {
 			platform.WriteError(c, 404, 404, e.Error(), nil)

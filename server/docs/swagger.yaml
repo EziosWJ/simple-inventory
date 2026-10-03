@@ -1129,6 +1129,44 @@ definitions:
       message:
         type: string
     type: object
+  receivable.Attachment:
+    properties:
+      boundAt:
+        type: string
+      boundBy:
+        type: integer
+      entryId:
+        type: integer
+      fileId:
+        type: integer
+      fileSize:
+        type: integer
+      id:
+        type: integer
+      mimeType:
+        type: string
+      originalName:
+        type: string
+      removedAt:
+        type: string
+      removedBy:
+        type: integer
+      removedName:
+        type: string
+      uploadedAt:
+        type: string
+      uploadedBy:
+        type: integer
+      uploadedName:
+        type: string
+    type: object
+  receivable.AttachmentInput:
+    properties:
+      fileIds:
+        items:
+          type: integer
+        type: array
+    type: object
   receivable.Balance:
     properties:
       amount:
@@ -1161,6 +1199,8 @@ definitions:
     properties:
       amount:
         type: string
+      attachmentCount:
+        type: integer
       balanceAfter:
         type: string
       balanceBefore:
@@ -1210,6 +1250,10 @@ definitions:
     properties:
       amount:
         type: string
+      attachmentIds:
+        items:
+          type: integer
+        type: array
       businessDate:
         type: string
       description:
@@ -1238,6 +1282,10 @@ definitions:
     properties:
       amount:
         type: string
+      attachmentIds:
+        items:
+          type: integer
+        type: array
       businessDate:
         type: string
       direction:
@@ -2948,9 +2996,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: 原始请求体最多 55 MiB，单文件内容最多 50 MiB；businessModule 最多 50 个 Unicode 字符且最多
-        200 字节，remark 最多 500 个 Unicode 字符且最多 2000 字节，文件名最多 255 字节。声明为图片或使用 PNG、JPEG、GIF
-        扩展名的文件会校验真实内容，图片最多 25000000 像素。
+      description: |-
+        往来附件 businessModule 为 partner-attachment:OPENING、SETTLEMENT 或 REFUND 时校验对应业务权限，只接受真实 PNG/JPG/PDF，单文件最多 10 MiB，临时文件仅上传者可读。
+        原始请求体最多 55 MiB，单文件内容最多 50 MiB；businessModule 最多 50 个 Unicode 字符且最多 200 字节，remark 最多 500 个 Unicode 字符且最多 2000 字节，文件名最多 255 字节。声明为图片或使用 PNG、JPEG、GIF 扩展名的文件会校验真实内容，图片最多 25000000 像素。
       parameters:
       - description: 文件
         in: formData
@@ -2997,7 +3045,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: 原始请求体最多 210 MiB；最多 20 个文件，所有文件内容总量最多 200 MiB。每个文件独立返回成功或失败结果；失败项带原始文件索引，便于同名文件精确重试。
+      description: |-
+        往来附件使用与单文件相同的业务权限、真实内容与 10 MiB 限制，逐文件返回成功或失败。
+        原始请求体最多 210 MiB；最多 20 个文件，所有文件内容总量最多 200 MiB。每个文件独立返回成功或失败结果；失败项带原始文件索引，便于同名文件精确重试。
       parameters:
       - description: 文件列表
         in: formData
@@ -4704,6 +4754,105 @@ paths:
       summary: 查询往来金额记录详情
       tags:
       - 往来余额
+  /api/v1/partner-balances/entries/{id}/attachments:
+    get:
+      parameters:
+      - description: 往来记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/receivable.ApiEnvelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/receivable.Attachment'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询往来业务有效附件及移除历史
+      tags:
+      - 往来余额
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 往来记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 已上传的文件ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/receivable.AttachmentInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 补传往来业务附件（不影响往来金额）
+      tags:
+      - 往来余额
+  /api/v1/partner-balances/entries/{id}/attachments/{attachmentId}:
+    delete:
+      parameters:
+      - description: 往来记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 附件关联ID
+        in: path
+        name: attachmentId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 移除往来附件关联，保留原文件与操作历史
+      tags:
+      - 往来余额
   /api/v1/partner-balances/entries/{id}/reverse:
     post:
       consumes:
@@ -4749,6 +4898,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 可选 attachmentIds，最多五个期初临时附件；业务生效与附件绑定事务一致。
       parameters:
       - description: requestKey幂等键、人民币正金额、业务日期和必填说明
         in: body
@@ -4789,6 +4939,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致。
       parameters:
       - description: 退款方式、业务日期与幂等键；金额不得超过对应方向当前待退款
         in: body
@@ -4833,6 +4984,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致，重试须保持初始附件集合不变。
       parameters:
       - description: 收付款信息
         in: body

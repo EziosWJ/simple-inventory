@@ -1511,7 +1511,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "原始请求体最多 55 MiB，单文件内容最多 50 MiB；businessModule 最多 50 个 Unicode 字符且最多 200 字节，remark 最多 500 个 Unicode 字符且最多 2000 字节，文件名最多 255 字节。声明为图片或使用 PNG、JPEG、GIF 扩展名的文件会校验真实内容，图片最多 25000000 像素。",
+                "description": "往来附件 businessModule 为 partner-attachment:OPENING、SETTLEMENT 或 REFUND 时校验对应业务权限，只接受真实 PNG/JPG/PDF，单文件最多 10 MiB，临时文件仅上传者可读。\n原始请求体最多 55 MiB，单文件内容最多 50 MiB；businessModule 最多 50 个 Unicode 字符且最多 200 字节，remark 最多 500 个 Unicode 字符且最多 2000 字节，文件名最多 255 字节。声明为图片或使用 PNG、JPEG、GIF 扩展名的文件会校验真实内容，图片最多 25000000 像素。",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1584,7 +1584,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "原始请求体最多 210 MiB；最多 20 个文件，所有文件内容总量最多 200 MiB。每个文件独立返回成功或失败结果；失败项带原始文件索引，便于同名文件精确重试。",
+                "description": "往来附件使用与单文件相同的业务权限、真实内容与 10 MiB 限制，逐文件返回成功或失败。\n原始请求体最多 210 MiB；最多 20 个文件，所有文件内容总量最多 200 MiB。每个文件独立返回成功或失败结果；失败项带原始文件索引，便于同名文件精确重试。",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -4624,6 +4624,167 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/partner-balances/entries/{id}/attachments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询往来业务有效附件及移除历史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/receivable.Attachment"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "补传往来业务附件（不影响往来金额）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "已上传的文件ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/receivable.AttachmentInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/entries/{id}/attachments/{attachmentId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "移除往来附件关联，保留原文件与操作历史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "附件关联ID",
+                        "name": "attachmentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partner-balances/entries/{id}/reverse": {
             "post": {
                 "security": [
@@ -4700,6 +4861,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 attachmentIds，最多五个期初临时附件；业务生效与附件绑定事务一致。",
                 "consumes": [
                     "application/json"
                 ],
@@ -4768,6 +4930,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致。",
                 "consumes": [
                     "application/json"
                 ],
@@ -4842,6 +5005,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "可选 attachmentIds，最多五个本业务临时附件；业务生效与附件绑定事务一致，重试须保持初始附件集合不变。",
                 "consumes": [
                     "application/json"
                 ],
@@ -9226,6 +9390,64 @@ const docTemplate = `{
                 }
             }
         },
+        "receivable.Attachment": {
+            "type": "object",
+            "properties": {
+                "boundAt": {
+                    "type": "string"
+                },
+                "boundBy": {
+                    "type": "integer"
+                },
+                "entryId": {
+                    "type": "integer"
+                },
+                "fileId": {
+                    "type": "integer"
+                },
+                "fileSize": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mimeType": {
+                    "type": "string"
+                },
+                "originalName": {
+                    "type": "string"
+                },
+                "removedAt": {
+                    "type": "string"
+                },
+                "removedBy": {
+                    "type": "integer"
+                },
+                "removedName": {
+                    "type": "string"
+                },
+                "uploadedAt": {
+                    "type": "string"
+                },
+                "uploadedBy": {
+                    "type": "integer"
+                },
+                "uploadedName": {
+                    "type": "string"
+                }
+            }
+        },
+        "receivable.AttachmentInput": {
+            "type": "object",
+            "properties": {
+                "fileIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "receivable.Balance": {
             "type": "object",
             "properties": {
@@ -9274,6 +9496,9 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "string"
+                },
+                "attachmentCount": {
+                    "type": "integer"
                 },
                 "balanceAfter": {
                     "type": "string"
@@ -9349,6 +9574,12 @@ const docTemplate = `{
                 "amount": {
                     "type": "string"
                 },
+                "attachmentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "businessDate": {
                     "type": "string"
                 },
@@ -9391,6 +9622,12 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "string"
+                },
+                "attachmentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "businessDate": {
                     "type": "string"

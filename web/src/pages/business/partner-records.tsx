@@ -1,3 +1,4 @@
+import { PartnerAttachmentDetails } from "@/components/business/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
@@ -97,6 +98,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
     { title: "业务日期", dataIndex: "businessDate" },
     { title: "金额", dataIndex: "amount" },
     { title: "变动后余额", key: "balance", render: (_, row) => `${row.balanceAfter} 元（${balanceState(row.balanceAfter)}）` },
+    { title: "附件", key: "attachments", render: (_, row) => `${row.attachmentCount ?? 0} 个` },
     { title: "状态", key: "status", render: (_, row) => row.reversedById ? "已冲销" : "已生效" },
     { title: "操作", key: "action", render: (_, row) => <Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>查看详情</Button> },
   ];
@@ -123,6 +125,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
         <p>业务日期 {detail.businessDate} · 实际生效 {new Date(detail.effectiveAt).toLocaleString()}</p>
         <p>操作人 {detail.operatorName ?? detail.operatorId}{detail.paymentMethod ? ` · 方式 ${detail.paymentMethod}` : ""}{detail.transactionNo ? ` · 流水号 ${detail.transactionNo}` : ""}</p>
         {detail.description && <p>说明：{detail.description}</p>}
+        <PartnerAttachmentDetails key={detail.id} entryId={detail.id} kind={category} readOnly={!!detail.reversedById} onChanged={() => { setRevision(value => value + 1); void partnerBalanceEntry(detail.id).then(setDetail).catch(e => setError(String(e))); }} />
         {detail.reversedById ? <p>已由往来记录 {detail.reversedById} 冲销，原记录保留。</p> : <Button variant="secondary" onClick={() => { setReverseTarget(detail); setDetail(null); }}>冲销此记录</Button>}
       </div>}
     </DetailDialog>

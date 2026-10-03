@@ -79,6 +79,7 @@ type statusRequest struct {
 
 // upload godoc
 // @Summary 上传文件
+// @Description 往来附件 businessModule 为 partner-attachment:OPENING、SETTLEMENT 或 REFUND 时校验对应业务权限，只接受真实 PNG/JPG/PDF，单文件最多 10 MiB，临时文件仅上传者可读。
 // @Description 原始请求体最多 55 MiB，单文件内容最多 50 MiB；businessModule 最多 50 个 Unicode 字符且最多 200 字节，remark 最多 500 个 Unicode 字符且最多 2000 字节，文件名最多 255 字节。声明为图片或使用 PNG、JPEG、GIF 扩展名的文件会校验真实内容，图片最多 25000000 像素。
 // @Tags 文件管理
 // @Security BearerAuth
@@ -123,6 +124,7 @@ func (h *Handler) upload(c *gin.Context) {
 
 // uploadBatch godoc
 // @Summary 批量上传文件
+// @Description 往来附件使用与单文件相同的业务权限、真实内容与 10 MiB 限制，逐文件返回成功或失败。
 // @Description 原始请求体最多 210 MiB；最多 20 个文件，所有文件内容总量最多 200 MiB。每个文件独立返回成功或失败结果；失败项带原始文件索引，便于同名文件精确重试。
 // @Tags 文件管理
 // @Security BearerAuth
@@ -497,6 +499,12 @@ func writeError(c *gin.Context, err error) {
 	case errors.Is(err, ErrMultipartMalformed):
 		platformhttp.RecordMultipartRejection(c, nil, "malformed")
 		platformhttp.WriteError(c, http.StatusBadRequest, platformhttp.CodeBadRequest, ErrMultipartMalformed.Error(), nil)
+	case errors.Is(err, ErrForbidden):
+		platformhttp.WriteError(c, 403, 403, err.Error(), nil)
+	case errors.Is(err, ErrProtected):
+		platformhttp.WriteError(c, 409, 409, err.Error(), nil)
+	case errors.Is(err, ErrAttachmentInvalid):
+		platformhttp.WriteError(c, 400, 400, err.Error(), nil)
 	case errors.Is(err, ErrNotFound):
 		platformhttp.WriteError(c, http.StatusOK, platformhttp.CodeNotFound, ErrNotFound.Error(), nil)
 	case errors.Is(err, ErrInvalid), errors.Is(err, ErrFileEmpty), errors.Is(err, ErrFileTooLarge), errors.Is(err, ErrInvalidImage):

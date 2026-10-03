@@ -25,6 +25,9 @@ const (
 )
 
 var (
+	ErrForbidden           = errors.New("没有附件访问权限")
+	ErrProtected           = errors.New("业务附件需在业务详情中移除，原文件必须保留")
+	ErrAttachmentInvalid   = errors.New("附件仅支持有效的 PNG、JPG、PDF，单个最多 10 MB")
 	ErrNotFound            = errors.New("数据不存在")
 	ErrInvalid             = errors.New("参数错误")
 	ErrFileEmpty           = errors.New("文件不能为空")
@@ -38,6 +41,7 @@ var (
 )
 
 type File struct {
+	CreateBy       int64     `gorm:"column:create_by" json:"-"`
 	ID             int64     `gorm:"column:id;primaryKey" json:"id"`
 	OriginalName   string    `gorm:"column:original_name" json:"originalName"`
 	StorageName    string    `gorm:"column:storage_name" json:"storageName"`

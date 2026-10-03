@@ -81,7 +81,7 @@ const ledgerSelect = "e.id,e.partner_id,e.direction,e.entry_type,e.amount_cents,
 // The complete result is read by one SQL statement, including partner and source
 // identities. Pagination, counts and statement totals share this same snapshot.
 func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly bool) ([]entryRow, error) {
-	query := r.db.WithContext(ctx).Table("partner_balance_entry AS e").Select(ledgerSelect).Joins("JOIN partner p ON p.id=e.partner_id").Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").Joins("LEFT JOIN partner_balance_entry original ON original.id=e.reverses_id")
+	query := r.db.WithContext(ctx).Table("partner_balance_entry AS e").Select(r.ledgerSelect(ctx)).Joins("JOIN partner p ON p.id=e.partner_id").Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").Joins("LEFT JOIN partner_balance_entry original ON original.id=e.reverses_id")
 	if q.EntryID > 0 {
 		query = query.Where("e.id=?", q.EntryID)
 	}
@@ -154,7 +154,7 @@ func (r *Repository) Statement(ctx context.Context, q EntryFilter) (Statement, e
 	rows := []entryRow{}
 	// Anchor on the partner to return its identity even for a historical period
 	// with no entries. Every amount and label comes from this one SQL snapshot.
-	err := r.db.WithContext(ctx).Table("partner p").Select(ledgerSelect).Joins("LEFT JOIN partner_balance_entry e ON e.partner_id=p.id AND e.direction=? AND e.effective_at<?", q.Direction, to).Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").Joins("LEFT JOIN partner_balance_entry original ON original.id=e.reverses_id").Where("p.id=?", q.PartnerID).Order("e.effective_at ASC,e.id ASC").Scan(&rows).Error
+	err := r.db.WithContext(ctx).Table("partner p").Select(r.ledgerSelect(ctx)).Joins("LEFT JOIN partner_balance_entry e ON e.partner_id=p.id AND e.direction=? AND e.effective_at<?", q.Direction, to).Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").Joins("LEFT JOIN partner_balance_entry original ON original.id=e.reverses_id").Where("p.id=?", q.PartnerID).Order("e.effective_at ASC,e.id ASC").Scan(&rows).Error
 	if err != nil {
 		return Statement{}, err
 	}
@@ -187,4 +187,11 @@ func (r *Repository) Statement(ctx context.Context, q EntryFilter) (Statement, e
 	out.NetChange = moneyBig(net)
 	out.ClosingAmount = moneyBig(closing)
 	return out, nil
+}
+
+func (r *Repository) ledgerSelect(ctx context.Context) string {
+	if !r.db.WithContext(ctx).Migrator().HasTable(&Attachment{}) {
+		return ledgerSelect + ", 0 AS attachment_count"
+	}
+	return ledgerSelect + ", (SELECT COUNT(*) FROM partner_entry_attachment a WHERE a.entry_id=e.id AND a.removed_at IS NULL) AS attachment_count"
 }

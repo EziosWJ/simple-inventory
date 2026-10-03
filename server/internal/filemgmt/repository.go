@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	"github.com/EziosWJ/simple-inventory/server/internal/auth"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +19,7 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
 func (r *Repository) Page(ctx context.Context, q FilePageQuery) (Page[File], error) {
 	var p Page[File]
-	db := r.db.WithContext(ctx).Model(&File{}).Where("deleted=0")
+	db := r.db.WithContext(ctx).Model(&File{}).Where("deleted=0 AND (business_module IS NULL OR business_module NOT LIKE ?)", AttachmentPrefix+"%")
 	if q.OriginalName != "" {
 		db = db.Where("original_name LIKE ?", "%"+q.OriginalName+"%")
 	}
@@ -47,10 +49,22 @@ func (r *Repository) Find(ctx context.Context, id int64) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := r.attachmentAccess(ctx, f); err != nil {
+		return nil, err
+	}
 	return &f, nil
 }
 
 func (r *Repository) Create(ctx context.Context, f File, e AuditEvent) (File, error) {
+	if strings.HasPrefix(f.BusinessModule, AttachmentPrefix) {
+		ok, err := auth.HasPermission(ctx, r.db, AttachmentPermission(f.BusinessModule))
+		if err != nil {
+			return f, err
+		}
+		if !ok {
+			return f, ErrForbidden
+		}
+	}
 	if !validMD5(f.FileMD5) {
 		return f, ErrInvalid
 	}
@@ -70,6 +84,12 @@ func (r *Repository) Create(ctx context.Context, f File, e AuditEvent) (File, er
 
 func (r *Repository) Update(ctx context.Context, id int64, in UpdateInput, e AuditEvent) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if strings.HasPrefix(in.BusinessModule, AttachmentPrefix) {
+			return ErrProtected
+		}
+		if err := protectAttachment(tx, []int64{id}, false, e.Metadata.ActorID); err != nil {
+			return err
+		}
 		if err := tx.Model(&File{}).Where("id=? AND deleted=0", id).Updates(map[string]any{"business_module": in.BusinessModule, "remark": in.Remark}).Error; err != nil {
 			return err
 		}
@@ -79,6 +99,9 @@ func (r *Repository) Update(ctx context.Context, id int64, in UpdateInput, e Aud
 
 func (r *Repository) Delete(ctx context.Context, id int64, e AuditEvent) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := protectAttachment(tx, []int64{id}, true, e.Metadata.ActorID); err != nil {
+			return err
+		}
 		if err := tx.Model(&File{}).Where("id=? AND deleted=0", id).Update("deleted", 1).Error; err != nil {
 			return err
 		}
@@ -88,6 +111,9 @@ func (r *Repository) Delete(ctx context.Context, id int64, e AuditEvent) error {
 
 func (r *Repository) DeleteBatch(ctx context.Context, ids []int64, e AuditEvent) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := protectAttachment(tx, ids, true, e.Metadata.ActorID); err != nil {
+			return err
+		}
 		var count int64
 		if err := tx.Model(&File{}).Where("id IN ? AND deleted=0", ids).Count(&count).Error; err != nil {
 			return err
@@ -110,6 +136,9 @@ func (r *Repository) DeleteBatch(ctx context.Context, ids []int64, e AuditEvent)
 
 func (r *Repository) SetStatus(ctx context.Context, id int64, status int, e AuditEvent) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := protectAttachment(tx, []int64{id}, false, e.Metadata.ActorID); err != nil {
+			return err
+		}
 		if err := tx.Model(&File{}).Where("id=? AND deleted=0", id).Update("status", status).Error; err != nil {
 			return err
 		}

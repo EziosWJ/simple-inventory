@@ -142,6 +142,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	cleanupContext, stopCleanup := context.WithCancel(context.Background())
+	defer stopCleanup()
+	go fileService.RunAttachmentCleanup(cleanupContext)
+
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
 		Handler:           application.Router,

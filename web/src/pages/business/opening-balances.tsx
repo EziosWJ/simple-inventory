@@ -1,3 +1,5 @@
+import { PartnerAttachmentUpload } from "@/components/business/partner-attachments";
+import { emptyAttachments } from "@/lib/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
@@ -36,13 +38,14 @@ export function OpeningBalancesPage() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(initial.date);
   const [description, setDescription] = useState("");
+  const [attachments, setAttachments] = useState(emptyAttachments);
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
   const [message, setMessage] = useState("");
   const [baseline, setBaseline] = useState(() => formSignature({ ...initial, amount: "", description: "" }));
-  const dirty = formSignature({ partnerId, direction, amount, date, description }) !== baseline;
+  const dirty = attachments.dirty || formSignature({ partnerId, direction, amount, date, description }) !== baseline;
   const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
   useEffect(() => {
@@ -64,14 +67,15 @@ export function OpeningBalancesPage() {
   const after = valid && before !== null && value !== null ? money(before + value) : "—";
 
   async function save() {
-    if (!valid) return;
+    if (!valid || attachments.blocked) return;
     setSaving(true);
     setMessage("");
     try {
-      const saved = await createOpeningBalance({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, description: description.trim() });
+      const saved = await createOpeningBalance({ attachmentIds: attachments.ids, requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, description: description.trim() });
       setAmount("");
       setDescription("");
       setBaseline(formSignature({ partnerId, direction, amount: "", date, description: "" }));
+      setAttachments(emptyAttachments);
       setRequestKey(crypto.randomUUID());
       setConfirming(false);
       setBalanceReady(false);
@@ -99,9 +103,10 @@ export function OpeningBalancesPage() {
         <label className="text-sm">业务日期<Input disabled={saving} className="mt-1" aria-label="期初业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
         <label className="text-sm md:col-span-2">说明（必填）<Textarea disabled={saving} className="mt-1" aria-label="期初说明" value={description} onChange={e => setDescription(e.target.value)} /></label>
       </div>
+      <PartnerAttachmentUpload key={requestKey} kind={"OPENING"} disabled={saving} onChange={setAttachments} />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-sm">当前余额：<strong>{balance?.amount ?? "0.00"} 元</strong>；确认后：<strong>{after} 元</strong></p>
-        <Button disabled={!valid || saving} onClick={() => setConfirming(true)}>确认录入期初</Button>
+        <Button disabled={!valid || saving || attachments.blocked} onClick={() => setConfirming(true)}>确认录入期初</Button>
       </div>
       {message && <p role="alert" className="mt-2 text-sm text-error">{message}</p>}
     </section>

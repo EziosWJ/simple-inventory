@@ -1,3 +1,5 @@
+import { PartnerAttachmentUpload } from "@/components/business/partner-attachments";
+import { emptyAttachments } from "@/lib/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
@@ -40,13 +42,14 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
   const [method, setMethod] = useState("CASH");
   const [transactionNo, setTransactionNo] = useState("");
   const [remark, setRemark] = useState("");
+  const [attachments, setAttachments] = useState(emptyAttachments);
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [version, setVersion] = useState(0);
   const [baseline, setBaseline] = useState(() => formSignature({ ...initial, amount: "", method: "CASH", transactionNo: "", remark: "" }));
-  const dirty = formSignature({ partnerId, direction, amount, date, method, transactionNo, remark }) !== baseline;
+  const dirty = attachments.dirty || formSignature({ partnerId, direction, amount, date, method, transactionNo, remark }) !== baseline;
   const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
   useEffect(() => {
@@ -72,16 +75,17 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
     : direction === "CUSTOMER" ? "客户收款" : "供应商付款";
 
   async function save() {
-    if (!valid) return;
+    if (!valid || attachments.blocked) return;
     setSaving(true);
     setMessage("");
     try {
-      const saved = await (refund ? createRefund : createSettlement)({ requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, paymentMethod: method, transactionNo, remark });
+      const saved = await (refund ? createRefund : createSettlement)({ attachmentIds: attachments.ids, requestKey, partnerId: Number(partnerId), direction, amount, businessDate: date, paymentMethod: method, transactionNo, remark });
       setConfirming(false);
       setAmount("");
       setTransactionNo("");
       setRemark("");
       setBaseline(formSignature({ partnerId, direction, amount: "", date, method, transactionNo: "", remark: "" }));
+      setAttachments(emptyAttachments);
       setRequestKey(crypto.randomUUID());
       notify({ type: "success", title: `${operation}成功`, description: `${saved.partnerName ?? balance?.partnerName ?? partners.find(p => p.id === saved.partnerId)?.name ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
       setBalanceReady(false);
@@ -110,9 +114,10 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
         <label className="text-sm">交易流水号（选填）<Input disabled={saving} className="mt-1" value={transactionNo} onChange={e => setTransactionNo(e.target.value)} /></label>
         <label className="text-sm md:col-span-3">备注（选填）<Textarea disabled={saving} className="mt-1" value={remark} onChange={e => setRemark(e.target.value)} /></label>
       </div>
+      <PartnerAttachmentUpload key={requestKey} kind={kind} disabled={saving} onChange={setAttachments} />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-sm">当前余额：<strong>{balance?.amount ?? "0.00"} 元</strong>；确认后：<strong>{after} 元</strong></p>
-        <Button disabled={!valid || saving} onClick={() => setConfirming(true)}>确认{operation}</Button>
+        <Button disabled={!valid || saving || attachments.blocked} onClick={() => setConfirming(true)}>确认{operation}</Button>
       </div>
       {partnerId && !valid && !amount && <p className="mt-2 text-sm text-text-secondary">{refund ? "当前没有可退余额时不能办理退款；退货可能已抵减原有欠款。" : "当前没有正欠款时不能办理收付款。"}</p>}
       {message && <p role="alert" className="mt-2 text-sm text-error">{message}</p>}

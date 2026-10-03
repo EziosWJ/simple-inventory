@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const maxImagePixels int64 = 25000000
@@ -57,19 +58,41 @@ func (s *Service) uploadReader(ctx context.Context, m AuditMetadata, input Uploa
 	if input.Size > MaxFileSize {
 		return File{}, ErrFileTooLarge
 	}
+	if strings.HasPrefix(businessModule, AttachmentPrefix) {
+		if AttachmentPermission(businessModule) == "" {
+			return File{}, ErrInvalid
+		}
+		if err := validateAttachment(input); err != nil {
+			return File{}, err
+		}
+		if input.ContentType == "" && imageMimeFromExtension(input.Filename) != "" {
+			input.ContentType = imageMimeFromExtension(input.Filename)
+		}
+		if err := s.cleanupAttachments(ctx); err != nil {
+			return File{}, err
+		}
+	}
 	mimeType, err := validateContentType(input.ContentType, input.Filename, input.Reader)
 	if err != nil {
 		return File{}, err
+	}
+	if strings.HasPrefix(businessModule, AttachmentPrefix) && strings.EqualFold(filepath.Ext(input.Filename), ".pdf") {
+		mimeType = "application/pdf"
 	}
 	stored, err := s.storage.Save(ctx, input.Filename, input.Reader)
 	if err != nil {
 		return File{}, err
 	}
+	if strings.HasPrefix(businessModule, AttachmentPrefix) && stored.Size > MaxAttachmentSize {
+		s.compensate(ctx, stored.Path)
+		return File{}, ErrAttachmentInvalid
+	}
 	if !validMD5(stored.MD5) {
 		s.compensate(ctx, stored.Path)
 		return File{}, ErrInvalid
 	}
-	f := File{OriginalName: input.Filename, StorageName: stored.Name, Extension: stored.Extension, MimeType: mimeType, FileSize: stored.Size, FileMD5: stored.MD5, StoragePath: stored.Path, BusinessModule: businessModule, Status: StatusEnabled, Remark: stringPtr(remark)}
+	now := time.Now().UTC()
+	f := File{CreateTime: now, UpdateTime: now, CreateBy: m.ActorID, OriginalName: input.Filename, StorageName: stored.Name, Extension: stored.Extension, MimeType: mimeType, FileSize: stored.Size, FileMD5: stored.MD5, StoragePath: stored.Path, BusinessModule: businessModule, Status: StatusEnabled, Remark: stringPtr(remark)}
 	f, err = s.store.Create(ctx, f, AuditEvent{Action: "file.upload", Resource: "file", ResourceID: 0, Summary: "上传文件", Metadata: m})
 	if err != nil {
 		s.compensate(ctx, stored.Path)
@@ -240,10 +263,17 @@ func (s *Service) Update(ctx context.Context, m AuditMetadata, id int64, in Upda
 }
 
 func (s *Service) Delete(ctx context.Context, m AuditMetadata, id int64) error {
-	if _, err := s.store.Find(ctx, id); err != nil {
+	f, err := s.store.Find(ctx, id)
+	if err != nil {
 		return err
 	}
-	return s.store.Delete(ctx, id, AuditEvent{Action: "file.delete", Resource: "file", ResourceID: id, Summary: "删除文件", Metadata: m})
+	if err := s.store.Delete(ctx, id, AuditEvent{Action: "file.delete", Resource: "file", ResourceID: id, Summary: "删除文件", Metadata: m}); err != nil {
+		return err
+	}
+	if strings.HasPrefix(f.BusinessModule, AttachmentPrefix) {
+		s.compensate(ctx, f.StoragePath)
+	}
+	return nil
 }
 
 func (s *Service) DeleteBatch(ctx context.Context, m AuditMetadata, ids []int64) error {

@@ -48,6 +48,11 @@ func (r *Repository) recordFunds(ctx context.Context, meta audit.Metadata, in Se
 	}
 	var out Entry
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(in.AttachmentIDs) > 0 {
+			if err := attachmentPermission(ctx, tx, typ); err != nil {
+				return err
+			}
+		}
 		// Reserve SQLite's writer before any reads; PostgreSQL locks the balance row.
 		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "partner_id"}, {Name: "direction"}}, DoNothing: true}).Create(&balanceRow{PartnerID: in.PartnerID, Direction: in.Direction}).Error; err != nil {
 			return err
@@ -64,6 +69,9 @@ func (r *Repository) recordFunds(ctx context.Context, meta audit.Metadata, in Se
 			}
 			if previous.PartnerID != in.PartnerID || previous.Direction != in.Direction || previous.EntryType != typ || previous.AmountCents != delta || previousDate != in.BusinessDate || (previous.Description != remark && !(!refund && strings.TrimSpace(in.Remark) == "" && previous.Description == "")) || previous.PaymentMethod != in.PaymentMethod || previous.TransactionNo != transaction {
 				return ErrConflict
+			}
+			if err := checkInitialAttachments(tx, &previous, in.AttachmentIDs); err != nil {
+				return err
 			}
 			out = fromRow(previous)
 			return nil
@@ -84,6 +92,10 @@ func (r *Repository) recordFunds(ctx context.Context, meta audit.Metadata, in Se
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
+		if err := bindAttachments(ctx, tx, meta, row, in.AttachmentIDs, true); err != nil {
+			return err
+		}
+		row.AttachmentCount = int64(len(in.AttachmentIDs))
 		res := tx.Model(&balanceRow{}).Where("id=? AND amount_cents=?", b.ID, b.AmountCents).Updates(map[string]any{"amount_cents": after, "entry_count": gorm.Expr("entry_count+1"), "update_time": now})
 		if res.Error != nil {
 			return res.Error

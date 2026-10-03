@@ -190,7 +190,7 @@ func TestPhase4HandlersTemporaryUnavailable(t *testing.T) {
 		{name: "receivable", register: func(r *gin.Engine, e error) {
 			receivable.RegisterRoutes(r, receivable.NewHandler(receivable.NewService(receivableErrorStore{e})))
 		}, requests: []request{
-			{"POST", "/partner-balances/opening", funds}, {"POST", "/partner-balances/settlements", funds}, {"POST", "/partner-balances/refunds", funds}, {"POST", "/partner-balances/entries/1/reverse", `{"reason":"测试"}`}, {"GET", "/partner-balances", ""}, {"GET", "/partner-balances/entries", ""}, {"GET", "/partner-balances/entries/1", ""}, {"GET", "/partner-balances/statement?partnerId=1&direction=CUSTOMER&from=2026-10-01T00:00:00Z&to=2026-10-02T00:00:00Z", ""}}, invalid: receivable.ErrInvalid, missing: receivable.ErrNotFound, conflict: receivable.ErrConflict},
+			{"POST", "/partner-balances/opening", funds}, {"POST", "/partner-balances/settlements", funds}, {"POST", "/partner-balances/refunds", funds}, {"POST", "/partner-balances/entries/1/reverse", `{"reason":"测试"}`}, {"GET", "/partner-balances", ""}, {"GET", "/partner-balances/entries", ""}, {"GET", "/partner-balances/entries/1", ""}, {"GET", "/partner-balances/entries/1/attachments", ""}, {"POST", "/partner-balances/entries/1/attachments", `{"fileIds":[1]}`}, {"DELETE", "/partner-balances/entries/1/attachments/1", ""}, {"GET", "/partner-balances/statement?partnerId=1&direction=CUSTOMER&from=2026-10-01T00:00:00Z&to=2026-10-02T00:00:00Z", ""}}, invalid: receivable.ErrInvalid, missing: receivable.ErrNotFound, conflict: receivable.ErrConflict},
 		{name: "printprofile", register: func(r *gin.Engine, e error) {
 			printprofile.RegisterRoutes(r, printprofile.NewHandler(printprofile.NewService(printprofileErrorStore{e})))
 		}, requests: []request{{"GET", "/print-profile", ""}, {"PUT", "/print-profile", `{"name":"经营者"}`}}, invalid: printprofile.ErrInvalid},
@@ -237,4 +237,14 @@ func TestPhase4HandlersTemporaryUnavailable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s receivableErrorStore) Attachments(context.Context, int64) ([]receivable.Attachment, error) {
+	return nil, s.err
+}
+func (s receivableErrorStore) AddAttachments(context.Context, audit.Metadata, int64, []int64) error {
+	return s.err
+}
+func (s receivableErrorStore) RemoveAttachment(context.Context, audit.Metadata, int64, int64) error {
+	return s.err
 }

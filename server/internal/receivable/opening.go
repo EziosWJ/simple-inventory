@@ -47,6 +47,7 @@ type balanceRow struct {
 func (balanceRow) TableName() string { return "partner_balance" }
 
 type Entry struct {
+	AttachmentCount    int64     `json:"attachmentCount"`
 	PartnerName        string    `json:"partnerName"`
 	OperatorName       string    `json:"operatorName"`
 	PurchaseReturnID   *int64    `json:"purchaseReturnId,omitempty"`
@@ -75,22 +76,24 @@ type Entry struct {
 func (Entry) TableName() string { return "partner_balance_entry" }
 
 type Input struct {
-	RequestKey   string `json:"requestKey"`
-	PartnerID    int64  `json:"partnerId"`
-	Direction    string `json:"direction"`
-	Amount       string `json:"amount"`
-	BusinessDate string `json:"businessDate"`
-	Description  string `json:"description"`
+	AttachmentIDs []int64 `json:"attachmentIds,omitempty"`
+	RequestKey    string  `json:"requestKey"`
+	PartnerID     int64   `json:"partnerId"`
+	Direction     string  `json:"direction"`
+	Amount        string  `json:"amount"`
+	BusinessDate  string  `json:"businessDate"`
+	Description   string  `json:"description"`
 }
 type SettlementInput struct {
-	RequestKey    string `json:"requestKey"`
-	PartnerID     int64  `json:"partnerId"`
-	Direction     string `json:"direction"`
-	Amount        string `json:"amount"`
-	BusinessDate  string `json:"businessDate"`
-	PaymentMethod string `json:"paymentMethod"`
-	TransactionNo string `json:"transactionNo"`
-	Remark        string `json:"remark"`
+	AttachmentIDs []int64 `json:"attachmentIds,omitempty"`
+	RequestKey    string  `json:"requestKey"`
+	PartnerID     int64   `json:"partnerId"`
+	Direction     string  `json:"direction"`
+	Amount        string  `json:"amount"`
+	BusinessDate  string  `json:"businessDate"`
+	PaymentMethod string  `json:"paymentMethod"`
+	TransactionNo string  `json:"transactionNo"`
+	Remark        string  `json:"remark"`
 }
 type Page struct {
 	Records  []Entry `json:"records"`
@@ -99,6 +102,7 @@ type Page struct {
 	PageSize int     `json:"pageSize"`
 }
 type Store interface {
+	attachmentStore
 	FilterPage(context.Context, EntryFilter) (Page, error)
 	Statement(context.Context, EntryFilter) (Statement, error)
 	Create(context.Context, audit.Metadata, Input) (Entry, error)
@@ -161,6 +165,9 @@ func money(n int64) string {
 	return fmt.Sprintf("%s%d.%02d", sign, magnitude/100, magnitude%100)
 }
 func validateInput(in Input) error {
+	if err := validateAttachmentIDs(in.AttachmentIDs); err != nil {
+		return err
+	}
 	amount, e := cents(in.Amount)
 	if e != nil || in.PartnerID <= 0 || (in.Direction != "CUSTOMER" && in.Direction != "SUPPLIER") || strings.TrimSpace(in.Description) == "" || utf8.RuneCountInString(strings.TrimSpace(in.Description)) > 500 || strings.TrimSpace(in.RequestKey) == "" || utf8.RuneCountInString(in.RequestKey) > 100 {
 		return ErrInvalid
@@ -178,6 +185,9 @@ func (s *Service) Create(ctx context.Context, meta audit.Metadata, in Input) (En
 	return s.store.Create(ctx, meta, in)
 }
 func validateFunds(in SettlementInput) error {
+	if err := validateAttachmentIDs(in.AttachmentIDs); err != nil {
+		return err
+	}
 	_, err := cents(in.Amount)
 	if err != nil || in.PartnerID <= 0 || (in.Direction != "CUSTOMER" && in.Direction != "SUPPLIER") || strings.TrimSpace(in.RequestKey) == "" || len(in.RequestKey) > 100 || !validMethod(in.PaymentMethod) || utf8.RuneCountInString(in.TransactionNo) > 100 || utf8.RuneCountInString(in.Remark) > 500 {
 		return ErrInvalid
@@ -242,6 +252,11 @@ func (s *Repository) Create(ctx context.Context, meta audit.Metadata, in Input) 
 	desc := strings.TrimSpace(in.Description)
 	var out Entry
 	e = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(in.AttachmentIDs) > 0 {
+			if err := attachmentPermission(ctx, tx, "OPENING"); err != nil {
+				return err
+			}
+		}
 		checkRequestKey := func() (bool, error) {
 			var previous entryRow
 			er := tx.Where("request_key=?", strings.TrimSpace(in.RequestKey)).Take(&previous).Error
@@ -257,6 +272,9 @@ func (s *Repository) Create(ctx context.Context, meta audit.Metadata, in Input) 
 			}
 			if previous.PartnerID != in.PartnerID || previous.Direction != in.Direction || previous.AmountCents != amount || previousDate != date.Format("2006-01-02") || previous.Description != desc {
 				return false, ErrConflict
+			}
+			if err := checkInitialAttachments(tx, &previous, in.AttachmentIDs); err != nil {
+				return false, err
 			}
 			out = fromRow(previous)
 			return true, nil
@@ -304,6 +322,10 @@ func (s *Repository) Create(ctx context.Context, meta audit.Metadata, in Input) 
 			return er
 		}
 		out.ID = row.ID
+		if err := bindAttachments(ctx, tx, meta, row, in.AttachmentIDs, true); err != nil {
+			return err
+		}
+		out.AttachmentCount = int64(len(in.AttachmentIDs))
 		if er := tx.Model(&b).Updates(map[string]any{"amount_cents": before + amount, "entry_count": gorm.Expr("entry_count+1"), "update_time": now}).Error; er != nil {
 			return er
 		}
@@ -313,6 +335,7 @@ func (s *Repository) Create(ctx context.Context, meta audit.Metadata, in Input) 
 }
 
 type entryRow struct {
+	AttachmentCount                                    int64  `gorm:"->"`
 	PartnerName, OperatorName, ReversedDocumentNo      string `gorm:"->"`
 	PurchaseReturnID, SaleReturnID                     *int64
 	ID                                                 int64 `gorm:"primaryKey"`
@@ -350,7 +373,7 @@ func fromRow(r entryRow) Entry {
 	if len(r.BusinessDate) > 10 {
 		r.BusinessDate = r.BusinessDate[:10]
 	}
-	return Entry{PartnerName: r.PartnerName, OperatorName: r.OperatorName, PurchaseReturnID: r.PurchaseReturnID, SaleReturnID: r.SaleReturnID, ReversedDocumentNo: r.ReversedDocumentNo, ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
+	return Entry{AttachmentCount: r.AttachmentCount, PartnerName: r.PartnerName, OperatorName: r.OperatorName, PurchaseReturnID: r.PurchaseReturnID, SaleReturnID: r.SaleReturnID, ReversedDocumentNo: r.ReversedDocumentNo, ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
 }
 
 func (s *Repository) Balances(ctx context.Context, partnerID int64, page, size int, direction string) (BalancePage, error) {
