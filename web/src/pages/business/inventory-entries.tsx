@@ -8,6 +8,7 @@ import {
   type AdjustmentReason,
   type InventoryAdjustment,
   type InventoryEntry,
+  type InventoryEntryReason,
   type InventoryEntryType,
   type InventorySourceType,
   type ProductRecord,
@@ -28,7 +29,7 @@ import {
 } from "@/constants/dicts";
 import { useDictOptions } from "@/hooks/use-dict-options";
 import { businessDictLabel, missingBusinessDictValues } from "@/lib/business-dict-label";
-import { formatDateTime } from "@/lib/datetime";
+import { businessMidnightToUtc, formatDateTime } from "@/lib/datetime";
 import type { DataTableColumn } from "@/types";
 import { InventoryAdjustmentDetail } from "@/pages/business/inventory-adjustment-detail";
 
@@ -39,6 +40,12 @@ const reasonFallback: DictSelectOption<AdjustmentReason>[] = [
 ];
 const entryTypeFallback: DictSelectOption<InventoryEntryType>[] = [
   { value: "ORIGINAL", label: "原始变动" }, { value: "REVERSAL", label: "取消冲销" },
+];
+const tradeReasonOptions: DictSelectOption<InventoryEntryReason>[] = [
+  { value: "PURCHASE", label: "采购入库" }, { value: "PURCHASE_CANCEL", label: "采购入库取消" },
+  { value: "SALE", label: "销售出库" }, { value: "SALE_CANCEL", label: "销售出库取消" },
+  { value: "PURCHASE_RETURN", label: "采购退货" }, { value: "PURCHASE_RETURN_CANCEL", label: "采购退货取消" },
+  { value: "SALE_RETURN", label: "销售退货" }, { value: "SALE_RETURN_CANCEL", label: "销售退货取消" },
 ];
 const sourceOptions: { value: InventorySourceType; label: string }[] = [
   { value: "PURCHASE", label: "采购入库" }, { value: "SALE", label: "销售出库" },
@@ -70,6 +77,7 @@ export function InventoryEntriesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const missingReasons = missingBusinessDictValues(reasonDict.options, INVENTORY_ADJUSTMENT_REASON_VALUES);
   const reasonOptions = missingReasons.length ? reasonFallback : reasonDict.options;
+  const entryReasonOptions = [...reasonOptions, ...tradeReasonOptions];
 
   useEffect(() => {
     let active = true;
@@ -136,7 +144,7 @@ export function InventoryEntriesPage() {
     { title: "调整前 → 调整后", key: "balance", render: (_, record) => <span className="tabular-nums">{record.balanceBefore} → {record.balanceAfter}</span> },
     { title: "业务来源", dataIndex: "sourceType", render: (value) => sourceLabels[value as InventorySourceType] ?? String(value ?? "") },
     { title: "类型", dataIndex: "entryType", render: (value) => businessDictLabel(entryTypeFallback, value as InventoryEntryType) },
-    { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(reasonOptions, value as AdjustmentReason) },
+    { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(entryReasonOptions, value as InventoryEntryReason) },
     { title: "说明", dataIndex: "remark", render: (value) => <span className="whitespace-pre-wrap">{value || "-"}</span> },
     { title: "操作人", key: "operator", render: (_, record) => record.operatorName || `用户 ${record.operatorId}` },
     { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button type="button" className="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => openSource(record)}>{String(value ?? "")}</button> },
@@ -228,7 +236,5 @@ function ProductFilter({ selected, onChoose, onClear }: { selected: ProductRecor
   </div>;
 }
 
-function localMidnightToUtc(date: string) { return new Date(`${date}T00:00:00`).toISOString(); }
-function localNextMidnightToUtc(date: string) {
-  const next = new Date(`${date}T00:00:00`); next.setDate(next.getDate() + 1); return next.toISOString();
-}
+const localMidnightToUtc = businessMidnightToUtc;
+const localNextMidnightToUtc = (date: string) => businessMidnightToUtc(date, true);

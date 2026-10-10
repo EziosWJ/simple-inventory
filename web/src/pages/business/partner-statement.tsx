@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/datetime";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getPartnerStatement, type PartnerStatement } from "@/api/business";
@@ -10,7 +11,7 @@ import { usePrintPages } from "@/lib/use-print-pages";
 import "./delivery-note.css";
 import "./partner-statement.css";
 
-const dateTime = (value: string) => new Date(value).toLocaleString("zh-CN", { hour12: false });
+const dateTime = formatDateTime;
 
 export function PartnerStatementSheet({ statement, profile, onPageCountChange }: {
   statement: PartnerStatement; profile: PrintProfile; onPageCountChange?: (count: number) => void;

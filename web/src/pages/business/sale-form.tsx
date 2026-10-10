@@ -1,3 +1,5 @@
+import { businessToday } from "@/lib/datetime";
+import { randomUUID } from "@/lib/uuid";
 import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
 import { BusinessLeaveConfirm } from "@/components/business/business-leave-confirm";
 import { BusinessFeedback } from "@/components/business/business-feedback";
@@ -26,8 +28,7 @@ type Pending = { key: string; operation: "CREATE" | "EDIT"; id: number; version:
 type PendingPost = { id: number; version: number };
 const blankLine = (): Line => ({ productId: 0, productType: "GOODS", unit: "", quantity: "1", unitPrice: "0.00", remark: "" });
 function initialForm(): Form {
-  const now = new Date();
-  const businessDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const businessDate = businessToday();
   return { partnerId: 0, businessDate, directDelivery: false, deliveryContact: "", deliveryPhone: "", deliveryAddress: "", remark: "", items: [blankLine()] };
 }
 function fromDraft(d: SaleDraft): Form {
@@ -230,7 +231,7 @@ export function SaleFormPage() {
   }
   async function save(retry = false, postAfter = false) {
     if (savingRef.current || terminal || conflict || postPending || !storageKey || !recoveryLoaded || (!retry && (invalid || pending))) return;
-    const p: Pending = retry && pending ? pending : { key: crypto.randomUUID(), operation: document ? "EDIT" : "CREATE", id: document?.id ?? 0, version: document?.version ?? 0, ...(postAfter ? { postAfter: true } : {}) };
+    const p: Pending = retry && pending ? pending : { key: randomUUID(), operation: document ? "EDIT" : "CREATE", id: document?.id ?? 0, version: document?.version ?? 0, ...(postAfter ? { postAfter: true } : {}) };
     const body: SaleInput = retry && pendingBody.current ? pendingBody.current : { ...form, requestKey: p.key, remark: form.remark.trim() || undefined, items: form.items.map(l => ({ ...l, remark: l.remark.trim() || undefined })) };
     if (retry && !pendingBody.current) return;
     try { localStorage.setItem(storageKey, JSON.stringify(p)); }

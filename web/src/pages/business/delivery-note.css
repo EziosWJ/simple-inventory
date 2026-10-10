@@ -84,7 +84,7 @@
 }
 
 .delivery-meta-column { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
-.delivery-document-no { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.delivery-document-no { font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .delivery-table {
   width: 100%;

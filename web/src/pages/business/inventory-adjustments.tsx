@@ -1,3 +1,4 @@
+import { businessMidnightToUtc, formatDateTime } from "@/lib/datetime";
 import { toast } from "@/components/common/toast-store";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
@@ -219,14 +220,8 @@ function toApiFilters(filters: Filters) {
   const to = filters.createdTo ? localNextMidnightToUtc(filters.createdTo) : "";
   return { ...filters, createdFrom: from, createdTo: to };
 }
-function localMidnightToUtc(date: string) { return new Date(`${date}T00:00:00`).toISOString(); }
-function localNextMidnightToUtc(date: string) {
-  const next = new Date(`${date}T00:00:00`); next.setDate(next.getDate() + 1); return next.toISOString();
-}
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "medium" }).format(date);
-}
+const localMidnightToUtc = businessMidnightToUtc;
+const localNextMidnightToUtc = (date: string) => businessMidnightToUtc(date, true);
 
 function ProductFilter({ selected, onChoose, onClear }: { selected: ProductRecord | null; onChoose: (product: ProductRecord) => void; onClear: () => void }) {
   const [keyword, setKeyword] = useState("");

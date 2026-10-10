@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/lib/datetime";
+import { randomUUID } from "@/lib/uuid";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteFile, downloadFile, getFileDetail, uploadFile } from "@/api/file";
 import { addPartnerAttachments, partnerAttachments, removePartnerAttachment, type PartnerAttachment } from "@/api/business";
@@ -57,7 +59,7 @@ export function PartnerAttachmentUpload({ kind, onChange, disabled = false, limi
         const files = Array.from(e.target.files ?? []); e.target.value = "";
         if (files.length + items.length > limit) { setError(`当前最多还能选择 ${Math.max(0, limit - items.length)} 个附件`); return; }
         setError("");
-        const selected = files.map(file => ({ key: crypto.randomUUID(), file, uploading: true }));
+        const selected = files.map(file => ({ key: randomUUID(), file, uploading: true }));
         setItems(current => [...current, ...selected]);
         for (const item of selected) void upload(item);
       }} />
@@ -117,9 +119,9 @@ export function PartnerAttachmentDetails({ entryId, kind, readOnly, onChanged }:
     <h3 className="font-medium">附件（{active.length}）</h3>
     {!ready && !error && <p role="status">读取附件中…</p>}
     {ready && active.length === 0 && <p className="text-text-secondary">暂无附件</p>}
-    {active.map(item => <div key={item.id} className="space-y-2"><AttachmentFile item={item} /><p className="text-text-secondary">上传：{item.uploadedName || item.uploadedBy} · {new Date(item.uploadedAt).toLocaleString()}</p>{!readOnly && permitted && <Button size="sm" variant="secondary" disabled={busy || selection.dirty} onClick={() => { if (window.confirm("移除此附件？原文件将保留在附件历史中。")) void mutate(() => removePartnerAttachment(entryId, item.id)); }}>移除附件</Button>}</div>)}
+    {active.map(item => <div key={item.id} className="space-y-2"><AttachmentFile item={item} /><p className="text-text-secondary">上传：{item.uploadedName || item.uploadedBy} · {formatDateTime(item.uploadedAt)}</p>{!readOnly && permitted && <Button size="sm" variant="secondary" disabled={busy || selection.dirty} onClick={() => { if (window.confirm("移除此附件？原文件将保留在附件历史中。")) void mutate(() => removePartnerAttachment(entryId, item.id)); }}>移除附件</Button>}</div>)}
     {readOnly ? <p className="text-text-secondary">已冲销，附件和历史只读。</p> : permitted && ready && <><PartnerAttachmentUpload key={`${entryId}-${revision}`} kind={kind} limit={5 - active.length} disabled={busy} onChange={setSelection} /><Button size="sm" disabled={busy || selection.blocked || selection.ids.length === 0} onClick={() => void mutate(() => addPartnerAttachments(entryId, selection.ids))}>保存补传附件</Button></>}
-    <details><summary className="cursor-pointer">附件历史（已移除 {removed.length}）</summary><div className="mt-3 space-y-3">{removed.map(item => <div key={item.id}><AttachmentFile item={item} /><p className="text-text-secondary">上传：{item.uploadedName || item.uploadedBy} · {new Date(item.uploadedAt).toLocaleString()}；移除：{item.removedName || item.removedBy} · {new Date(item.removedAt!).toLocaleString()}</p></div>)}{removed.length === 0 && <p className="text-text-secondary">暂无移除记录</p>}</div></details>
+    <details><summary className="cursor-pointer">附件历史（已移除 {removed.length}）</summary><div className="mt-3 space-y-3">{removed.map(item => <div key={item.id}><AttachmentFile item={item} /><p className="text-text-secondary">上传：{item.uploadedName || item.uploadedBy} · {formatDateTime(item.uploadedAt)}；移除：{item.removedName || item.removedBy} · {formatDateTime(item.removedAt!)}</p></div>)}{removed.length === 0 && <p className="text-text-secondary">暂无移除记录</p>}</div></details>
     {error && <p role="alert" className="text-error">{error}</p>}
   </section>;
 }

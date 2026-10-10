@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/datetime";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { PartnerSelect } from "@/components/business/master-data-select";
 import { withBusinessReturn } from "@/lib/business-navigation";
@@ -85,7 +86,7 @@ export function PartnerLedgerPage() {
   const columns: DataTableColumn<PartnerBalanceEntry>[] = [
     { title: "类型 / 来源号", key: "source", render: (_, row) => <><span className="block text-xs text-text-secondary">{entryTypeLabel[row.entryType] ?? row.entryType}</span><Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>{row.documentNo}</Button></> },
     { title: "业务日期", dataIndex: "businessDate" },
-    { title: "实际生效", key: "effective", render: (_, row) => new Date(row.effectiveAt).toLocaleString() },
+    { title: "实际生效", key: "effective", render: (_, row) => formatDateTime(row.effectiveAt) },
     { title: "实际操作人", key: "actor", render: (_, row) => `${row.operatorName ?? ""}（${row.operatorId}）` },
     { title: "变动（元）", dataIndex: "amount" },
     { title: "前余额", dataIndex: "balanceBefore" },
@@ -113,7 +114,7 @@ export function PartnerLedgerPage() {
     <DetailDialog footer={<BusinessReturnLink />} open={detail !== null} title={detail ? `往来记录 · ${detail.documentNo}` : "往来记录"} onCancel={closeDetail}>
       {detail && <div className="space-y-3 text-sm">
         <p>{detail.partnerName} · {entryTypeLabel[detail.entryType] ?? detail.entryType}</p>
-        <p>业务日期 {detail.businessDate} · 实际生效 {new Date(detail.effectiveAt).toLocaleString()}</p>
+        <p>业务日期 {detail.businessDate} · 实际生效 {formatDateTime(detail.effectiveAt)}</p>
         <p>变动 {detail.amount} 元 · 余额 {detail.balanceBefore} → {detail.balanceAfter} 元</p>
         <p>操作人 {detail.operatorName ?? detail.operatorId}{detail.description ? ` · ${detail.description}` : ""}</p>
         {detail.reversedDocumentNo && <p>冲销来源：{detail.reversedDocumentNo}</p>}

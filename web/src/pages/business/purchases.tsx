@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/datetime";
 import { postingImpact, cancellationImpact } from "@/lib/document-feedback";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
@@ -210,7 +211,7 @@ export function PurchasesPage() {
           <>
             {detail.status === "DRAFT" && <Button onClick={()=>startEdit(detail)}>编辑草稿</Button>}
             <p className="mb-3">{detail.directDelivery ? "直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
-            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${new Date(d.postedAt).toLocaleString()}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
+            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${formatDateTime(d.postedAt)}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
             <DataTable
               columns={[
                 { title: "商品", key: "product", render: (_, item) => [item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ") },
@@ -225,8 +226,8 @@ export function PurchasesPage() {
             />
             <p className="mt-space-4 text-right font-medium">合计：¥{detail.totalAmount}</p>
             <p className="mt-space-2 text-sm text-text-tertiary">
-              创建人：{detail.createdByName} · 创建时间：{new Date(detail.createTime).toLocaleString()}
-              {detail.postedByName && ` · 过账人：${detail.postedByName}${detail.postedAt ? ` · 实际过账时间：${new Date(detail.postedAt).toLocaleString()}` : ""}`}
+              创建人：{detail.createdByName} · 创建时间：{formatDateTime(detail.createTime)}
+              {detail.postedByName && ` · 过账人：${detail.postedByName}${detail.postedAt ? ` · 实际过账时间：${formatDateTime(detail.postedAt)}` : ""}`}
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
             </p>
             <DirectDeliveryTrace trace={detail.directTrace}/>

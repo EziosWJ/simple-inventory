@@ -1,3 +1,4 @@
+import { randomUUID } from "@/lib/uuid";
 import { PartnerAttachmentUpload } from "@/components/business/partner-attachments";
 import { emptyAttachments } from "@/lib/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
@@ -43,7 +44,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
   const [transactionNo, setTransactionNo] = useState("");
   const [remark, setRemark] = useState("");
   const [attachments, setAttachments] = useState(emptyAttachments);
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() => randomUUID());
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -86,7 +87,7 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
       setRemark("");
       setBaseline(formSignature({ partnerId, direction, amount: "", date, method, transactionNo: "", remark: "" }));
       setAttachments(emptyAttachments);
-      setRequestKey(crypto.randomUUID());
+      setRequestKey(randomUUID());
       notify({ type: "success", title: `${operation}成功`, description: `${saved.partnerName ?? balance?.partnerName ?? partners.find(p => p.id === saved.partnerId)?.name ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
       setBalanceReady(false);
       setVersion(value => value + 1);

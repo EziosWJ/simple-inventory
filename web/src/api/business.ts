@@ -42,10 +42,11 @@ export const postInventoryAdjustment=(id:number,data:{version:number})=>http.pos
 export const cancelInventoryAdjustment=(id:number,data:{version:number;reason:string})=>http.post<InventoryAdjustment>(`/api/v1/inventory/adjustments/${id}/cancel`,data);
 export type InventoryEntryType = "ORIGINAL" | "REVERSAL";
 export type InventorySourceType = "ADJUSTMENT" | "PURCHASE" | "SALE" | "PURCHASE_RETURN" | "SALE_RETURN";
+export type InventoryEntryReason = AdjustmentReason | "PURCHASE" | "PURCHASE_CANCEL" | "SALE" | "SALE_CANCEL" | "PURCHASE_RETURN" | "PURCHASE_RETURN_CANCEL" | "SALE_RETURN" | "SALE_RETURN_CANCEL";
 export type InventoryEntry = {
   id: number; productId: number; adjustmentId?: number; adjustmentItemId?: number; purchaseId?: number; purchaseItemId?: number; saleId?: number; saleItemId?: number; purchaseReturnId?:number; purchaseReturnItemId?:number; saleReturnId?:number; saleReturnItemId?:number; sourceType:InventorySourceType;
   entryType: InventoryEntryType; quantity: string; balanceBefore: string; balanceAfter: string;
-  reason: AdjustmentReason; remark?: string | null;
+  reason: InventoryEntryReason; remark?: string | null;
   productCode: string; productName: string;
   productModel?: string | null; productSpecification?: string | null;
   unit: string; operatorId: number; operatorName?: string; documentNo: string;

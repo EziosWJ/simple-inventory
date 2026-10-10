@@ -3,28 +3,41 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
-const base = 'http://127.0.0.1:4203';
-const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '4203', '--strictPort'], { cwd: new URL('..', import.meta.url), stdio: 'ignore' });
+const local = 'http://127.0.0.1:4203';
+const insecure = process.env.HTTP_TEST === '1';
+const base = insecure ? 'http://inventory.test:4203' : local;
+const assetArgs = process.env.HTTP_ASSET_DIR ? ['preview', '--outDir', process.env.HTTP_ASSET_DIR] : [];
+const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', ...assetArgs, '--host', '127.0.0.1', '--port', '4203', '--strictPort'], { cwd: new URL('..', import.meta.url), stdio: 'ignore' });
 const partner = { id: 1, code: 'ATT-P', name: '附件往来单位', isCustomer: true, isSupplier: true, status: 1 };
 const menus = ['settlement', 'refund', 'opening-balance'].map((code, i) => ({ id: i + 1, parentId: 0, menuName: code, menuType: 'MENU', path: '', permissionCode: `business:${code}`, children: [] }));
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6iS8AAAAASUVORK5CYII=', 'base64');
 let browser;
 try {
-  for (let i = 0; i < 80; i++) { try { if ((await fetch(base)).ok) break; } catch {} await delay(100); }
+  for (let i = 0; i < 80; i++) { try { if ((await fetch(local)).ok) break; } catch {} await delay(100); }
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
-  for (const [routeName, category, entryType, amount, confirmText] of [
-    ['settlements', 'SETTLEMENT', 'RECEIPT', '100.00', '确认客户收款'],
-    ['refunds', 'REFUND', 'CUSTOMER_REFUND', '-100.00', '确认向客户退款'],
-    ['opening-balances', 'OPENING', 'OPENING', '0.00', '确认录入期初'],
+  for (const [routeName, category, entryType, amount, confirmText, direction] of [
+    ['settlements', 'SETTLEMENT', 'RECEIPT', '100.00', '确认客户收款', 'CUSTOMER'],
+    ['settlements', 'SETTLEMENT', 'PAYMENT', '100.00', '确认供应商付款', 'SUPPLIER'],
+    ['refunds', 'REFUND', 'CUSTOMER_REFUND', '-100.00', '确认向客户退款', 'CUSTOMER'],
+    ['refunds', 'REFUND', 'SUPPLIER_REFUND', '-100.00', '确认收到供应商退款', 'SUPPLIER'],
+    ['opening-balances', 'OPENING', 'OPENING', '0.00', '确认录入期初', 'CUSTOMER'],
+    ['opening-balances', 'OPENING', 'OPENING', '0.00', '确认录入期初', 'SUPPLIER'],
   ]) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     await context.addInitScript(() => localStorage.setItem('web-auth', JSON.stringify({ token: 'Bearer attachment-ui', user: { id: 1, username: 'attachment-ui', nickname: '经营者', roles: [] } })));
-    let entry = { id: 1, partnerId: 1, partnerName: partner.name, direction: 'CUSTOMER', entryType, amount: '10.00', balanceBefore: amount, balanceAfter: '90.00', businessDate: '2026-10-03', effectiveAt: '2026-10-03T00:00:00Z', documentNo: `ATT-${category}`, description: '附件业务', operatorId: 1, operatorName: '经营者', reversedById: null, attachmentCount: 0 };
+    let entry = { id: 1, partnerId: 1, partnerName: partner.name, direction, entryType, amount: '10.00', balanceBefore: amount, balanceAfter: '90.00', businessDate: '2026-10-03', effectiveAt: '2026-10-03T00:00:00Z', documentNo: `ATT-${category}`, description: '附件业务', operatorId: 1, operatorName: '经营者', reversedById: null, attachmentCount: 0 };
     let files = new Map(), items = [], failedOnce = false, writes = 0, rejectSaveOnce = true, nextFile = 1;
     const pageErrors = [];
+    const saveKeys = [];
+    if (insecure) await context.route('**/*', async route => {
+      const url = new URL(route.request().url());
+      if (url.pathname.startsWith('/api/')) return route.fallback();
+      url.hostname = '127.0.0.1';
+      return route.fulfill({ response: await route.fetch({ url: url.toString() }) });
+    });
     await context.route('**/api/**', async route => {
       const req = route.request(), path = new URL(req.url()).pathname, method = req.method();
-      if (!path.startsWith('/api/')) return route.continue();
+      if (!path.startsWith('/api/')) return route.fallback();
       let data = null;
       const respond = (value, status = 200, msg = 'OK') => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ code: status, message: msg, data: value }) });
       if (path === '/api/auth/me') data = { id: 1, username: 'attachment-ui', nickname: '经营者', roles: [] };
@@ -32,7 +45,7 @@ try {
       else if (path.endsWith('/unread-count')) data = 0;
       else if (path.includes('/dict/')) data = [];
       else if (path === '/api/v1/partners') data = { records: [partner], total: 1 };
-      else if (path === '/api/v1/partner-balances') data = { records: [{ partnerId: 1, partnerName: partner.name, direction: 'CUSTOMER', amount }] };
+      else if (path === '/api/v1/partner-balances') data = { records: [{ partnerId: 1, partnerName: partner.name, direction, amount }] };
       else if (path === '/api/system/file/upload') {
         const body = req.postDataBuffer().toString('latin1');
         assert.ok(body.includes(`partner-attachment:${category}`));
@@ -56,6 +69,10 @@ try {
       else if (path === '/api/v1/partner-balances/entries/1') data = entry;
       else if (path.endsWith('/reverse')) { entry = { ...entry, reversedById: 2 }; }
       else if (method === 'POST' && /\/(opening|settlements|refunds)$/.test(path)) {
+        const body = req.postDataJSON();
+        assert.match(body.requestKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        assert.equal(body.direction, direction);
+        saveKeys.push(body.requestKey);
         if (rejectSaveOnce) { rejectSaveOnce = false; return respond(null, 500, '模拟业务保存失败'); }
         const ids = req.postDataJSON().attachmentIds; assert.equal(ids.length, 2); writes++;
         items = ids.map((id, i) => ({ ...files.get(id), id: i + 1, fileId: id, entryId: 1, uploadedBy: 1, uploadedName: '经营者', uploadedAt: '2026-10-03T00:00:00Z', removedAt: null }));
@@ -64,7 +81,8 @@ try {
       return respond(data);
     });
     const page = await context.newPage(); page.on('pageerror', e => pageErrors.push(e.message));
-    await page.goto(`${base}/business/${routeName}`);
+    await page.goto(`${base}/business/${routeName}?direction=${direction}`);
+    if (insecure) assert.deepEqual(await page.evaluate(() => [isSecureContext, typeof crypto.randomUUID]), [false, 'undefined']);
     await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 8000 }).catch(async e => { throw new Error(`${e.message} URL=${page.url()} errors=${JSON.stringify(pageErrors)} text=${(await page.locator('body').innerText()).slice(0,1800)}`); });
     await page.getByLabel(category === 'OPENING' ? '期初往来单位' : '资金往来单位').selectOption('1');
     await page.getByLabel(category === 'OPENING' ? '期初金额' : '资金金额', { exact: true }).fill('10.00');
@@ -84,7 +102,11 @@ try {
     assert.equal(await page.getByText('上传成功', { exact: true }).count(), 2);
     await confirm.click(); await saveDialog.waitFor();
     await saveDialog.getByRole('button', { name: category === 'OPENING' ? '保存并生效' : confirmText, exact: true }).click();
+    await page.getByRole('status', { name: '操作结果' }).filter({ hasText: '成功' }).waitFor();
+    assert.equal(await page.getByLabel(category === 'OPENING' ? '期初金额' : '资金金额', { exact: true }).inputValue(), '', '保存成功后表单重置');
     await page.getByRole('button', { name: '查看详情', exact: true }).click();
+    assert.equal(saveKeys.length, 2);
+    assert.equal(saveKeys[0], saveKeys[1], '业务保存失败后的重试保留同一幂等键');
     const detail = page.getByRole('dialog'); await detail.waitFor();
     await detail.getByRole('heading', { name: '附件（2）', exact: true }).waitFor();
     await detail.getByRole('button', { name: '预览', exact: true }).first().click(); await detail.getByRole('img', { name: 'receipt.png' }).waitFor();
@@ -103,7 +125,7 @@ try {
     assert.equal(await detail.getByRole('button', { name: '选择附件' }).count(), 0);
     assert.equal(await detail.getByRole('button', { name: '移除附件', exact: true }).count(), 0);
     assert.deepEqual(pageErrors, []);
-    console.log(`PASS ${category}: failed upload/retry, save failure, binding, image/PDF/download, removal history, supplement, reversal read-only`);
+    console.log(`PASS ${insecure ? 'HTTP' : 'localhost'} ${category}/${direction}: upload/retry, save/retry/reset, binding, preview/download, supplement, reversal`);
     await context.close();
   }
 } finally { await browser?.close(); vite.kill('SIGTERM'); }

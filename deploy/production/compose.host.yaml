@@ -1,0 +1,45 @@
+name: ${INVENTORY_PROJECT:-simple-inventory}
+
+x-app: &app
+  image: ${INVENTORY_IMAGE_PREFIX:-simple-inventory}:${INVENTORY_RELEASE:?Set an identifiable release}
+  environment: &app-environment
+    APP_ENV: prod
+    APP_SWAGGER__ENABLED: "false"
+    APP_HTTP__ADDRESS: ":8080"
+    # 1Panel OpenResty runs in host mode and proxies through the published loopback port.
+    APP_HTTP__TRUSTED_PROXIES: ${TRUSTED_PROXY_IP:-172.18.0.1}
+  # The mounted production config is readable only by this dedicated group.
+  group_add: ["2000"]
+  volumes:
+    - ${CONFIG_FILE:?Set CONFIG_FILE to the private config.prod.yaml}:/app/configs/config.prod.yaml:ro
+    - ${UPLOADS_DIR:?Set UPLOADS_DIR to a persistent host directory}:/var/lib/simple-inventory/uploads
+  networks: [app]
+  # The host-integrated systemd unit owns this Compose process and service restart.
+  restart: "no"
+
+services:
+  migrate:
+    <<: *app
+    profiles: [tools]
+    entrypoint: [/app/migrate]
+    command: [up, --kind, all]
+    restart: "no"
+
+  api:
+    <<: *app
+    entrypoint: [/bin/sh, -ec, "/app/migrate check --kind all && exec /app/api"]
+    ports:
+      - "127.0.0.1:${API_PORT:-18080}:8080"
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/ready]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    labels:
+      org.opencontainers.image.version: ${INVENTORY_RELEASE}
+
+networks:
+  app:
+    external: true
+    name: ${APP_DOCKER_NETWORK:-1panel-network}

@@ -6,6 +6,12 @@ image_prefix=${2:-simple-inventory}
 [[ $image_prefix =~ ^[a-zA-Z0-9][a-zA-Z0-9/_.:-]*$ ]] || { echo 'Invalid image prefix' >&2; exit 1; }
 project_root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$project_root"
-docker build -f server/Dockerfile --target api -t "$image_prefix-api:$release" .
-docker build -f server/Dockerfile --target migrate -t "$image_prefix-migrate:$release" .
-docker image inspect "$image_prefix-api:$release" "$image_prefix-migrate:$release" --format '{{.RepoTags}} {{.Id}}'
+image="$image_prefix:$release"
+alpine_repository=${ALPINE_REPOSITORY:-https://dl-cdn.alpinelinux.org/alpine}
+go_proxy=${GOPROXY:-https://proxy.golang.org,direct}
+docker build -f server/Dockerfile --build-arg "ALPINE_REPOSITORY=$alpine_repository" --build-arg "GOPROXY=$go_proxy" --target release -t "$image" .
+# Keep the earlier service tags as aliases while every service uses this one image ID.
+docker tag "$image" "$image_prefix-api:$release"
+docker tag "$image" "$image_prefix-migrate:$release"
+docker tag "$image" "$image_prefix-backup:$release"
+docker image inspect "$image" "$image_prefix-api:$release" "$image_prefix-migrate:$release" "$image_prefix-backup:$release" --format '{{.RepoTags}} {{.Id}}'

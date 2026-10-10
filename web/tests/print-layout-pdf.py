@@ -35,7 +35,16 @@ for result in results:
         # Extract all fragments of the long document number and ensure they share
         # one baseline. The footer repeats it, so inspect the upper half only.
         for page in pages:
-            fragments = [w for w in page.findall(".//x:word", ns) if (w.text or "").startswith("单号：SO20261002-") and float(w.attrib["yMin"]) < 350]
+            # CJK and Latin fallback fonts may produce separate PDF words.
+            # Still require the complete number on the same line as its label.
+            upper = [w for w in page.findall(".//x:word", ns) if float(w.attrib["yMin"]) < 350]
+            number = "SO20261002-040ba5bc329641dc373e0123456789ab"
+            fragments = [w for w in upper if (w.text or "") in (number, "单号：" + number)]
             assert len(fragments) == 1, (result["name"], fragments)
-            assert fragments[0].text == "单号：SO20261002-040ba5bc329641dc373e0123456789ab"
+            if fragments[0].text == number:
+                labels = [w for w in upper if (w.text or "") == "单号："]
+                assert len(labels) == 1, (result["name"], labels)
+                label, value = labels[0].attrib, fragments[0].attrib
+                assert abs(float(label["xMax"]) - float(value["xMin"])) < 2
+                assert float(label["yMin"]) <= float(value["yMin"]) and float(value["yMax"]) <= float(label["yMax"]) + 2
 print(json.dumps([{"file": item["name"], "a4Pages": item["pages"]} for item in results], ensure_ascii=False))

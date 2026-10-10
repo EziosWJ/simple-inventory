@@ -1,3 +1,4 @@
+import { randomUUID } from "@/lib/uuid";
 import { PartnerAttachmentUpload } from "@/components/business/partner-attachments";
 import { emptyAttachments } from "@/lib/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
@@ -39,7 +40,7 @@ export function OpeningBalancesPage() {
   const [date, setDate] = useState(initial.date);
   const [description, setDescription] = useState("");
   const [attachments, setAttachments] = useState(emptyAttachments);
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() => randomUUID());
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
@@ -76,7 +77,7 @@ export function OpeningBalancesPage() {
       setDescription("");
       setBaseline(formSignature({ partnerId, direction, amount: "", date, description: "" }));
       setAttachments(emptyAttachments);
-      setRequestKey(crypto.randomUUID());
+      setRequestKey(randomUUID());
       setConfirming(false);
       setBalanceReady(false);
       setVersion(value => value + 1);

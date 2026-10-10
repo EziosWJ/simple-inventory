@@ -15,7 +15,9 @@
     "test:business-ui": "node tests/business-ui.mjs",
     "test:record-select": "node tests/paged-record-select-layout.mjs",
     "test:print-layout": "node tests/print-layout.mjs",
-    "test:business-feedback": "node tests/business-feedback.mjs"
+    "test:business-feedback": "node tests/business-feedback.mjs",
+    "test:datetime": "node tests/datetime.mjs",
+    "test:zero-sale": "node tests/zero-sale.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

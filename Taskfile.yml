@@ -8,19 +8,19 @@ env:
 
 tasks:
   default:
-    desc: Show available tasks
+    desc: 显示可用任务
     cmds:
       - task --list
     silent: true
 
   db:migrate:
-    desc: Apply schema and seed migrations
+    desc: 执行数据库结构和种子数据迁移
     dir: server
     cmds:
       - go run ./cmd/migrate up --kind all
 
   db:migrate:sqlite:
-    desc: Apply SQLite schema and seed migrations using the SQLite profile
+    desc: 使用 SQLite 配置执行数据库结构和种子数据迁移
     dir: server
     env:
       APP_CONFIG_PROFILE: sqlite
@@ -28,31 +28,31 @@ tasks:
       - go run ./cmd/migrate up --kind all
 
   db:migrate:schema:
-    desc: Apply schema migrations only
+    desc: 仅执行数据库结构迁移
     dir: server
     cmds:
       - go run ./cmd/migrate up --kind schema
 
   db:migrate:seed:
-    desc: Apply seed migrations only
+    desc: 仅执行种子数据迁移
     dir: server
     cmds:
       - go run ./cmd/migrate up --kind seed
 
   db:backup:
-    desc: Create an online SQLite backup; pass CLI flags through CLI_ARGS
+    desc: 创建 SQLite 在线备份，通过 CLI_ARGS 传递命令行参数
     dir: server
     cmds:
       - go run ./cmd/backup {{.CLI_ARGS}}
 
   api:
-    desc: Start the Go API
+    desc: 启动 Go API
     dir: server
     cmds:
       - go run ./cmd/api
 
   api:sqlite:
-    desc: Start the Go API with the SQLite profile
+    desc: 使用 SQLite 配置启动 Go API
     dir: server
     env:
       APP_CONFIG_PROFILE: sqlite
@@ -60,7 +60,7 @@ tasks:
       - go run ./cmd/api
 
   api:docs:
-    desc: Generate Swagger with the version and options used by the repository
+    desc: 使用仓库指定的版本和参数生成 Swagger 文档
     dir: server
     env:
       GOFLAGS: -mod=mod
@@ -68,20 +68,20 @@ tasks:
       - go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/api/main.go -o docs -d .
 
   web:
-    desc: Start the React development server
+    desc: 启动 React 开发服务器
     dir: web
     cmds:
       - npm run dev
 
   dev:
-    desc: Migrate the database and start API and web together
+    desc: 执行数据库迁移并同时启动 API 和前端
     deps:
       - db:migrate
     cmds:
       - task --parallel api web
 
   dev:sqlite:
-    desc: Migrate SQLite and start the SQLite API and web together
+    desc: 执行 SQLite 迁移并同时启动 SQLite API 和前端
     env:
       APP_CONFIG_PROFILE: sqlite
     deps:
@@ -90,64 +90,64 @@ tasks:
       - task --parallel api:sqlite web
 
   backend:test:
-    desc: Run backend unit tests
+    desc: 运行后端单元测试
     dir: server
     cmds:
       - go test ./...
 
   backend:integration:
-    desc: Run backend PostgreSQL integration tests
+    desc: 运行后端 PostgreSQL 集成测试
     dir: server
     cmds:
       - go test -tags=integration ./integration -run '^Test(Postgres|Auth|RBAC|SysConfig|Department|Dictionary|Login|File|Notification|UserPage|Product|Partner|Warehouse|Purchase|Sale)' -count=1
 
   db:integration:postgres:
-    desc: Run the PostgreSQL database integration contract
+    desc: 运行 PostgreSQL 数据库集成契约测试
     dir: server
     cmds:
       - go test -tags=integration ./integration -run '^Test(Postgres|Auth|RBAC|SysConfig|Department|Dictionary|Login|File|Notification|UserPage|Product|Partner|Warehouse|Purchase|Sale)' -count=1
 
   db:integration:sqlite:
-    desc: Run the file-backed SQLite database integration contract
+    desc: 运行文件型 SQLite 数据库集成契约测试
     dir: server
     cmds:
       - go test -tags=integration ./integration -run '^TestSQLite' -count=1
 
   db:check:
-    desc: Run backend checks and both supported database integration contracts
+    desc: 运行后端检查及两种数据库的集成契约测试
     deps:
       - backend:check
       - db:integration:postgres
       - db:integration:sqlite
 
   backend:check:
-    desc: Run backend tests and static checks
+    desc: 运行后端测试和静态检查
     dir: server
     cmds:
       - go test ./...
       - go vet ./...
 
   frontend:lint:
-    desc: Run frontend lint
+    desc: 运行前端代码检查
     dir: web
     cmds:
       - npm run lint
 
   frontend:build:
-    desc: Build the frontend
+    desc: 构建前端
     dir: web
     cmds:
       - npm run build
 
   check:
-    desc: Run backend and frontend checks
+    desc: 运行后端和前端检查
     deps:
       - backend:check
       - frontend:lint
       - frontend:build
 
   build:
-    desc: Build release binaries with the production frontend embedded in the API
+    desc: 构建将生产版前端嵌入 API 的发布程序
     deps:
       - frontend:build
     dir: server
@@ -160,7 +160,7 @@ tasks:
       - go build -trimpath -o ../bin/simple-inventory-backup ./cmd/backup
 
   build:check:
-    desc: Build the release and verify tests and vet with embedded frontend assets
+    desc: 构建发布程序并检查嵌入前端资源的测试与代码
     deps:
       - build
     dir: server
@@ -168,7 +168,12 @@ tasks:
       - go test -tags=embedweb ./...
       - go vet -tags=embedweb ./...
 
+  container:build:
+    desc: 构建包含 API、迁移和备份工具的单一发布镜像
+    cmds:
+      - bash deploy/production/build-images.sh {{.CLI_ARGS}}
+
   test:
-    desc: Run the default test suite
+    desc: 运行默认测试套件
     deps:
       - backend:test

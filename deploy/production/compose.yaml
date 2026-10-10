@@ -38,6 +38,7 @@ services:
     profiles: [tools]
     restart: "no"
     environment: *app-environment
+    entrypoint: [/app/migrate]
     command: [up, --kind, all]
     networks: [backend]
     depends_on:

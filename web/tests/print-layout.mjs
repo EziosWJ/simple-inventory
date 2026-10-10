@@ -43,7 +43,7 @@ const cases = [
   { name: "statement-customer", data: statement("CUSTOMER"), statement: true },
   { name: "statement-supplier-long", data: statement("SUPPLIER", false, true), statement: true },
   { name: "statement-empty", data: statement("CUSTOMER", true), statement: true },
-];
+].filter(scenario => process.env.PRINT_LAYOUT_KIND !== "statement" || scenario.statement);
 const results = [];
 let browser;
 try {
@@ -55,7 +55,7 @@ try {
   }
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
   for (const scenario of cases) {
-    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 }, timezoneId: "Asia/Shanghai" });
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 }, timezoneId: "America/Los_Angeles" });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.route("**/api/v1/**", route => {
@@ -82,6 +82,7 @@ try {
           aligned: Math.abs(table.left - meta.left) < 1 && Math.abs(table.right - meta.right) < 1,
           fits: table.bottom <= footer.top && (!tail || tail.bottom <= footer.top),
           numberFits: !number || number.scrollWidth <= number.clientWidth,
+          numberWidth: number ? { content: number.scrollWidth, available: number.clientWidth } : null,
           rows: sheet.querySelectorAll("tbody tr").length };
       });
     });
@@ -89,7 +90,7 @@ try {
       assert(sheet.centered, `${scenario.name}: title not centered`);
       assert(sheet.aligned, `${scenario.name}: edges not aligned`);
       assert(sheet.fits, `${scenario.name}: footer overlaps content`);
-      assert(sheet.numberFits, `${scenario.name}: document number too wide`);
+      assert(sheet.numberFits, `${scenario.name}: document number too wide ${JSON.stringify(sheet.numberWidth)}`);
       assert(Math.abs(sheet.height - 1122.52) < 2, `${scenario.name}: page grew past A4 (${sheet.height})`);
     }
     assert.equal(await page.locator(".delivery-title").first().evaluate(node => getComputedStyle(node).fontSize), "26.6667px");
@@ -98,6 +99,8 @@ try {
       assert(text.includes(profile.name) && text.includes(profile.phone));
       assert(text.includes(scenario.data.direction === "CUSTOMER" ? "客户（应收）" : "供应商（应付）"));
       assert(text.includes("（不含）"));
+      assert(text.includes("2026-10-01 08:00:00"), "statement start must use Beijing time regardless of browser timezone");
+      assert(text.includes("2026-11-01 08:00:00"), "statement end must use Beijing time regardless of browser timezone");
       assert.equal(await page.locator(".statement-check").count(), 1);
     } else {
       assert.equal(await page.locator(".delivery-receipt-notice").count(), 1);

@@ -1,10 +1,10 @@
 # Linux 单机部署、整套备份与恢复
 
-本包使用 PostgreSQL 17、内嵌 React 的 Go API 和 Caddy。运行时需要 Docker Engine / Compose、Python 3、Linux `cron`；不需要 Vite 或 Node。首次初始化、升级和恢复由维护者执行，日常录单使用两名独立经营者账号。正式云服务器、DNS 和真实证书尚需另行安排。
+本包提供两种 Linux 部署方式：接入已有 PostgreSQL 和主机反向代理的单镜像部署见[主机集成说明](HOST-INTEGRATION.md)；下文 `compose.yaml` 提供 PostgreSQL、API 和 Caddy 的独立 Compose 部署，并配有整套备份与恢复工具。运行时需要 Docker Engine / Compose、Python 3、Linux `cron`；不需要 Vite 或 Node。首次初始化、升级和恢复由维护者执行，日常录单使用两名独立经营者账号。
 
 ## 发布与配置
 
-从仓库根目录执行 `deploy/production/build-images.sh <已验收版本号>`，得到同版本的 `simple-inventory-api` 和 `simple-inventory-migrate` 镜像。保留镜像 ID 和对应源码版本；升级前将旧镜像留在本机或可信镜像仓库，直到旧备份过了保留期。恢复工具按记录的镜像 ID 启动，不会用被重打标签的新镜像代替旧版。
+从仓库根目录执行 `task container:build -- <已验收版本号>`，构建单个 `simple-inventory:<版本>` 镜像，其中包含 API、migrate、备份工具、基础配置和 migrations。为兼容原 Compose 服务名，构建脚本也会给同一 image ID 增加 `simple-inventory-api`、`simple-inventory-migrate` 和 `simple-inventory-backup` 标签。保留镜像 ID 和对应源码版本；升级前将旧镜像留在本机或可信镜像仓库，直到旧备份过了保留期。恢复工具按记录的镜像 ID 启动，不会用被重打标签的新版本代替旧版。
 
 复制 `.env.example` 为本目录私有 `.env`，执行 `chmod 600 deploy/production/.env`。设置发布版本、独立项目名、数据库随机密码（至少 20 字符）、JWT 随机密钥（至少 32 字符）。配置文件及备份不得提交到 Git。域名、浏览器 Origin 和可信代理必须匹配：`PUBLIC_ORIGIN` 包括非标准 HTTPS 端口；代理地址固定，后端和数据库无公开端口。改变子网时同步 `DB_IP`、`API_IP` 和 `PROXY_IP`，三个地址不得重复。
 

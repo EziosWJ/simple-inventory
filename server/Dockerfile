@@ -11,11 +11,15 @@ RUN npm run build
 FROM golang:1.26.5-alpine AS build
 
 WORKDIR /src
+ENV GOMAXPROCS=2 GOFLAGS=-p=1
 
-RUN apk add --no-cache gcc musl-dev
+ARG ALPINE_REPOSITORY=https://dl-cdn.alpinelinux.org/alpine
+RUN sed -i "s#^https://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPOSITORY}#" /etc/apk/repositories \
+    && apk add --no-cache gcc musl-dev
+ARG GOPROXY=https://proxy.golang.org,direct
 
 COPY server/go.mod server/go.sum ./
-RUN go mod download
+RUN GOPROXY="$GOPROXY" go mod download
 
 COPY server/ .
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
@@ -36,21 +40,11 @@ COPY --chown=app:app server/configs ./configs
 RUN mkdir -p /var/lib/simple-inventory/uploads && chown -R app:app /var/lib/simple-inventory
 USER app
 
-FROM runtime AS api
+FROM runtime AS release
 
-COPY --from=api-build /out/api ./api
+COPY --from=api-build --chown=app:app /out/api ./api
+COPY --from=build /out/backup ./backup
 COPY --from=build /out/migrate ./migrate
 COPY --chown=app:app server/migrations ./migrations
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]
-
-FROM runtime AS migrate
-
-COPY --from=build /out/migrate ./migrate
-COPY --chown=app:app server/migrations ./migrations
-ENTRYPOINT ["/app/migrate"]
-
-FROM runtime AS backup
-
-COPY --from=build /out/backup ./backup
-ENTRYPOINT ["/app/backup"]

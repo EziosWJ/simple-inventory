@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/datetime";
 import { PartnerAttachmentDetails } from "@/components/business/partner-attachments";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
@@ -122,7 +123,7 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
       {detail && <div className="space-y-3 text-sm">
         <p>{detail.partnerName} · {detail.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}</p>
         <p>金额 {detail.amount} 元 · 余额 {detail.balanceBefore} → {detail.balanceAfter} 元</p>
-        <p>业务日期 {detail.businessDate} · 实际生效 {new Date(detail.effectiveAt).toLocaleString()}</p>
+        <p>业务日期 {detail.businessDate} · 实际生效 {formatDateTime(detail.effectiveAt)}</p>
         <p>操作人 {detail.operatorName ?? detail.operatorId}{detail.paymentMethod ? ` · 方式 ${detail.paymentMethod}` : ""}{detail.transactionNo ? ` · 流水号 ${detail.transactionNo}` : ""}</p>
         {detail.description && <p>说明：{detail.description}</p>}
         <PartnerAttachmentDetails key={detail.id} entryId={detail.id} kind={category} readOnly={!!detail.reversedById} onChanged={() => { setRevision(value => value + 1); void partnerBalanceEntry(detail.id).then(setDetail).catch(e => setError(String(e))); }} />

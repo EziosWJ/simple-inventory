@@ -9,6 +9,26 @@ const product = { id: 1, code: 'UI-G', name: '回归商品', type: 'GOODS', unit
 const partner = { id: 1, code: 'UI-P', name: '回归往来单位', type: 'COMPANY', isSupplier: true, isCustomer: true, status: 1 };
 const line = { id: 1, productId: 1, productCode: product.code, productName: product.name, productType: 'GOODS', unit: '台', quantity: '1', unitPrice: '2.00', amount: '2.00' };
 const draft = { id: 1, documentNo: 'UI-001', partnerId: 1, partnerName: partner.name, businessDate: '2026-10-02', status: 'DRAFT', version: 1, directDelivery: false, directDocuments: [], createdBy: 1, createdByName: '回归', createTime: '2026-10-02T00:00:00Z', items: [line], totalAmount: '2.00', deliveryContact: '', deliveryPhone: '', deliveryAddress: '' };
+const directPurchaseDocuments = [{ id: 2, documentNo: 'PI-UI-001', status: 'POSTED', partnerName: partner.name, postedAt: '2026-10-02T12:00:00Z', postedByName: '回归' }];
+let saleDetailRecord = {
+  ...draft,
+  documentNo: 'SO-UI-DETAIL',
+  directDelivery: true,
+  directDocuments: directPurchaseDocuments,
+  directTrace: null,
+  ownerName: '回归经营者',
+  ownerPhone: '13800000000',
+  ownerAddress: '经营者地址',
+  deliveryContact: '签收联系人',
+  deliveryPhone: '13900000000',
+  deliveryAddress: '客户送货地址',
+  remark: '整单备注内容',
+  items: [
+    { ...line, productCode: 'UI-G-LONG', productName: '超长商品名称用于检查单元格换行与布局', productModel: '型号 A', productSpecification: '规格一', quantity: '2.5', unitPrice: '49.00', amount: '122.50', remark: '明细备注内容' },
+    { ...line, id: 2, productCode: 'UI-S', productName: '安装服务', productType: 'SERVICE', unit: '次', quantity: '1', unitPrice: '30.00', amount: '30.00', remark: '' },
+  ],
+  totalAmount: '152.50',
+};
 const returnLine = { ...line, purchaseItemId: 1, saleItemId: 1, originalQuantity: '1', returnedQuantity: '0', remainingQuantity: '1', priorReturnAmount: '0.00' };
 const returnDraft = { ...draft, purchaseId: 1, saleId: 1, purchaseNo: draft.documentNo, saleNo: draft.documentNo, items: [returnLine] };
 const adjustment = { ...draft, items: [{ ...line, reason: 'OPENING', remark: '' }] };
@@ -65,6 +85,8 @@ try {
     else if (path === '/api/v1/partners') data = records([partner, { ...partner, id: 2, code: 'UI-P2' }]);
     else if (path === '/api/v1/partners/1') data = partner;
     else if (/^\/api\/v1\/(purchases|sales)$/.test(path)) data = records([draft]);
+    else if (path === '/api/v1/sales/1') data = saleDetailRecord;
+    else if (path === '/api/v1/purchases/2') data = { ...draft, id: 2, documentNo: 'PI-UI-001' };
     else if (/^\/api\/v1\/(purchases|sales)\/1$/.test(path)) data = draft;
     else if (path === '/api/v1/inventory/adjustments') data = records([adjustment]);
     else if (path === '/api/v1/inventory/adjustments/1') data = adjustment;
@@ -84,7 +106,7 @@ try {
     for (const route of routes) {
       await visit(page, route);
       await page.locator('main').evaluate(async () => { await document.fonts.ready; });
-      const controls = await page.locator('main select, main input:not([type="checkbox"]), main [role="group"] > div:first-child > button:first-child').evaluateAll(ns => ns.map(n => ({ tag: n.tagName, height: n.getBoundingClientRect().height, className: n.className })));
+      const controls = await page.locator('main select, main input:not([type="checkbox"]):not([type="file"]), main [role="group"] > div:first-child > button:first-child').evaluateAll(ns => ns.map(n => ({ tag: n.tagName, height: n.getBoundingClientRect().height, className: n.className })));
       for (const c of controls) if (!c.className.includes('h-control-sm')) {
         if (c.tag === 'BUTTON') assert.ok(c.height >= 36 && Math.abs((c.height - 36) % 20) < 1, `${width} ${route}: auto-height trigger ${c.height}`);
         else assert.ok(Math.abs(c.height - 36) < 1, `${width} ${route} ${c.tag}: height ${c.height}`);
@@ -103,6 +125,80 @@ try {
     } await page.close();
   }
   const page = await context.newPage();
+  for (const width of [1440, 750]) for (const status of ['DRAFT', 'POSTED', 'CANCELLED']) {
+    const populated = status === 'POSTED';
+    saleDetailRecord = {
+      ...saleDetailRecord,
+      status,
+      directDelivery: populated,
+      directDocuments: populated ? directPurchaseDocuments : [],
+      deliveryContact: populated ? '签收联系人' : '',
+      deliveryPhone: populated ? '13900000000' : '',
+      deliveryAddress: populated ? '客户送货地址' : '',
+      ownerName: populated ? '回归经营者' : '',
+      ownerPhone: populated ? '13800000000' : '',
+      ownerAddress: populated ? '经营者地址' : '',
+      cancelledByName: status === 'CANCELLED' ? '回归取消人' : undefined,
+      cancelledAt: status === 'CANCELLED' ? '2026-10-03T12:00:00Z' : undefined,
+      cancelReason: status === 'CANCELLED' ? '回归取消原因' : undefined,
+    };
+    await page.setViewportSize({ width, height: 900 });
+    await visit(page, 'business/sales?saleId=1');
+    const detail = page.getByRole('dialog'); await detail.waitFor();
+    await detail.getByText('整单备注内容', { exact: true }).waitFor();
+    assert.equal(await detail.getByRole('row').count(), 3, `${width} ${status}: two item rows plus header`);
+    assert.equal(await detail.getByRole('columnheader').count(), 5, `${width} ${status}: item table columns`);
+    await detail.getByText(/明细备注内容/).waitFor();
+    await detail.getByText('¥152.50', { exact: true }).waitFor();
+    assert.equal(await detail.getByText('签收联系人', { exact: true }).count(), populated ? 1 : 0);
+    assert.equal(await detail.getByText('回归经营者', { exact: true }).count(), populated ? 1 : 0);
+    assert.equal(await detail.getByText('直送销售：采购与销售单据分别过账。', { exact: true }).count(), populated ? 1 : 0);
+    const geometry = await detail.evaluate(node => {
+      const rect = node.getBoundingClientRect();
+      const table = [...node.querySelectorAll('div.overflow-x-auto')].find(element => element.querySelector('table'));
+      return {
+        insideViewport: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
+        tableOverflow: table.scrollWidth - table.clientWidth,
+      };
+    });
+    assert.ok(geometry.insideViewport, `${width} ${status}: dialog must remain in viewport`);
+    if (width === 750) assert.ok(geometry.tableOverflow > 0, 'narrow view should scroll the item table horizontally');
+
+    const edit = detail.getByRole('button', { name: '编辑草稿', exact: true });
+    const print = detail.getByRole('button', { name: '打印送货单', exact: true });
+    const saleReturn = detail.getByRole('button', { name: '办理退货', exact: true });
+    assert.equal(await edit.count(), status === 'DRAFT' ? 1 : 0);
+    assert.equal(await print.count(), status === 'CANCELLED' ? 0 : 1);
+    assert.equal(await saleReturn.count(), status === 'POSTED' ? 1 : 0);
+    assert.equal(await detail.getByRole('region', { name: '送货及经营者资料' }).count(), populated ? 1 : 0);
+
+    if (width === 1440 && status === 'POSTED') {
+      await detail.getByRole('button', { name: 'PI-UI-001', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/business/purchases');
+      await visit(page, 'business/sales?saleId=1');
+      await page.getByRole('dialog').getByRole('button', { name: '打印送货单', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/business/sales/1/delivery-note');
+      await visit(page, 'business/sales?saleId=1');
+      await page.getByRole('dialog').getByRole('button', { name: '办理退货', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/business/sale-returns' && url.searchParams.get('saleId') === '1');
+      await visit(page, 'business/sales?saleId=1');
+      await page.getByRole('dialog').getByRole('button', { name: '查看客户往来', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/business/partner-ledger');
+    } else if (width === 1440 && status === 'DRAFT') {
+      await edit.click();
+      await page.waitForURL(url => url.pathname === '/business/sales/1/edit');
+    } else if (width === 1440 && status === 'CANCELLED') {
+      assert.match(await detail.innerText(), /回归取消原因/);
+      await detail.getByRole('button', { name: '查看客户往来', exact: true }).click();
+      await page.waitForURL(url => url.pathname === '/business/partner-ledger');
+    } else {
+      await detail.getByRole('button', { name: '关闭详情弹窗', exact: true }).click();
+      await detail.waitFor({ state: 'hidden' });
+      assert.equal(new URL(page.url()).searchParams.has('saleId'), false);
+    }
+  }
+  console.log('PASS sales detail dialog: draft/posted/cancelled actions, item and optional fields, navigation, and 1440/750px layout');
+  saleDetailRecord = { ...draft };
   // Selector zero/error/retry/multiple pages in 240px and 270px actual containers.
   for (const width of [240, 270]) {
     await visit(page, 'business/purchases');
@@ -126,7 +222,7 @@ try {
   for (const width of [1440, 1024]) for (const kind of ['purchases', 'sales']) for (const state of ['new', '1/edit']) {
     await page.setViewportSize({ width, height: 1000 });
     await visit(page, `business/${kind}/${state}`);
-    const note = page.locator('main textarea').first(); await note.fill('未保存录单备注');
+    const note = page.getByLabel('整单备注', { exact: true }); await note.fill('未保存录单备注');
     await goSource(page); await (await prompt(page, '继续录单')).getByRole('button', { name: '继续录单', exact: true }).click();
     assert.equal(await note.inputValue(), '未保存录单备注');
     await page.getByRole('button', { name: /返回采购列表|返回销售列表|返回来源页面/ }).click();

@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/datetime";
 import { useNavigate } from "react-router-dom";
 import type { DirectTrace, DirectTraceDocument } from "@/api/business";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function DirectDeliveryTrace({ trace }: { trace?: DirectTrace | null }) {
         { title: "单价", dataIndex: "unitPrice", align: "right" },
         { title: "金额", dataIndex: "amount", align: "right" },
       ]} dataSource={d.items} rowKey="id" minWidth={540} empty="暂无明细" />
-      <p className="text-sm text-text-tertiary">创建：{d.createdByName} · {new Date(d.createTime).toLocaleString()}{d.postedAt && `；过账：${d.postedByName} · ${new Date(d.postedAt).toLocaleString()}`}{d.cancelledAt && `；取消：${d.cancelledByName} · ${new Date(d.cancelledAt).toLocaleString()} · ${d.cancelReason ?? ""}`}</p>
+      <p className="text-sm text-text-tertiary">创建：{d.createdByName} · {formatDateTime(d.createTime)}{d.postedAt && `；过账：${d.postedByName} · ${formatDateTime(d.postedAt)}`}{d.cancelledAt && `；取消：${d.cancelledByName} · ${formatDateTime(d.cancelledAt)} · ${d.cancelReason ?? ""}`}</p>
     </div>)}
   </section>;
 }
