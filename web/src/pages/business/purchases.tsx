@@ -59,6 +59,7 @@ export function PurchasesPage() {
       documentNo: query.documentNo,
       partnerId: query.partnerId,
       productId: query.productId,
+      partnerKeyword: query.partnerKeyword, productKeyword: query.productKeyword,
       status: query.status,
       businessFrom: query.businessFrom,
       businessTo: query.businessTo,
@@ -117,7 +118,7 @@ export function PurchasesPage() {
   }
 
   function resetFilters() {
-    apply({documentNo:"",partnerId:"",productId:"",status:"",businessFrom:"",businessTo:""});
+    apply({documentNo:"",partnerId:"",productId:"",partnerKeyword:"",productKeyword:"",status:"",businessFrom:"",businessTo:""});
     setReload(v=>v+1);
   }
 
@@ -128,7 +129,7 @@ export function PurchasesPage() {
       nowrap: true,
       render: (value, record) => (
         <button className="text-primary hover:underline" onClick={() => void openDetail(record)}>
-          {String(value ?? "")}
+          {String(value ?? "")}{record.matchesHistory&&<span className="block text-xs text-primary">匹配历史资料</span>}
         </button>
       ),
     },
@@ -176,7 +177,7 @@ export function PurchasesPage() {
           <Input value={filters.documentNo} onChange={(event) => setFilters({ ...filters, documentNo: event.target.value })} placeholder="输入单号" />
         </Field>
         <Field label="供应商">
-          <PartnerSelect label="筛选供应商" historical value={Number(filters.partnerId)} onChange={partner => setFilters({ ...filters, partnerId: partner ? String(partner.id) : "" })} />
+          <PartnerSelect label="筛选供应商" historical value={Number(filters.partnerId)} keyword={query.partnerKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,partnerKeyword:k}))} onKeywordChange={k=>{const next={...filters,partnerId:"",partnerKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,partnerId:p?String(p.id):"",partnerKeyword:""};setFilters(next);apply(next)}} />
         </Field>
         <Field label="状态">
           <Select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
@@ -184,7 +185,7 @@ export function PurchasesPage() {
           </Select>
         </Field>
         <Field label="商品">
-          <ProductSelect label="筛选商品" historical value={Number(filters.productId)} onChange={product => setFilters({ ...filters, productId: product ? String(product.id) : "" })} />
+          <ProductSelect label="筛选商品" historical value={Number(filters.productId)} keyword={query.productKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,productKeyword:k}))} onKeywordChange={k=>{const next={...filters,productId:"",productKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,productId:p?String(p.id):"",productKeyword:""};setFilters(next);apply(next)}} />
         </Field>
         <Field label="业务日期起">
           <Input type="date" value={filters.businessFrom} onChange={(event) => setFilters({ ...filters, businessFrom: event.target.value })} />
@@ -194,7 +195,8 @@ export function PurchasesPage() {
         </Field>
       </SearchFilterBar>
       {error && <p role="alert" className="text-sm text-error">{error}</p>}
-      <DataTableCard
+      <p className="text-xs text-text-secondary">关键词查当前档案及已保存的商品快照；旧品牌和供应商联系方式仅查当前档案。</p>
+<DataTableCard
         toolbar={<TableToolbar title="采购入库单" description="支持按单号、供应商、状态、商品与业务日期查询。" />}
         pagination={<Pagination page={page} pageSize={PAGE_SIZE} total={total} disabled={loading} onPageChange={setPage} />}
       >

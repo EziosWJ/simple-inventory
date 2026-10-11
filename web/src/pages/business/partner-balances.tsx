@@ -43,6 +43,7 @@ export function PartnerBalancesPage() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const partnerId = params.get("partnerId") ?? "";
+  const partnerKeyword=params.get("partnerKeyword")??"";
   const direction = params.get("direction") ?? "";
   // Old direction/partner links keep their all-direction lookup semantics.
   const category = params.get("category") ?? (partnerId || direction ? "ALL" : "RECEIVABLE");
@@ -75,12 +76,12 @@ export function PartnerBalancesPage() {
   const load = useCallback(() => {
     let active = true;
     setLoading(true);
-    void partnerBalances({ ...(partnerId ? { partnerId } : {}), direction, category, page, pageSize }).then(result => {
+    void partnerBalances({ ...(partnerId ? { partnerId } : {}), partnerKeyword, direction, category, page, pageSize }).then(result => {
       if (active) { setRows(result.records); setTotal(result.total); setError(""); }
     }).catch(e => { if (active) { setRows([]); setTotal(0); setError(e instanceof Error ? e.message : "读取往来余额失败"); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [partnerId, direction, category, page]);
+  }, [partnerId, partnerKeyword, direction, category, page]);
   useEffect(load, [load, version]);
   useEffect(() => {
     let active = true;
@@ -146,8 +147,8 @@ export function PartnerBalancesPage() {
           </ol>}
       </div>
     </ContentCard>
-    <SearchFilterBar actions={<Button onClick={() => { const p = new URLSearchParams(params); p.delete("partnerId"); p.delete("direction"); p.delete("page"); p.set("category", category); setParams(p); }}>清除筛选</Button>}>
-      <PartnerSelect label="筛选往来单位" historical value={Number(partnerId)} onChange={p => change("partnerId", p ? String(p.id) : "")} />
+    <SearchFilterBar actions={<Button onClick={() => { const p = new URLSearchParams(params); p.delete("partnerId"); p.delete("partnerKeyword"); p.delete("direction"); p.delete("page"); p.set("category", category); setParams(p); }}>清除筛选</Button>}>
+      <PartnerSelect label="筛选往来单位" historical value={Number(partnerId)} keyword={partnerKeyword} onKeywordChange={k=>{const p=new URLSearchParams(params);p.delete("partnerId");if(k)p.set("partnerKeyword",k);else p.delete("partnerKeyword");p.delete("page");setParams(p)}} onChange={r=>{const p=new URLSearchParams(params);p.delete("partnerKeyword");if(r)p.set("partnerId",String(r.id));else p.delete("partnerId");p.delete("page");setParams(p)}} />
       <Select aria-label="筛选款项分类" value={category} onChange={e => change("category", e.target.value)}>{categories.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}<option value="ALL">全部（含结清及无记录）</option></Select>
       {category === "ALL" && <Select aria-label="筛选往来方向" value={direction} onChange={e => change("direction", e.target.value)}><option value="">客户及供应商</option><option value="CUSTOMER">客户</option><option value="SUPPLIER">供应商</option></Select>}
     </SearchFilterBar>

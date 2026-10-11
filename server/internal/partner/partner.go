@@ -167,7 +167,7 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Partner{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Partner{})
-	d = platformdatabase.LiteralContains(d, q.Keyword, "code", "name", "contact", "phone")
+	d = platformdatabase.LiteralWords(d, q.Keyword, "code", "name", "contact", "phone")
 	if q.Type != "" {
 		d = d.Where("type=?", q.Type)
 	}
@@ -183,6 +183,10 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	}
 	if e := d.Count(&p.Total).Error; e != nil {
 		return p, e
+	}
+	if strings.TrimSpace(q.Keyword) != "" {
+		rank, args := platformdatabase.ExactRank(d, q.Keyword, "code", "name")
+		d = d.Select("partner.*"+","+rank, args...).Order("search_rank ASC")
 	}
 	e := d.Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
 	return p, e

@@ -2,7 +2,9 @@ package receivable
 
 import (
 	"context"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -10,6 +12,7 @@ import (
 type EntryFilter struct {
 	EntryID        int64
 	PartnerID      int64
+	PartnerKeyword string
 	Direction      string
 	Category       string
 	From, To       string
@@ -30,7 +33,7 @@ type Statement struct {
 }
 
 func normalizeFilter(q EntryFilter, statement bool) (EntryFilter, error) {
-	if q.PartnerID < 0 || (q.Direction != "" && q.Direction != "CUSTOMER" && q.Direction != "SUPPLIER") ||
+	if (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") || q.PartnerID < 0 || (q.Direction != "" && q.Direction != "CUSTOMER" && q.Direction != "SUPPLIER") ||
 		(q.Category != "" && q.Category != "OPENING" && q.Category != "SETTLEMENT" && q.Category != "REFUND") {
 		return q, ErrInvalid
 	}
@@ -88,6 +91,7 @@ func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly b
 	if q.PartnerID > 0 {
 		query = query.Where("e.partner_id=?", q.PartnerID)
 	}
+	query = platformdatabase.LiteralWords(query, q.PartnerKeyword, "p.code", "p.name", "p.contact", "p.phone")
 	if q.Direction != "" {
 		query = query.Where("e.direction=?", q.Direction)
 	}

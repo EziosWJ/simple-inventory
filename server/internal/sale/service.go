@@ -101,7 +101,7 @@ func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 	if q.PageSize > 500 {
 		q.PageSize = 500
 	}
-	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 {
+	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
 		return Page{}, ErrInvalid
 	}
 	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {

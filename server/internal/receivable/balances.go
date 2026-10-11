@@ -4,16 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"strings"
 
 	"gorm.io/gorm"
+
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 )
 
 type BalanceFilter struct {
-	PartnerID int64
-	Direction string
-	Category  string
-	Page      int
-	PageSize  int
+	PartnerID      int64
+	PartnerKeyword string
+	Direction      string
+	Category       string
+	Page           int
+	PageSize       int
 }
 
 type BalanceSummary struct {
@@ -50,7 +54,7 @@ func validBalanceCategory(category string) bool {
 }
 
 func (s *Service) FilterBalances(ctx context.Context, f BalanceFilter) (BalancePage, error) {
-	if f.PartnerID < 0 || f.Page < 1 || f.PageSize < 1 || f.PageSize > 500 ||
+	if (f.PartnerID > 0 && strings.TrimSpace(f.PartnerKeyword) != "") || f.PartnerID < 0 || f.Page < 1 || f.PageSize < 1 || f.PageSize > 500 ||
 		(f.Direction != "" && f.Direction != "CUSTOMER" && f.Direction != "SUPPLIER") || !validBalanceCategory(f.Category) {
 		return BalancePage{}, ErrInvalid
 	}
@@ -77,6 +81,10 @@ func balanceRows(db *gorm.DB, f BalanceFilter) *gorm.DB {
 	q := db.Table("(" + balanceQuery + ") AS balances")
 	if f.PartnerID > 0 {
 		q = q.Where("partner_id=?", f.PartnerID)
+	}
+	if strings.TrimSpace(f.PartnerKeyword) != "" {
+		sql, args := platformdatabase.WordsCondition(db, f.PartnerKeyword, "p.code", "p.name", "p.contact", "p.phone")
+		q = q.Where("EXISTS(SELECT 1 FROM partner p WHERE p.id=balances.partner_id AND "+sql+")", args...)
 	}
 	if f.Direction != "" {
 		q = q.Where("direction=?", f.Direction)

@@ -35,7 +35,7 @@ export function SalesPage(){
  const [detail,setDetail]=useState<SaleDraft|null>(null);
  const load=useCallback(()=>{let active=true;setLoading(true);void salePage({page,pageSize:10,...query}).then(r=>{if(active){setRecords(r.records);setTotal(r.total);setError("")}}).catch((e:unknown)=>{if(active){setRecords([]);setTotal(0);setError(e instanceof Error?e.message:"销售单加载失败")}}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[page,query]);
  function search(){if(filters.businessFrom&&filters.businessTo&&filters.businessFrom>filters.businessTo){setError("业务日期起始不能晚于结束日期。");return;}apply(filters);setReload(v=>v+1)}
- function reset(){apply({documentNo:"",partnerId:"",productId:"",status:"",businessFrom:"",businessTo:""});setReload(v=>v+1)}
+ function reset(){apply({documentNo:"",partnerId:"",productId:"",partnerKeyword:"",productKeyword:"",status:"",businessFrom:"",businessTo:""});setReload(v=>v+1)}
  useEffect(()=>load(),[load,reload]);
  const directSourceId=searchParams.get("directPurchaseId")??"";
  useEffect(()=>{if(directSourceId)navigate(`/business/sales/new?directPurchaseId=${encodeURIComponent(directSourceId)}`,{replace:true})},[directSourceId,navigate]);
@@ -46,7 +46,7 @@ export function SalesPage(){
  function editDraft(row:SaleDraft){goTo(`/business/sales/${row.id}/edit`)}
  async function cancel(d:SaleDraft){const reason=window.prompt("请输入取消原因");if(!reason?.trim())return;try{await cancelSale(d.id,{version:d.version,reason});setError("");notify({type:"success",title:d.status==="POSTED"?"销售单冲销取消成功":"销售草稿取消成功",description:cancellationImpact(d,"sale"),documentNo:d.documentNo,status:"已取消"});setReload(v=>v+1)}catch(e){const message=e instanceof Error?e.message:"取消失败";setError(message);notify({type:"error",title:"取消失败",description:message})}}
  async function post(d:SaleDraft){const goods=new Map<string,number>();for(const i of d.items)if(i.productType==="GOODS")goods.set(i.productName,(goods.get(i.productName)??0)+Number(i.quantity));const impact=[...goods].map(([name,n])=>`${name}：-${n}`).join("\n")||"无实物库存变化";if(!window.confirm(`确认过账 ${d.documentNo}？\n客户应收增加 ¥${d.totalAmount}\n${impact}`))return;try{const posted=await postSale(d.id,d.version);setError("");notify({type:"success",title:"销售单过账成功",description:postingImpact(posted,"sale"),documentNo:posted.documentNo,status:"已过账"});setDetail(posted);setReload(v=>v+1)}catch(e){const message=e instanceof Error?e.message:"过账失败，单据内容已保留";setError(message);notify({type:"error",title:"过账失败",description:message})}}
- const columns:DataTableColumn<SaleDraft>[]=[{title:"单号",dataIndex:"documentNo"},{title:"客户",dataIndex:"partnerName"},{title:"业务日期",dataIndex:"businessDate"},{title:"状态",dataIndex:"status",render:v=>v==="DRAFT"?"草稿":v==="POSTED"?"已过账":"已取消"},{title:"金额",dataIndex:"totalAmount",render:v=>`¥${v}`},{title:"操作",dataIndex:"id",render:(_,r)=><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>openDetail(r)}>详情</Button>{r.status==="DRAFT"&&<><Button size="sm" variant="secondary" onClick={()=>editDraft(r)}>编辑</Button><Button size="sm" onClick={()=>void post(r)}>过账</Button><Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消</Button></>}{r.status==="POSTED"&&<Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消已过账单</Button>}</div>}];
+ const columns:DataTableColumn<SaleDraft>[]=[{title:"单号",dataIndex:"documentNo",render:(v,r)=><>{String(v)}{r.matchesHistory&&<span className="block text-xs text-primary">匹配历史资料</span>}</>},{title:"客户",dataIndex:"partnerName"},{title:"业务日期",dataIndex:"businessDate"},{title:"状态",dataIndex:"status",render:v=>v==="DRAFT"?"草稿":v==="POSTED"?"已过账":"已取消"},{title:"金额",dataIndex:"totalAmount",render:v=>`¥${v}`},{title:"操作",dataIndex:"id",render:(_,r)=><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>openDetail(r)}>详情</Button>{r.status==="DRAFT"&&<><Button size="sm" variant="secondary" onClick={()=>editDraft(r)}>编辑</Button><Button size="sm" onClick={()=>void post(r)}>过账</Button><Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消</Button></>}{r.status==="POSTED"&&<Button size="sm" variant="secondary" onClick={()=>void cancel(r)}>取消已过账单</Button>}</div>}];
  const deliveryInfo = [
    { label: "送货联系人", value: detail?.deliveryContact },
    { label: "联系电话", value: detail?.deliveryPhone },
@@ -64,13 +64,14 @@ export function SalesPage(){
   <BusinessFeedback feedback={feedback} />
 <SearchFilterBar actions={<><Button onClick={search}>查询</Button><Button onClick={reset}>重置</Button><Button onClick={()=>setReload(v=>v+1)}>刷新</Button></>}>
     <Field label="销售单号"><Input aria-label="销售单号" placeholder="销售单号" value={filters.documentNo} onChange={e=>setFilters({...filters,documentNo:e.target.value})}/></Field>
-    <Field label="客户"><PartnerSelect label="客户筛选" historical value={Number(filters.partnerId)} onChange={p=>setFilters({...filters,partnerId:p?String(p.id):""})}/></Field>
-    <Field label="商品/服务"><ProductSelect label="商品或服务筛选" historical value={Number(filters.productId)} onChange={p=>setFilters({...filters,productId:p?String(p.id):""})}/></Field>
+    <Field label="客户"><PartnerSelect label="客户筛选" historical value={Number(filters.partnerId)} keyword={query.partnerKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,partnerKeyword:k}))} onKeywordChange={k=>{const next={...filters,partnerId:"",partnerKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,partnerId:p?String(p.id):"",partnerKeyword:""};setFilters(next);apply(next)}} /></Field>
+    <Field label="商品/服务"><ProductSelect label="商品或服务筛选" historical value={Number(filters.productId)} keyword={query.productKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,productKeyword:k}))} onKeywordChange={k=>{const next={...filters,productId:"",productKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,productId:p?String(p.id):"",productKeyword:""};setFilters(next);apply(next)}} /></Field>
     <Field label="状态"><Select aria-label="销售状态" value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option></Select></Field>
     <Field label="业务日期起"><Input aria-label="业务日期起" type="date" value={filters.businessFrom} onChange={e=>setFilters({...filters,businessFrom:e.target.value})}/></Field>
     <Field label="业务日期止"><Input aria-label="业务日期止" type="date" value={filters.businessTo} onChange={e=>setFilters({...filters,businessTo:e.target.value})}/></Field>
   </SearchFilterBar>
-  <DataTableCard
+  <p className="text-xs text-text-secondary">关键词查当前档案及已保存的商品快照；旧品牌和供应商联系方式仅查当前档案。销售还可匹配已保存的客户名称。</p>
+<DataTableCard
     toolbar={<TableToolbar title="销售出库单" description="按单号、客户、商品/服务、状态和业务日期组合查询。" />}
     pagination={<Pagination page={page} pageSize={10} total={total} disabled={loading} onPageChange={setPage} />}
   >

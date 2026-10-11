@@ -135,6 +135,7 @@ func metadata(ctx context.Context) audit.Metadata {
 // @Param pageSize query int false "每页条数"
 // @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
 // @Param partnerId query int false "往来单位ID"
+// @Param partnerKeyword query string false "单位多词字面检索，仅当前档案；与partnerId互斥"
 // @Param category query string false "余额分类，省略时保留原单位方向排序；待处理分类按金额降序" Enums(ALL,RECEIVABLE,PAYABLE,CUSTOMER_REFUND,SUPPLIER_REFUND)
 // @Success 200 {object} ApiEnvelope{data=BalancePage}
 // @Failure 400 {object} ApiEnvelope
@@ -160,7 +161,7 @@ func (h *Handler) balances(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.FilterBalances(c.Request.Context(), BalanceFilter{PartnerID: partnerID, Page: p, PageSize: size, Direction: c.Query("direction"), Category: c.Query("category")})
+	v, e := h.s.FilterBalances(c.Request.Context(), BalanceFilter{PartnerID: partnerID, PartnerKeyword: c.Query("partnerKeyword"), Page: p, PageSize: size, Direction: c.Query("direction"), Category: c.Query("category")})
 	if e != nil {
 		if platform.IsTemporaryUnavailable(e) {
 			platform.TemporaryUnavailable(c)
@@ -200,6 +201,7 @@ func (h *Handler) overview(c *gin.Context) {
 // @Security BearerAuth
 // @Produce json
 // @Param partnerId query int false "往来单位ID"
+// @Param partnerKeyword query string false "单位多词字面检索，仅当前档案；与partnerId互斥"
 // @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
 // @Param category query string false "原始记录分类" Enums(OPENING,SETTLEMENT,REFUND)
 // @Param page query int false "页码"
@@ -229,7 +231,7 @@ func (h *Handler) page(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
+	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, PartnerKeyword: c.Query("partnerKeyword"), Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
 	if e != nil {
 		if platform.IsTemporaryUnavailable(e) {
 			platform.TemporaryUnavailable(c)

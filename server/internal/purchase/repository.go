@@ -453,18 +453,40 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	if q.ProductID > 0 {
 		d = d.Where("EXISTS(SELECT 1 FROM purchase_document_item i WHERE i.document_id=purchase_document.id AND i.product_id=?)", q.ProductID)
 	}
+	historySQL := []string{"FALSE"}
+	historyArgs := []any{}
+	if strings.TrimSpace(q.PartnerKeyword) != "" {
+		cols := []string{"p.code", "p.name", "p.contact", "p.phone"}
+		sql, args := platformdatabase.WordsCondition(d, q.PartnerKeyword, cols...)
+		d = d.Where("EXISTS(SELECT 1 FROM partner p WHERE p.id=purchase_document.partner_id AND "+sql+")", args...)
+	}
+	if strings.TrimSpace(q.ProductKeyword) != "" {
+		cols := []string{"p.code", "p.name", "p.brand", "p.model", "p.specification"}
+		current, ca := platformdatabase.WordsCondition(d, q.ProductKeyword, cols...)
+		cols = append(cols, "i.product_code", "i.product_name", "i.product_model", "i.product_specification")
+		both, args := platformdatabase.WordsCondition(d, q.ProductKeyword, cols...)
+		prefix := "SELECT 1 FROM purchase_document_item i JOIN product p ON p.id=i.product_id WHERE i.document_id=purchase_document.id AND "
+		d = d.Where("EXISTS("+prefix+both+")", args...)
+		historySQL = append(historySQL, "EXISTS("+prefix+both+" AND NOT COALESCE("+current+",FALSE))")
+		historyArgs = append(historyArgs, args...)
+		historyArgs = append(historyArgs, ca...)
+	}
 	if e := d.Count(&p.Total).Error; e != nil {
 		return p, e
 	}
-	var ids []int64
-	if e := d.Select("id").Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
+	var ids []struct {
+		ID             int64
+		MatchesHistory bool
+	}
+	if e := d.Select("id,("+strings.Join(historySQL, " OR ")+") AS matches_history", historyArgs...).Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
 		return p, e
 	}
 	for _, id := range ids {
-		v, e := find(r.db.WithContext(ctx), id)
+		v, e := find(r.db.WithContext(ctx), id.ID)
 		if e != nil {
 			return p, e
 		}
+		v.MatchesHistory = id.MatchesHistory
 		p.Records = append(p.Records, *v)
 	}
 	return p, nil

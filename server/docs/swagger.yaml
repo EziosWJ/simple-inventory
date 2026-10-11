@@ -761,6 +761,8 @@ definitions:
         items:
           $ref: '#/definitions/purchase.Line'
         type: array
+      matchesHistory:
+        type: boolean
       partnerId:
         type: integer
       partnerName:
@@ -1469,6 +1471,8 @@ definitions:
         items:
           $ref: '#/definitions/sale.Line'
         type: array
+      matchesHistory:
+        type: boolean
       ownerAddress:
         type: string
       ownerName:
@@ -4657,6 +4661,10 @@ paths:
         in: query
         name: partnerId
         type: integer
+      - description: 单位多词字面检索，仅当前档案；与partnerId互斥
+        in: query
+        name: partnerKeyword
+        type: string
       - description: 余额分类，省略时保留原单位方向排序；待处理分类按金额降序
         enum:
         - ALL
@@ -4703,6 +4711,10 @@ paths:
         in: query
         name: partnerId
         type: integer
+      - description: 单位多词字面检索，仅当前档案；与partnerId互斥
+        in: query
+        name: partnerKeyword
+        type: string
       - description: 方向
         enum:
         - CUSTOMER
@@ -5693,6 +5705,14 @@ paths:
         in: query
         name: productId
         type: integer
+      - description: 往来单位多词字面检索，与partnerId互斥；仅查询当前档案
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品多词字面检索，与productId互斥；含当前档案及该明细快照
+        in: query
+        name: productKeyword
+        type: string
       - description: 状态
         enum:
         - DRAFT
@@ -6271,6 +6291,14 @@ paths:
         in: query
         name: productId
         type: integer
+      - description: 往来单位多词字面检索，与partnerId互斥；销售含已保存客户名称
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品多词字面检索，与productId互斥；含当前档案及该明细快照
+        in: query
+        name: productKeyword
+        type: string
       - description: 状态
         enum:
         - DRAFT

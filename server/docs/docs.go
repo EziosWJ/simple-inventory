@@ -4432,6 +4432,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "单位多词字面检索，仅当前档案；与partnerId互斥",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "ALL",
                             "RECEIVABLE",
@@ -4504,6 +4510,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "往来单位ID",
                         "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单位多词字面检索，仅当前档案；与partnerId互斥",
+                        "name": "partnerKeyword",
                         "in": "query"
                     },
                     {
@@ -6148,6 +6160,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "往来单位多词字面检索，与partnerId互斥；仅查询当前档案",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词字面检索，与productId互斥；含当前档案及该明细快照",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "DRAFT",
                             "POSTED",
@@ -7118,6 +7142,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "商品ID",
                         "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "往来单位多词字面检索，与partnerId互斥；销售含已保存客户名称",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词字面检索，与productId互斥；含当前档案及该明细快照",
+                        "name": "productKeyword",
                         "in": "query"
                     },
                     {
@@ -8901,6 +8937,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/purchase.Line"
                     }
                 },
+                "matchesHistory": {
+                    "type": "boolean"
+                },
                 "partnerId": {
                     "type": "integer"
                 },
@@ -9980,6 +10019,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/sale.Line"
                     }
+                },
+                "matchesHistory": {
+                    "type": "boolean"
                 },
                 "ownerAddress": {
                     "type": "string"
