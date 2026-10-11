@@ -29,6 +29,7 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
+	MatchesHistory   bool                         `json:"matchesHistory,omitempty" gorm:"-"`
 	SaveReceipt      *SaveReceipt                 `json:"saveReceipt,omitempty" gorm:"-"`
 	SaveRequest      *SaveRequest                 `json:"-" gorm:"-"`
 	DirectTrace      *directdelivery.Trace        `json:"directTrace" gorm:"-"`
@@ -158,10 +159,11 @@ type DeliveryNoteLine struct {
 	Remark               *string `json:"remark"`
 }
 type Query struct {
-	Page, PageSize           int
-	DocumentNo, Status       string
-	PartnerID, ProductID     int64
-	BusinessFrom, BusinessTo string
+	Page, PageSize                 int
+	DocumentNo, Status             string
+	PartnerID, ProductID           int64
+	PartnerKeyword, ProductKeyword string
+	BusinessFrom, BusinessTo       string
 }
 type Page struct {
 	Records  []Draft `json:"records"`

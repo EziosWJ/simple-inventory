@@ -2,24 +2,31 @@ import { useCallback } from "react";
 import { getPartner, getProduct, getPurchase, purchasePage, partnerPage, productPage, type PartnerRecord, type ProductRecord, type PurchaseDraft } from "@/api/business";
 import { PagedRecordSelect } from "@/components/common/paged-record-select";
 
-type Selection<T> = { label: string; value: number; fallback?: string; disabled?: boolean; historical?: boolean; onChange: (record: T | null) => void };
+import { RecordPicker } from "@/components/common/record-picker";
+import { useAuthStore } from "@/store/auth-store";
+
+type Selection<T> = { label: string; value: number; fallback?: string; disabled?: boolean; historical?: boolean; keyword?: string; onKeywordChange?: (keyword:string)=>void; onQuery?:()=>void; onDraftKeywordChange?:(keyword:string)=>void; onChange: (record: T | null) => void | boolean | Promise<void | boolean> };
 
 export function ProductSelect({ type, historical = false, ...props }: Selection<ProductRecord> & { type?: "GOODS" | "SERVICE" }) {
+  const user = useAuthStore(s=>s.user);
   const loadPage = useCallback((keyword: string, page: number, pageSize: number) => productPage({
     keyword, page, pageSize, ...(type ? { type } : {}), ...(historical ? {} : { status: 1 }),
   }), [type, historical]);
-  return <PagedRecordSelect {...props} loadPage={loadPage} loadRecord={getProduct}
-    describe={p => [p.code, p.name, p.brand, p.model, p.specification, p.type === "SERVICE" ? "服务" : "实物", `单位：${p.unit}`, p.status === 0 ? "已停用" : ""].filter(Boolean).join(" · ")}
-    warning={p => historical ? "" : p.status !== 1 ? "已停用：保留草稿原选择，请更换启用商品后保存。" : type && p.type !== type ? "商品类型已变化，请重新选择。" : ""} />;
+  const warning = useCallback((p: ProductRecord) => historical ? "" : p.status !== 1 ? "已停用：请更换启用商品。" : type && p.type !== type ? "商品类型已变化，请重新选择。" : "",[historical,type]);
+  return <RecordPicker {...props} recentKey={user?`simple-inventory:recent:${user.id}:product:${`${historical?"history:":""}${type??"sale"}`}`:undefined} loadPage={loadPage} loadRecord={getProduct}
+    describe={p => ({name:p.name,details:[p.model,p.specification,p.brand].filter((v):v is string=>Boolean(v)),code:p.code,tags:[p.type === "SERVICE"?"服务":"实物",`单位：${p.unit}`,p.status===0?"已停用":""].filter(Boolean)})}
+    warning={warning} />;
 }
 
 export function PartnerSelect({ identity, historical = false, ...props }: Selection<PartnerRecord> & { identity?: "CUSTOMER" | "SUPPLIER" }) {
+  const user = useAuthStore(s=>s.user);
   const loadPage = useCallback((keyword: string, page: number, pageSize: number) => partnerPage({
     keyword, page, pageSize, ...(identity ? { identity } : {}), ...(historical ? {} : { status: 1 }),
   }), [identity, historical]);
-  return <PagedRecordSelect {...props} loadPage={loadPage} loadRecord={getPartner}
-    describe={p => [p.code, p.name, p.contact, p.phone, p.status === 0 ? "已停用" : ""].filter(Boolean).join(" · ")}
-    warning={p => historical ? "" : p.status !== 1 ? "已停用：保留草稿原选择，请更换启用往来单位后保存。" : (identity === "SUPPLIER" && !p.isSupplier) || (identity === "CUSTOMER" && !p.isCustomer) ? "往来身份已变化，请重新选择。" : ""} />;
+  const warning = useCallback((p: PartnerRecord) => historical ? "" : p.status !== 1 ? "已停用：请更换启用往来单位。" : (identity === "SUPPLIER" && !p.isSupplier) || (identity === "CUSTOMER" && !p.isCustomer) ? "往来身份已变化，请重新选择。" : "",[historical,identity]);
+  return <RecordPicker {...props} recentKey={user?`simple-inventory:recent:${user.id}:partner:${`${historical?"history:":""}${identity??"all"}`}`:undefined} loadPage={loadPage} loadRecord={getPartner}
+    describe={p => ({name:p.name,details:[p.contact===p.name?null:p.contact,p.phone].filter((v):v is string=>Boolean(v)),code:p.code,tags:[p.isCustomer?"客户":"",p.isSupplier?"供应商":"",p.status===0?"已停用":""].filter(Boolean)})}
+    warning={warning} />;
 }
 
 export function PurchaseSourceSelect(props: Selection<PurchaseDraft>) {

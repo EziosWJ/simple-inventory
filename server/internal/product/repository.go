@@ -24,7 +24,7 @@ const lockedSelect = "product.*,EXISTS(SELECT 1 FROM inventory_entry e WHERE e.p
 func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	p := Page{Records: []Product{}, Page: q.Page, PageSize: q.PageSize}
 	d := r.db.WithContext(ctx).Model(&Product{}).Select(lockedSelect)
-	d = platformdatabase.LiteralContains(d, q.Keyword, "code", "name", "brand", "model", "specification")
+	d = platformdatabase.LiteralWords(d, q.Keyword, "code", "name", "brand", "model", "specification")
 	if q.Type != "" {
 		d = d.Where("type=?", q.Type)
 	}
@@ -36,6 +36,10 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	}
 	if e := d.Count(&p.Total).Error; e != nil {
 		return p, e
+	}
+	if strings.TrimSpace(q.Keyword) != "" {
+		rank, args := platformdatabase.ExactRank(d, q.Keyword, "code", "name")
+		d = d.Select(lockedSelect+","+rank, args...).Order("search_rank ASC")
 	}
 	e := d.Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
 	for i := range p.Records {

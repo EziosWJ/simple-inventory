@@ -84,7 +84,8 @@ try {
     await page.goto(`${base}/business/${routeName}?direction=${direction}`);
     if (insecure) assert.deepEqual(await page.evaluate(() => [isSecureContext, typeof crypto.randomUUID]), [false, 'undefined']);
     await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 8000 }).catch(async e => { throw new Error(`${e.message} URL=${page.url()} errors=${JSON.stringify(pageErrors)} text=${(await page.locator('body').innerText()).slice(0,1800)}`); });
-    await page.getByLabel(category === 'OPENING' ? '期初往来单位' : '资金往来单位').selectOption('1');
+    if (category === 'OPENING') await page.getByLabel('期初往来单位').selectOption('1');
+    else { const group = page.getByRole('group', { name: '资金往来单位', exact: true }); await group.getByRole('button').first().click(); await group.locator('button[aria-pressed]').filter({ hasText: partner.code }).last().click(); }
     await page.getByLabel(category === 'OPENING' ? '期初金额' : '资金金额', { exact: true }).fill('10.00');
     if (category === 'OPENING') await page.getByLabel('期初说明').fill('接入前余额');
     const confirm = page.getByRole('button', { name: confirmText, exact: true }); await confirm.waitFor();

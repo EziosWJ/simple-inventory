@@ -4430,6 +4430,25 @@ const docTemplate = `{
                         "description": "往来单位ID",
                         "name": "partnerId",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单位多词字面检索，仅当前档案；与partnerId互斥",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ALL",
+                            "RECEIVABLE",
+                            "PAYABLE",
+                            "CUSTOMER_REFUND",
+                            "SUPPLIER_REFUND"
+                        ],
+                        "type": "string",
+                        "description": "余额分类，省略时保留原单位方向排序；待处理分类按金额降序",
+                        "name": "category",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4449,6 +4468,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
                     },
                     "401": {
@@ -4485,6 +4510,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "往来单位ID",
                         "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单位多词字面检索，仅当前档案；与partnerId互斥",
+                        "name": "partnerKeyword",
                         "in": "query"
                     },
                     {
@@ -4910,6 +4941,61 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "四项金额与单位数覆盖全店，不受列表搜索和分页影响。退款按绝对值汇总；同一单位两个方向不抵扣。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询全店当前未结余额概览与客户应收、供应商应付前十名",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.BalanceOverview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -6074,6 +6160,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "往来单位多词字面检索，与partnerId互斥；仅查询当前档案",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词字面检索，与productId互斥；含当前档案及该明细快照",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "DRAFT",
                             "POSTED",
@@ -7044,6 +7142,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "商品ID",
                         "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "往来单位多词字面检索，与partnerId互斥；销售含已保存客户名称",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词字面检索，与productId互斥；含当前档案及该明细快照",
+                        "name": "productKeyword",
                         "in": "query"
                     },
                     {
@@ -8827,6 +8937,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/purchase.Line"
                     }
                 },
+                "matchesHistory": {
+                    "type": "boolean"
+                },
                 "partnerId": {
                     "type": "integer"
                 },
@@ -9471,6 +9584,29 @@ const docTemplate = `{
                 }
             }
         },
+        "receivable.BalanceOverview": {
+            "type": "object",
+            "properties": {
+                "summaries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.BalanceSummary"
+                    }
+                },
+                "topPayables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Balance"
+                    }
+                },
+                "topReceivables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Balance"
+                    }
+                }
+            }
+        },
         "receivable.BalancePage": {
             "type": "object",
             "properties": {
@@ -9487,6 +9623,20 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "receivable.BalanceSummary": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "partnerCount": {
                     "type": "integer"
                 }
             }
@@ -9869,6 +10019,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/sale.Line"
                     }
+                },
+                "matchesHistory": {
+                    "type": "boolean"
                 },
                 "ownerAddress": {
                     "type": "string"

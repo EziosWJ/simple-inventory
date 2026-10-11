@@ -1,3 +1,4 @@
+import { useSelectionChoice } from "@/hooks/use-selection-choice";
 import { businessToday } from "@/lib/datetime";
 import { randomUUID } from "@/lib/uuid";
 import { useBusinessLeaveGuard } from "@/hooks/use-business-leave-guard";
@@ -22,17 +23,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
 
-type Line = { productId: number; productType: "GOODS"; unit: string; quantity: string; unitPrice: string; remark: string };
+type Line = { priceEdited?: boolean; productId: number; productType: "GOODS"; unit: string; quantity: string; unitPrice: string; remark: string };
 type Form = { partnerId: number; businessDate: string; directDelivery: boolean; remark: string; items: Line[] };
 type Pending = { key: string; operation: "CREATE" | "EDIT"; id: number; version: number; postAfter?: boolean };
 type PendingPost = { id: number; version: number };
+function requestLine(line:Line){const value={...line};delete value.priceEdited;return value}
 const blankLine = (): Line => ({ productId: 0, productType: "GOODS", unit: "", quantity: "1", unitPrice: "0.00", remark: "" });
 function initialForm(): Form {
   const businessDate = businessToday();
   return { partnerId: 0, businessDate, directDelivery: false, remark: "", items: [blankLine()] };
 }
 function fromDraft(d: PurchaseDraft): Form {
-  return { partnerId: d.partnerId, businessDate: d.businessDate, directDelivery: d.directDelivery, remark: d.remark ?? "", items: d.items.map(i => ({ productId: i.productId, productType: i.productType, unit: i.unit, quantity: i.quantity, unitPrice: i.unitPrice, remark: i.remark ?? "" })) };
+  return { partnerId: d.partnerId, businessDate: d.businessDate, directDelivery: d.directDelivery, remark: d.remark ?? "", items: d.items.map(i => ({ productId: i.productId, productType: i.productType, unit: i.unit, quantity: i.quantity, unitPrice: i.unitPrice, priceEdited:true, remark: i.remark ?? "" })) };
 }
 export function PurchaseFormPage() {
   const { id } = useParams();
@@ -44,6 +46,7 @@ export function PurchaseFormPage() {
   const storageKey = user ? `simple-inventory:purchase-save:${user.id}` : null;
   const postStorageKey = user ? `simple-inventory:purchase-post:${user.id}` : null;
   const [form, setForm] = useState<Form>(initialForm);
+  const selectionChoice=useSelectionChoice();
   const [baseline, setBaseline] = useState(() => JSON.stringify(form));
   const [document, setDocument] = useState<PurchaseDraft | null>(null);
   const [products, setProducts] = useState<ProductRecord[]>([]);
@@ -65,7 +68,7 @@ export function PurchaseFormPage() {
   const invalidateLoad = useCallback(() => { ++loadGeneration.current; }, []);
   const dirty = JSON.stringify(form) !== baseline;
   const terminal = document !== null && document.status !== "DRAFT";
-  const locked = loading || saving || Boolean(confirmation) || Boolean(pending) || Boolean(postPending) || terminal || Boolean(id && !document);
+  const locked = selectionChoice.busy || loading || saving || Boolean(confirmation) || Boolean(pending) || Boolean(postPending) || terminal || Boolean(id && !document);
   const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving, uncertain: Boolean(pending) || Boolean(postPending) });
 
   const load = useCallback(async (target = documentID, clearMessage = false) => {
@@ -117,6 +120,20 @@ export function PurchaseFormPage() {
 
   function updateLine(index: number, patch: Partial<Line>) {
     setForm(current => ({ ...current, items: current.items.map((line, n) => n === index ? { ...line, ...patch } : line) }));
+  }
+  async function selectProduct(index:number,p:ProductRecord|null){
+    const line=form.items[index];if(!line)return false;
+    if(line.productId===(p?.id??0)){if(p)setProducts(current=>[...current.filter(x=>x.id!==p.id),p]);return true}
+    const unitChanged=Boolean(line.unit&&p&&line.unit!==p.unit);
+    let replace=true;
+    if(line.priceEdited||unitChanged){
+      const result=await selectionChoice.choose({title:unitChanged?"核对商品单位与成交价":"保护手工成交价",description:`${unitChanged?`单位从 ${line.unit} 变为 ${p?.unit}，请核对数量 ${line.quantity}，系统不自动换算。`:""}${line.priceEdited?` 当前手工成交价为 ${line.unitPrice} 元。`:""}`,keepText:line.priceEdited?"保留成交价":undefined,replaceText:line.priceEdited?"使用新参考价":"数量已核对，继续"});
+      if(result===null)return false;replace=result;
+    }
+    if(p)setProducts(current=>[...current.filter(x=>x.id!==p.id),p]);
+    updateLine(index,{productId:p?.id??0,unit:p?.unit??"",productType:"GOODS",unitPrice:replace?p?.purchasePrice??"0.00":line.unitPrice,priceEdited:!replace});
+    if(p)requestAnimationFrame(()=>window.document.getElementById(`quantity-${index}`)?.focus());
+    return true;
   }
   const unitPending = form.items.some(line => { const p = products.find(p => p.id === line.productId); return Boolean(p && (p.type !== line.productType || p.unit !== line.unit)); });
   const lineAmounts = form.items.map(line => amount(line.quantity, line.unitPrice));
@@ -207,7 +224,7 @@ export function PurchaseFormPage() {
   async function save(retry = false, postAfter = false) {
     if (savingRef.current || terminal || conflict || postPending || !storageKey || !recoveryLoaded || (!retry && (invalid || pending))) return;
     const p: Pending = retry && pending ? pending : { key: randomUUID(), operation: document ? "EDIT" : "CREATE", id: document?.id ?? 0, version: document?.version ?? 0, ...(postAfter ? { postAfter: true } : {}) };
-    const body: PurchaseInput = retry && pendingBody.current ? pendingBody.current : { ...form, requestKey: p.key, remark: form.remark.trim() || undefined, items: form.items.map(l => ({ ...l, remark: l.remark.trim() || undefined })) };
+    const body: PurchaseInput = retry && pendingBody.current ? pendingBody.current : { ...form, requestKey: p.key, remark: form.remark.trim() || undefined, items: form.items.map(requestLine).map(l => ({ ...l, remark: l.remark.trim() || undefined })) };
     if (retry && !pendingBody.current) return;
     try { localStorage.setItem(storageKey, JSON.stringify(p)); }
     catch { const message = "无法保存恢复标识，尚未提交。请检查浏览器存储后再试。"; setError(message); notify({ type: "error", title: "保存未提交", description: message }); return; }
@@ -267,7 +284,7 @@ export function PurchaseFormPage() {
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <fieldset disabled={locked} className="min-w-0 space-y-space-4">
         <FormSection title="供应商与业务资料">
-          <Field label="供应商" required><PartnerSelect label="供应商" identity="SUPPLIER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={p => { setPartner(p); setForm({ ...form, partnerId: p?.id ?? 0 }); }} /></Field>
+          <Field label="供应商" required><PartnerSelect label="供应商" identity="SUPPLIER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={p => { setPartner(p); setForm(current => ({ ...current, partnerId: p?.id ?? 0 })); }} /></Field>
           <Field label="业务日期" required htmlFor="purchase-date"><Input id="purchase-date" type="date" value={form.businessDate} onChange={e => setForm({ ...form, businessDate: e.target.value })} /></Field>
           <Field label="交付方式"><label className="flex items-center gap-space-2"><input type="checkbox" checked={form.directDelivery} onChange={e => setForm({ ...form, directDelivery: e.target.checked })} />供应商直接送达客户</label></Field>
           <Field label="整单备注" htmlFor="purchase-remark"><Textarea id="purchase-remark" maxLength={500} value={form.remark} onChange={e => setForm({ ...form, remark: e.target.value })} /></Field>
@@ -277,12 +294,9 @@ export function PurchaseFormPage() {
             {form.items.map((line, index) => {
               const selected = products.find(p => p.id === line.productId);
               return <div key={index} className="grid gap-space-3 rounded-control border border-border p-space-3 md:grid-cols-[2fr_1fr_1fr_auto]">
-                <Field label={`第 ${index + 1} 行商品`} required><ProductSelect label={`第 ${index + 1} 行商品`} type="GOODS" disabled={locked} value={line.productId} fallback={document?.items.find(i => i.productId === line.productId)?.productName} onChange={p => {
-                  if (p) setProducts(current => [...current.filter(x => x.id !== p.id), p]);
-                  updateLine(index, { productId: p?.id ?? 0, unit: p?.unit ?? "", unitPrice: p?.purchasePrice ?? "0.00" });
-                }} /></Field>
+                <Field label={`第 ${index + 1} 行商品`} required><ProductSelect label={`第 ${index + 1} 行商品`} type="GOODS" disabled={locked} value={line.productId} fallback={document?.items.find(i => i.productId === line.productId)?.productName} onChange={p=>selectProduct(index,p)} /></Field>
                 <Field label="数量" required htmlFor={`quantity-${index}`}><Input id={`quantity-${index}`} inputMode="decimal" value={line.quantity} onChange={e => updateLine(index, { quantity: e.target.value })} /></Field>
-                <Field label="成交单价（元）" required htmlFor={`price-${index}`}><Input id={`price-${index}`} inputMode="decimal" value={line.unitPrice} onChange={e => updateLine(index, { unitPrice: e.target.value })} /></Field>
+                <Field label="成交单价（元）" required htmlFor={`price-${index}`}><Input id={`price-${index}`} inputMode="decimal" value={line.unitPrice} onChange={e => updateLine(index, { unitPrice: e.target.value, priceEdited:true })} /></Field>
                 <div className="space-y-space-2"><p>金额：¥{lineAmounts[index] === null ? "待核对" : money(lineAmounts[index]!)}</p><Button disabled={form.items.length === 1} onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== index) })}>删除</Button></div>
                 <DraftProductConfirmation type={line.productType} unit={line.unit} current={selected} goodsOnly onConfirm={() => { if (selected?.type === "GOODS") updateLine(index, { unit: selected.unit }); }} />
                 <Field label="行备注" htmlFor={`line-remark-${index}`}><Input id={`line-remark-${index}`} maxLength={500} value={line.remark} onChange={e => updateLine(index, { remark: e.target.value })} /></Field>
@@ -308,6 +322,7 @@ export function PurchaseFormPage() {
       <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
       <p className="mt-space-3">{preview.directDelivery ? "直送采购：不进入店内库存，增加供应商应付；采购和销售仍需分别过账。" : "确认后增加商品库存和供应商应付。"} 保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>
-    <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
+    {selectionChoice.dialog}
+      <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />
   </div>;
 }

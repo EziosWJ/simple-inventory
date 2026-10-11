@@ -23,12 +23,13 @@ export function PartnerLedgerPage() {
   const [params,setParams] = useSearchParams();
   const location=useLocation();
   const [selectedPartner,setSelectedPartner] = useState<PartnerRecord|null>(null);
+  const [partnerKeyword,setPartnerKeyword]=useState(params.get("partnerKeyword")??"");
   const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
   const [direction, setDirection] = useState(params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
   const [from, setFrom] = useState(periodDateInput(params.get("from")??""));
   const [to, setTo] = useState(periodDateInput(params.get("to")??"",true));
-  const query=useMemo(()=>({partnerId:params.get("partnerId")??"",direction:params.get("direction")==="SUPPLIER"?"SUPPLIER":"CUSTOMER",from:params.get("from")??"",to:params.get("to")??""}),[params]);
-  useEffect(()=>{setPartnerId(query.partnerId);setDirection(query.direction);setFrom(periodDateInput(query.from));setTo(periodDateInput(query.to,true));},[query]);
+  const query=useMemo(()=>({partnerId:params.get("partnerId")??"",partnerKeyword:params.get("partnerKeyword")??"",direction:params.get("direction")==="SUPPLIER"?"SUPPLIER":"CUSTOMER",from:params.get("from")??"",to:params.get("to")??""}),[params]);
+  useEffect(()=>{setPartnerId(query.partnerId);setPartnerKeyword(query.partnerKeyword);setDirection(query.direction);setFrom(periodDateInput(query.from));setTo(periodDateInput(query.to,true));},[query]);
   const rawPage=Number(params.get("page"));const page=Number.isSafeInteger(rawPage)&&rawPage>0?rawPage:1;
   function setPage(next:number){const p=new URLSearchParams(params);p.set("page",String(next));setParams(p)}
   const [rows, setRows] = useState<PartnerBalanceEntry[]>([]);
@@ -48,10 +49,11 @@ export function PartnerLedgerPage() {
   function closeDetail(){setDetail(null);const p=new URLSearchParams(params);p.delete("entryId");setParams(p,{replace:true})}
 
   const load = useCallback(() => {
-    if (!query.partnerId) { setRows([]); setTotal(0); setSummary(null); setLoading(false); return; }
+    if (!query.partnerId&&!query.partnerKeyword) { setRows([]); setTotal(0); setSummary(null); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    const period = query.from && query.to ? getPartnerStatement({ partnerId: query.partnerId, direction: query.direction ?? "CUSTOMER", from: query.from, to: query.to }) : Promise.resolve(null);
+    setSummary(null);
+    const period = query.partnerId && query.from && query.to ? getPartnerStatement({ partnerId: query.partnerId, direction: query.direction ?? "CUSTOMER", from: query.from, to: query.to }) : Promise.resolve(null);
     void Promise.all([partnerBalanceEntries({ ...query, page, pageSize }), period]).then(([entries, statement]) => {
       if (active) { setRows(entries.records); setTotal(entries.total); setSummary(statement); setError(""); }
     }).catch(e => { if (active) setError(e instanceof Error ? e.message : "读取往来明细失败"); })
@@ -62,9 +64,9 @@ export function PartnerLedgerPage() {
 
   function search() {
     try {
-      if (!partnerId) { setError("请先选择往来单位"); return; }
+      if (!partnerId&&!partnerKeyword.trim()) { setError("请输入关键词或选择往来单位"); return; }
       const range: {from?:string;to?:string} = from || to ? localPeriod(from, to) : {};
-      const p=new URLSearchParams(params);p.set("partnerId",partnerId);p.set("direction",direction);if(range.from)p.set("from",range.from);else p.delete("from");if(range.to)p.set("to",range.to);else p.delete("to");p.delete("page");p.delete("entryId");setParams(p);setVersion(v=>v+1);
+      const p=new URLSearchParams(params);if(partnerKeyword.trim()){p.delete("partnerId");p.set("partnerKeyword",partnerKeyword.trim())}else{p.set("partnerId",partnerId);p.delete("partnerKeyword")};p.set("direction",direction);if(range.from)p.set("from",range.from);else p.delete("from");if(range.to)p.set("to",range.to);else p.delete("to");p.delete("page");p.delete("entryId");setParams(p);setVersion(v=>v+1);
       setError("");
     } catch (e) { setError(e instanceof Error ? e.message : "期间无效"); }
   }
@@ -84,6 +86,7 @@ export function PartnerLedgerPage() {
   }
 
   const columns: DataTableColumn<PartnerBalanceEntry>[] = [
+    {title:"往来单位／方向",key:"partner",render:(_,r)=><>{r.partnerName}<span className="block text-xs text-text-secondary">{r.direction==="CUSTOMER"?"客户":"供应商"}</span></>},
     { title: "类型 / 来源号", key: "source", render: (_, row) => <><span className="block text-xs text-text-secondary">{entryTypeLabel[row.entryType] ?? row.entryType}</span><Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>{row.documentNo}</Button></> },
     { title: "业务日期", dataIndex: "businessDate" },
     { title: "实际生效", key: "effective", render: (_, row) => formatDateTime(row.effectiveAt) },
@@ -95,21 +98,22 @@ export function PartnerLedgerPage() {
   ];
 
   return <div className="space-y-4">
-    <PageHeader title="往来明细" description="选择一个往来单位和客户或供应商方向，按实际生效时间核对全部金额变化。" actions={<Button disabled={!partnerId || !from || !to} onClick={print}>打印期间对账单</Button>} />
+    <PageHeader title="往来明细" description="选择一个往来单位和客户或供应商方向，按实际生效时间核对全部金额变化。" actions={<Button disabled={!partnerId || Boolean(partnerKeyword) || !from || !to} onClick={print}>打印期间对账单</Button>} />
     <SearchFilterBar actions={<><Button onClick={search}>查询</Button><Button variant="secondary" onClick={() => setVersion(value => value + 1)}>刷新</Button></>}>
-      <PartnerSelect label="往来单位" historical value={Number(partnerId)} onChange={p=>setPartnerId(p?String(p.id):"")} />
+      <PartnerSelect label="往来单位" historical value={Number(partnerId)} keyword={query.partnerKeyword} onDraftKeywordChange={setPartnerKeyword} onKeywordChange={k=>{setPartnerKeyword(k);setPartnerId("");const p=new URLSearchParams(params);p.delete("partnerId");if(k)p.set("partnerKeyword",k);else p.delete("partnerKeyword");p.delete("page");setParams(p)}} onChange={r=>{setPartnerKeyword("");setPartnerId(r?String(r.id):"");const p=new URLSearchParams(params);p.delete("partnerKeyword");if(r)p.set("partnerId",String(r.id));else p.delete("partnerId");p.delete("page");p.delete("entryId");setParams(p)}} />
       <Select aria-label="往来方向" value={direction} onChange={e => setDirection(e.target.value)}><option value="CUSTOMER">客户方向</option><option value="SUPPLIER">供应商方向</option></Select>
       <label className="text-sm">生效开始日<Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
       <label className="text-sm">生效结束日（含当日）<Input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
     </SearchFilterBar>
     {error && <p role="alert" className="text-sm text-error">{error}</p>}
+    {query.partnerKeyword&&<p className="text-sm text-text-secondary">关键词只查当前单位档案。期间余额与对账打印请先指定一个单位和方向。</p>}
     {summary && <section className="grid gap-3 rounded-admin border border-border bg-surface p-4 text-sm sm:grid-cols-3" aria-label="期间余额">
       <p>期间期初<br /><strong className="text-lg tabular-nums">{summary.openingAmount} 元</strong></p>
       <p>期间变动<br /><strong className="text-lg tabular-nums">{summary.netChange} 元</strong></p>
       <p>期间期末<br /><strong className="text-lg tabular-nums">{summary.closingAmount} 元</strong></p>
     </section>}
-    <DataTableCard toolbar={<div className="p-3 text-sm">{query.partnerId ? `${selectedPartner?.id === Number(query.partnerId) ? selectedPartner.name : "往来单位"} · ${query.direction === "CUSTOMER" ? "客户" : "供应商"}方向 · 共 ${total} 笔` : "请选择往来单位和方向"}</div>} pagination={query.partnerId ? <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} /> : undefined}>
-      <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">{query.partnerId ? "当前条件下没有生效记录。" : "选择往来单位后查看明细。"}</p>} />
+    <DataTableCard toolbar={<div className="p-3 text-sm">{(query.partnerId||query.partnerKeyword) ? `${query.partnerKeyword?`关键词：${query.partnerKeyword}，各单位余额分别保留`:selectedPartner?.id === Number(query.partnerId) ? selectedPartner.name : "往来单位"} · ${query.direction === "CUSTOMER" ? "客户" : "供应商"}方向 · 共 ${total} 笔` : "请选择往来单位和方向"}</div>} pagination={query.partnerId||query.partnerKeyword ? <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} /> : undefined}>
+      <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">{query.partnerId||query.partnerKeyword ? "当前条件下没有生效记录。" : "选择往来单位后查看明细。"}</p>} />
     </DataTableCard>
     <DetailDialog footer={<BusinessReturnLink />} open={detail !== null} title={detail ? `往来记录 · ${detail.documentNo}` : "往来记录"} onCancel={closeDetail}>
       {detail && <div className="space-y-3 text-sm">

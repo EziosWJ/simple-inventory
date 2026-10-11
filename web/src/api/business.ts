@@ -56,7 +56,7 @@ export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get
 export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
 export type PurchaseLine = {id:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS";unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
 export type DirectDocument = {id:number;documentNo:string;status:"DRAFT"|"POSTED"|"CANCELLED";partnerName:string;postedAt?:string|null;postedByName?:string;cancelledAt?:string|null;cancelledByName?:string;cancelReason?:string|null};
-export type PurchaseDraft = {saveReceipt?:PurchaseSaveReceipt;directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
+export type PurchaseDraft = {matchesHistory?:boolean;saveReceipt?:PurchaseSaveReceipt;directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
 export type PurchaseLineInput = {productId:number;productType:"GOODS";unit:string;quantity:string;unitPrice:string;remark?:string};
 export type PurchaseInput = {requestKey?:string;directDelivery?:boolean;partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
 export type PurchaseSaveReceipt = {requestKey:string;operation:"CREATE"|"EDIT";documentId:number;savedVersion:number};
@@ -88,6 +88,13 @@ export const getDeliveryNote=(id:number)=>http.get<DeliveryNote>(`/api/v1/sales/
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};
+export type PartnerBalanceCategory = "RECEIVABLE" | "PAYABLE" | "CUSTOMER_REFUND" | "SUPPLIER_REFUND";
+export type PartnerBalanceOverview = {
+  summaries: { category: PartnerBalanceCategory; amount: string; partnerCount: number }[];
+  topReceivables: PartnerBalance[];
+  topPayables: PartnerBalance[];
+};
+export const partnerBalanceOverview=()=>http.get<PartnerBalanceOverview>("/api/v1/partner-balances/overview");
 export type PartnerBalanceEntry={attachmentCount?:number;id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"RECEIPT"|"PAYMENT"|"REVERSAL"|"PURCHASE"|"SALE"|"PURCHASE_RETURN"|"SALE_RETURN"|"CUSTOMER_REFUND"|"SUPPLIER_REFUND";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;operatorName?:string;partnerName?:string;purchaseReturnId?:number;saleReturnId?:number;reversedDocumentNo?:string;reversesId:number|null;reversedById:number|null;paymentMethod?:string;transactionNo?:string;purchaseId?:number;saleId?:number};
 export const partnerBalances=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalance>>("/api/v1/partner-balances",{query});
 export const partnerBalanceEntries=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalanceEntry>>("/api/v1/partner-balances/entries",{query});

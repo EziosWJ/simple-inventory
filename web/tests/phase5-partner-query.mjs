@@ -29,9 +29,9 @@ try{
  browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})});
  const context=await browser.newContext({timezoneId:'Asia/Shanghai',viewport:{width:1500,height:1000}});await context.addInitScript(t=>localStorage.setItem('web-auth',JSON.stringify({token:t,user:null})),token);
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(`${base}/business/partner-balances`);await select(page,'筛选往来单位',partner.code);
- await page.getByRole('row').filter({hasText:'店铺待退客户'}).waitFor();await page.getByRole('row').filter({hasText:'供应商待退店铺'}).waitFor();
- const rows=page.getByRole('row');assert.equal(await rows.count(),3);assert.match(await rows.nth(1).innerText(),/-15.00/);assert.match(await rows.nth(2).innerText(),/-5.00/);
+ await page.goto(`${base}/business/partner-balances`);await page.getByLabel('筛选款项分类').selectOption('ALL');await select(page,'筛选往来单位',partner.code);
+ await page.getByRole('row').filter({hasText:'应退客户款'}).waitFor();await page.getByRole('row').filter({hasText:'应收供应商退款'}).waitFor();
+ const rows=page.getByRole('row');assert.equal(await rows.count(),3);assert.match(await rows.nth(1).innerText(),/15.00/);assert.match(await rows.nth(2).innerText(),/5.00/);
  const balanceURL=page.url();await rows.nth(1).getByRole('button',{name:'查看明细'}).click();
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
  await page.getByLabel('生效开始日').fill(today);await page.getByLabel('生效结束日（含当日）').fill(today);await page.getByRole('button',{name:'查询',exact:true}).click();
