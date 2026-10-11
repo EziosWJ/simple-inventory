@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createRefund, createSettlement, partnerBalances, type PartnerBalance } from "@/api/business";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { Field } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,13 +125,13 @@ export function PartnerFundsPage({ kind }: { kind: Kind }) {
     <section className="rounded-admin border border-border bg-surface p-4" aria-label={refund ? "办理退款" : "办理收付款"}>
       <h2 className="mb-3 font-medium">{operation}</h2>
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">方向<Select disabled={saving} className="mt-1" aria-label="资金方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); setReceipt(null); }}><option value="CUSTOMER">{refund ? "向客户退款" : "客户收款"}</option><option value="SUPPLIER">{refund ? "收到供应商退款" : "供应商付款"}</option></Select></label>
-        <PartnerSelect label="资金往来单位" historical disabled={saving} value={Number(partnerId)} onChange={p => { setPartnerId(p ? String(p.id) : ""); setBalance(null); setBalanceReady(false); setAmount(""); setReceipt(null); }} />
-        <div className="text-sm"><label htmlFor="funds-amount">金额（元）</label><div className="mt-1 flex gap-2"><Input id="funds-amount" ref={amountInput} disabled={saving} aria-label="资金金额" aria-invalid={!!amountError} aria-describedby={amountError ? "funds-amount-error" : undefined} inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /><Button disabled={saving || available === null || available <= 0n} onClick={() => { if (available !== null) setAmount(money(available)); }}>填入全额</Button></div>{amountError && <p id="funds-amount-error" role="alert" className="mt-1 text-error">{amountError}</p>}</div>
-        <label className="text-sm">业务日期<Input disabled={saving} className="mt-1" aria-label="资金业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-        <label className="text-sm">方式<Select disabled={saving} className="mt-1" aria-label="资金方式" value={method} onChange={e => setMethod(e.target.value)}><option value="CASH">现金</option><option value="WECHAT">微信</option><option value="ALIPAY">支付宝</option><option value="BANK_TRANSFER">银行转账</option><option value="OTHER">其他</option></Select></label>
-        <label className="text-sm">交易流水号（选填）<Input disabled={saving} className="mt-1" value={transactionNo} onChange={e => setTransactionNo(e.target.value)} /></label>
-        <label className="text-sm md:col-span-3">备注（选填）<Textarea disabled={saving} className="mt-1" value={remark} onChange={e => setRemark(e.target.value)} /></label>
+        <Field label="方向" htmlFor="funds-direction"><Select id="funds-direction" disabled={saving} aria-label="资金方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); setReceipt(null); }}><option value="CUSTOMER">{refund ? "向客户退款" : "客户收款"}</option><option value="SUPPLIER">{refund ? "收到供应商退款" : "供应商付款"}</option></Select></Field>
+        <div className="md:col-span-2 xl:col-span-1"><Field label="资金往来单位"><PartnerSelect label="资金往来单位" historical disabled={saving} value={Number(partnerId)} onChange={p => { setPartnerId(p ? String(p.id) : ""); setBalance(null); setBalanceReady(false); setAmount(""); setReceipt(null); }} /></Field></div>
+        <Field label="金额（元）" htmlFor="funds-amount"><div className="flex gap-2"><Input id="funds-amount" ref={amountInput} disabled={saving} aria-label="资金金额" aria-invalid={!!amountError} aria-describedby={amountError ? "funds-amount-error" : undefined} inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /><Button disabled={saving || available === null || available <= 0n} onClick={() => { if (available !== null) setAmount(money(available)); }}>填入全额</Button></div>{amountError && <p id="funds-amount-error" role="alert" className="mt-1 text-error">{amountError}</p>}</Field>
+        <Field label="业务日期" htmlFor="funds-date"><Input id="funds-date" disabled={saving} aria-label="资金业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
+        <Field label="方式" htmlFor="funds-method"><Select id="funds-method" disabled={saving} aria-label="资金方式" value={method} onChange={e => setMethod(e.target.value)}><option value="CASH">现金</option><option value="WECHAT">微信</option><option value="ALIPAY">支付宝</option><option value="BANK_TRANSFER">银行转账</option><option value="OTHER">其他</option></Select></Field>
+        <Field label="交易流水号（选填）" htmlFor="funds-transaction"><Input id="funds-transaction" disabled={saving} value={transactionNo} onChange={e => setTransactionNo(e.target.value)} /></Field>
+        <div className="md:col-span-2 xl:col-span-3"><Field label="备注（选填）" htmlFor="funds-remark"><Textarea id="funds-remark" disabled={saving} value={remark} onChange={e => setRemark(e.target.value)} /></Field></div>
       </div>
       <PartnerAttachmentUpload key={requestKey} kind={kind} disabled={saving} onChange={setAttachments} />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
