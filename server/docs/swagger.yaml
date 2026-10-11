@@ -1558,6 +1558,119 @@ definitions:
       requestKey:
         type: string
     type: object
+  sale.ItemAmounts:
+    properties:
+      itemCount:
+        type: integer
+      netAmount:
+        type: string
+      originalAmount:
+        type: string
+      returnedAmount:
+        type: string
+      status:
+        type: string
+    type: object
+  sale.ItemPage:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/sale.ItemRecord'
+        type: array
+      summary:
+        $ref: '#/definitions/sale.ItemSummary'
+      total:
+        type: integer
+    type: object
+  sale.ItemQuantity:
+    properties:
+      netQuantity:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productName:
+        type: string
+      productType:
+        type: string
+      quantity:
+        type: string
+      returnedQuantity:
+        type: string
+      returnsApplicable:
+        type: boolean
+      status:
+        type: string
+      unit:
+        type: string
+    type: object
+  sale.ItemRecord:
+    properties:
+      amount:
+        type: string
+      businessDate:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      matchesHistory:
+        type: boolean
+      netAmount:
+        type: string
+      netApplicable:
+        type: boolean
+      netQuantity:
+        type: string
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      productType:
+        type: string
+      quantity:
+        type: string
+      returnedAmount:
+        type: string
+      returnedQuantity:
+        type: string
+      returnsApplicable:
+        type: boolean
+      saleId:
+        type: integer
+      status:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  sale.ItemSummary:
+    properties:
+      amounts:
+        items:
+          $ref: '#/definitions/sale.ItemAmounts'
+        type: array
+      quantities:
+        items:
+          $ref: '#/definitions/sale.ItemQuantity'
+        type: array
+    type: object
   sale.Line:
     properties:
       amount:
@@ -6556,6 +6669,95 @@ paths:
       security:
       - BearerAuth: []
       summary: 过账销售出库单
+      tags:
+      - 销售出库
+  /api/v1/sales/items:
+    get:
+      description: 只读查询跨单销售明细，并返回同筛选范围的金额与商品数量汇总。按原销售业务日期选取明细：成交明细取已保存内容或过账快照，退货只取截至查询时仍已过账的销售退货。草稿与已取消销售保留原数量和金额，但不计入有效退货与净销售合计；服务不能退货，净数量与净额等于原值。
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，上限500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 排序字段，默认业务日期
+        enum:
+        - businessDate
+        - unitPrice
+        - amount
+        - netAmount
+        in: query
+        name: sortBy
+        type: string
+      - description: 排序方向，默认desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sortDir
+        type: string
+      - description: 单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 客户ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 往来单位多词字面检索，与partnerId互斥；含已保存客户名称
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品多词字面检索，与productId互斥；逐明细匹配当前档案或该明细快照
+        in: query
+        name: productKeyword
+        type: string
+      - description: 状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.ItemPage'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: 数据库暂时不可用，可稍后重试
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 销售出库明细分页与净销售合计
       tags:
       - 销售出库
   /api/v1/sales/save-requests/{operation}/{requestKey}:

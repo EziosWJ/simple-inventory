@@ -77,6 +77,12 @@ export type SaleSaveResult = Omit<PurchaseSaveResult,"document"> & {document?:Sa
 export const saleSaveResult=(operation:"CREATE"|"EDIT",key:string)=>http.get<SaleSaveResult>(`/api/v1/sales/save-requests/${operation}/${encodeURIComponent(key)}`);
 export const resolveSaleSave=(operation:"CREATE"|"EDIT",key:string)=>http.post<SaleSaveResult>(`/api/v1/sales/save-requests/${operation}/${encodeURIComponent(key)}/resolve`,{});
 export const salePage=(query:Record<string,string|number>)=>http.get<BusinessPage<SaleDraft>>("/api/v1/sales",{query});
+export type SaleItemRecord = {matchesHistory?:boolean;id:number;saleId:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS"|"SERVICE";unit:string;quantity:string;unitPrice:string;amount:string;returnsApplicable:boolean;returnedQuantity:string;returnedAmount:string;netApplicable:boolean;netQuantity?:string|null;netAmount?:string|null};
+export type SaleItemAmounts = {status:"DRAFT"|"POSTED"|"CANCELLED";itemCount:number;originalAmount:string;returnedAmount?:string|null;netAmount?:string|null};
+export type SaleItemQuantity = {productId:number;productCode:string;productName:string;productType:"GOODS"|"SERVICE";unit:string;status:"DRAFT"|"POSTED"|"CANCELLED";quantity:string;returnsApplicable:boolean;returnedQuantity?:string|null;netQuantity?:string|null};
+export type SaleItemSummary = {amounts:SaleItemAmounts[];quantities:SaleItemQuantity[]};
+export type SaleItemPage = BusinessPage<SaleItemRecord> & {summary:SaleItemSummary};
+export const saleItemPage=(query:Record<string,string|number>)=>http.get<SaleItemPage>("/api/v1/sales/items",{query});
 export const getSale=(id:number)=>http.get<SaleDraft>(`/api/v1/sales/${id}`);
 export const createSale=(data:SaleInput)=>http.post<SaleDraft>("/api/v1/sales",data);
 export const updateSale=(id:number,data:SaleInput&{version:number})=>http.put<SaleDraft>(`/api/v1/sales/${id}`,data);

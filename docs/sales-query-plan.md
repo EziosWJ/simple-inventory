@@ -1,6 +1,6 @@
 # 销售查询与经营数据展示需求讨论
 
-状态：Q1～Q13 已确认。用户调用 to-spec 要求综合并发布，正式规格已发布为 [GitHub #66](https://github.com/EziosWJ/simple-inventory/issues/66)，本地见 [销售查询规格](sales-query-spec.md)；尚未开始业务实现。
+状态：Q1～Q13 已确认。用户调用 to-spec 要求综合并发布，正式规格已发布为 [GitHub #66](https://github.com/EziosWJ/simple-inventory/issues/66)，本地见 [销售查询规格](sales-query-spec.md)。业务实现已完成本地技术验收并在 `feat/sale-item-query` 分支提交，结果见[交付记录](sales-query-acceptance.md)；尚未推送、未关闭 GitHub issue、未进行经营者试用。
 
 ## 用户提出的问题
 
@@ -141,3 +141,7 @@
 用户后续指令：调用 to-spec，要求直接综合当前讨论并发布正式规格；本轮按该指令结束需求访谈、编写并发布规格，不将其视为业务实现指令。
 
 发布结果：GitHub #66，标签 ready-for-agent。测试入口沿用真实浏览器与双库 HTTP 契约；已提出测试入口核对，未收到单独调整答复，按此前确认的验收范围写入规格。本轮检查文档差异并核对发布元数据，没有运行实施验收。
+
+## 实现结果
+
+按规格实现销售出库的双视图查询、跨单明细与净销售合计，检查结果、判断项与未执行项见[交付记录](sales-query-acceptance.md)。

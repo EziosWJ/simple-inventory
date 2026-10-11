@@ -30,6 +30,7 @@ type Store interface {
 	Post(context.Context, int64, int64, audit.Event) (Draft, error)
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
+	ItemPage(context.Context, ItemQuery) (ItemPage, error)
 	DeliveryNote(context.Context, int64) (*DeliveryNote, error)
 }
 type Service struct{ store Store }
@@ -92,35 +93,47 @@ func (s *Service) DeliveryNote(ctx context.Context, id int64) (*DeliveryNote, er
 	return s.store.DeliveryNote(ctx, id)
 }
 func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
-	if q.Page < 1 {
-		q.Page = 1
+	q.Page, q.PageSize = pageBounds(q.Page, q.PageSize)
+	if e := validateQueryFilters(q); e != nil {
+		return Page{}, e
 	}
-	if q.PageSize < 1 {
-		q.PageSize = 10
+	return s.store.Page(ctx, q)
+}
+
+func pageBounds(page, size int) (int, int) {
+	if page < 1 {
+		page = 1
 	}
-	if q.PageSize > 500 {
-		q.PageSize = 500
+	if size < 1 {
+		size = 10
 	}
+	if size > 500 {
+		size = 500
+	}
+	return page, size
+}
+
+func validateQueryFilters(q Query) error {
 	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
-		return Page{}, ErrInvalid
+		return ErrInvalid
 	}
 	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {
-		return Page{}, ErrInvalid
+		return ErrInvalid
 	}
 	if q.BusinessFrom != "" {
 		if _, e := time.Parse("2006-01-02", q.BusinessFrom); e != nil {
-			return Page{}, ErrInvalid
+			return ErrInvalid
 		}
 	}
 	if q.BusinessTo != "" {
 		if _, e := time.Parse("2006-01-02", q.BusinessTo); e != nil {
-			return Page{}, ErrInvalid
+			return ErrInvalid
 		}
 	}
 	if q.BusinessFrom != "" && q.BusinessTo != "" && q.BusinessFrom > q.BusinessTo {
-		return Page{}, ErrInvalid
+		return ErrInvalid
 	}
-	return s.store.Page(ctx, q)
+	return nil
 }
 
 func validate(in Input) (Draft, []Line, error) {

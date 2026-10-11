@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { cn } from "@/lib/utils";
 import type { DataTableColumn } from "@/types";
@@ -14,6 +14,12 @@ type DataTableProps<T> = {
   className?: string;
   onRowClick?: (record: T) => void;
   rowClassName?: (record: T, index: number) => string | undefined;
+  /**
+   * Optional detail rows: a record whose key is listed gets one extra row right
+   * below it. Pages that do not ask for it keep the plain table.
+   */
+  expandedRowKeys?: Array<string | number>;
+  renderExpandedRow?: (record: T) => ReactNode;
 };
 
 function getRowKey<T>(
@@ -42,6 +48,8 @@ export function DataTable<T>({
   className,
   onRowClick,
   rowClassName,
+  expandedRowKeys,
+  renderExpandedRow,
 }: DataTableProps<T>) {
   if (loading) {
     return (
@@ -107,9 +115,11 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody>
-          {dataSource.map((record, rowIndex) => (
+          {dataSource.map((record, rowIndex) => {
+            const recordKey = getRowKey(rowKey, record);
+            return (
+            <Fragment key={recordKey}>
             <tr
-              key={getRowKey(rowKey, record)}
               className={cn(
                 "transition-colors",
                 onRowClick && "cursor-pointer hover:bg-neutral-background",
@@ -149,7 +159,19 @@ export function DataTable<T>({
                 );
               })}
             </tr>
-          ))}
+            {renderExpandedRow && expandedRowKeys?.includes(recordKey) && (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="border-b border-border bg-neutral-background px-space-5 py-space-3"
+                >
+                  {renderExpandedRow(record)}
+                </td>
+              </tr>
+            )}
+            </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

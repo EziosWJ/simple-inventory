@@ -21,9 +21,13 @@ for (const zone of ['UTC', 'America/Los_Angeles', 'Asia/Shanghai']) {
   assert.equal(datetime.businessToday(new Date('2026-10-09T16:15:00Z')), '2026-10-10');
   assert.equal(datetime.businessMidnightToUtc('2026-10-10'), '2026-10-09T16:00:00.000Z');
   assert.equal(datetime.businessMidnightToUtc('2026-12-31', true), '2026-12-31T16:00:00.000Z');
+  assert.deepEqual(datetime.businessMonthRange(new Date('2026-10-09T16:15:00Z')), { from: '2026-10-01', to: '2026-10-31' });
+  assert.deepEqual(datetime.businessMonthRange(new Date('2026-10-31T16:30:00Z')), { from: '2026-11-01', to: '2026-11-30' });
+  assert.deepEqual(datetime.businessMonthRange(new Date('2028-02-15T00:00:00Z')), { from: '2028-02-01', to: '2028-02-29' });
+  assert.deepEqual(datetime.businessMonthRange(new Date('2026-12-31T20:00:00Z')), { from: '2027-01-01', to: '2027-01-31' });
   assert.deepEqual(ledger.localPeriod('2026-10-10', '2026-10-10'), { from: '2026-10-09T16:00:00.000Z', to: '2026-10-10T16:00:00.000Z' });
   assert.equal(ledger.periodDateInput('2026-10-09T16:00:00Z'), '2026-10-10');
   assert.equal(ledger.periodDateInput('2026-10-10T16:00:00Z', true), '2026-10-10');
   assert.throws(() => ledger.localPeriod('2026-10-11', '2026-10-10'), /期间开始不能晚于结束/);
 }
-console.log('PASS Beijing display, business dates and inclusive/exclusive day boundaries in three host timezones');
+console.log('PASS Beijing display, business dates, business month range and inclusive/exclusive day boundaries in three host timezones');

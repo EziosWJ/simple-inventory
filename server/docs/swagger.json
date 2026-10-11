@@ -7267,6 +7267,144 @@
                 }
             }
         },
+        "/api/v1/sales/items": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "只读查询跨单销售明细，并返回同筛选范围的金额与商品数量汇总。按原销售业务日期选取明细：成交明细取已保存内容或过账快照，退货只取截至查询时仍已过账的销售退货。草稿与已取消销售保留原数量和金额，但不计入有效退货与净销售合计；服务不能退货，净数量与净额等于原值。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售出库"
+                ],
+                "summary": "销售出库明细分页与净销售合计",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，上限500",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "businessDate",
+                            "unitPrice",
+                            "amount",
+                            "netAmount"
+                        ],
+                        "type": "string",
+                        "description": "排序字段，默认业务日期",
+                        "name": "sortBy",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "排序方向，默认desc",
+                        "name": "sortDir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "客户ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "往来单位多词字面检索，与partnerId互斥；含已保存客户名称",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词字面检索，与productId互斥；逐明细匹配当前档案或该明细快照",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "POSTED",
+                            "CANCELLED"
+                        ],
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sale.ItemPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/sales/save-requests/{operation}/{requestKey}": {
             "get": {
                 "security": [
@@ -10134,6 +10272,178 @@
                 },
                 "requestKey": {
                     "type": "string"
+                }
+            }
+        },
+        "sale.ItemAmounts": {
+            "type": "object",
+            "properties": {
+                "itemCount": {
+                    "type": "integer"
+                },
+                "netAmount": {
+                    "type": "string"
+                },
+                "originalAmount": {
+                    "type": "string"
+                },
+                "returnedAmount": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "sale.ItemPage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.ItemRecord"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/sale.ItemSummary"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sale.ItemQuantity": {
+            "type": "object",
+            "properties": {
+                "netQuantity": {
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "returnedQuantity": {
+                    "type": "string"
+                },
+                "returnsApplicable": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "sale.ItemRecord": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "matchesHistory": {
+                    "type": "boolean"
+                },
+                "netAmount": {
+                    "type": "string"
+                },
+                "netApplicable": {
+                    "type": "boolean"
+                },
+                "netQuantity": {
+                    "type": "string"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productModel": {
+                    "type": "string"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productSpecification": {
+                    "type": "string"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "returnedAmount": {
+                    "type": "string"
+                },
+                "returnedQuantity": {
+                    "type": "string"
+                },
+                "returnsApplicable": {
+                    "type": "boolean"
+                },
+                "saleId": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "unitPrice": {
+                    "type": "string"
+                }
+            }
+        },
+        "sale.ItemSummary": {
+            "type": "object",
+            "properties": {
+                "amounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.ItemAmounts"
+                    }
+                },
+                "quantities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.ItemQuantity"
+                    }
                 }
             }
         },

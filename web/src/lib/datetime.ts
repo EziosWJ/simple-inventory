@@ -33,6 +33,17 @@ export function businessToday(now = new Date()) {
   return parts ? `${parts.year}-${parts.month}-${parts.day}` : "";
 }
 
+// The "this month" shortcut follows the same Beijing business calendar as the
+// rest of the app, so a document saved in the evening belongs to the month the
+// operator is working in, including when the host clock is on another day.
+export function businessMonthRange(now = new Date()) {
+  const today = businessToday(now);
+  if (!today) return { from: "", to: "" };
+  const [year, month] = today.split("-");
+  const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate();
+  return { from: `${year}-${month}-01`, to: `${year}-${month}-${String(lastDay).padStart(2, "0")}` };
+}
+
 export function businessMidnightToUtc(date: string, nextDay = false) {
   const midnight = new Date(`${date}T00:00:00+08:00`);
   if (nextDay) midnight.setUTCDate(midnight.getUTCDate() + 1);
