@@ -101,7 +101,20 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      # The contract starts postgres:17-alpine and shells out to pg_dump, so the
+      # runner needs a client that is not older than that server.
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          PGVERSION=17 pg_dump --version | grep -E ' 17\.'
       - name: Run PostgreSQL integration contract
+        env:
+          # Keep the client on 17 even if the runner image ships a newer default.
+          PGVERSION: "17"
         run: >-
           go test -tags=integration ./integration
           -run '^Test(Postgres|Auth|RBAC|SysConfig|Department|Dictionary|Login|File|Notification|UserPage|Product|Partner|Warehouse|Purchase|Sale)'

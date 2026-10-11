@@ -210,7 +210,7 @@ cd server
 GOCACHE=/tmp/server-build go test -tags=integration ./integration
 ```
 
-集成测试需要 Docker daemon 可用，会执行 migration 并检查 Goose 版本表。
+集成测试需要 Docker daemon 可用，会执行 migration 并检查 Goose 版本表。测试容器使用 `postgres:17-alpine`，其中一条备份契约会调用宿主机的 `pg_dump` 备份该容器，因此本机需要安装不低于该服务端版本的 PostgreSQL 17 客户端（例如 `postgresql-client-17`，缺失时该用例报 `pg_dump: executable file not found in $PATH`，版本过旧时报 server version mismatch）。
 
 运行 SQLite 文件库集成测试（不需要 Docker）：
 
