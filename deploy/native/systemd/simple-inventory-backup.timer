@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Simple Inventory backup at 03:30 server time
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=simple-inventory-backup.service
+
+[Install]
+WantedBy=timers.target

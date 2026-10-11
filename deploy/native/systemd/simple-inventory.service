@@ -1,0 +1,29 @@
+[Unit]
+Description=Simple Inventory native application
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=simple-inventory
+Group=simple-inventory
+WorkingDirectory=/opt/simple-inventory/current
+Environment=APP_ENV=prod
+Environment=GIN_MODE=release
+ExecStartPre=/opt/simple-inventory/current/simple-inventory-migrate check --kind all
+ExecStart=/opt/simple-inventory/current/simple-inventory-api
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/simple-inventory/data/uploads
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Simple Inventory coherent database and attachment backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/simple-inventory/native-tools/backup-native.py
+TimeoutStartSec=30min
+UMask=0077
