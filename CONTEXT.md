@@ -250,6 +250,8 @@ PostgreSQL 与 SQLite 使用独立 migration 树并保持逻辑版本同步。�
 - 完整检查：`task check`
 - 数据库兼容门禁：`task db:check`
 
+日常开发按根目录 [CLAUDE.md 的验证分层](CLAUDE.md#验证分层)选择范围：局部数据库行为修改执行受影响契约的双库验证；全量门禁的触发条件以该表为准。CI 保留全量双库验证。
+
 ## 阶段规划
 
 - Phase 1：基础工程产品化

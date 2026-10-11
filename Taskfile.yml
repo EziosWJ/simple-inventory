@@ -113,6 +113,17 @@ tasks:
     cmds:
       - go test -tags=integration ./integration -run '^TestSQLite' -count=1
 
+  db:contract:
+    desc: 定向运行数据库契约，通过 CLI_ARGS 传递测试名正则
+    dir: server
+    env:
+      SI_CONTRACT_RUN: '{{.CLI_ARGS}}'
+    preconditions:
+      - sh: test -n "$SI_CONTRACT_RUN"
+        msg: "请提供测试名正则，例如 task db:contract -- '^TestSQLiteSaleItemQueryHTTPContract$'；全量验证使用 task db:check"
+    cmds:
+      - go test -tags=integration ./integration -run {{.CLI_ARGS}} -count=1
+
   db:check:
     desc: 运行后端检查及两种数据库的集成契约测试
     deps:

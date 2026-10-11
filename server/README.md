@@ -219,4 +219,11 @@ cd server
 GOCACHE=/tmp/server-build go test -tags=integration ./integration -run SQLite
 ```
 
-仓库根目录的 `task db:check` 会执行后端检查以及 PostgreSQL、SQLite 两套集成契约；数据库相关变更必须同时通过两套数据库验证。
+仓库根目录的 `task db:check` 会执行后端检查以及 PostgreSQL、SQLite 两套集成契约。日常局部数据库修改先运行受影响契约的 SQLite 用例，再运行 PostgreSQL 用例，例如在根目录执行：
+
+```zsh
+task db:contract -- '^TestSQLiteSaleItemQueryHTTPContract$'
+task db:contract -- '^TestPostgresSaleItemQueryHTTPContract$'
+```
+
+数据库相关变更必须同时通过两套数据库验证；定向与全量的选择以根目录 [CLAUDE.md 的验证分层](../CLAUDE.md#验证分层)为准，选择契约和测试成本见 [验证指南](../docs/agents/verification.md)。
