@@ -4,22 +4,47 @@ import { cn } from "@/lib/utils";
 
 type SearchFilterBarProps = PropsWithChildren<{
   actions?: ReactNode;
+  /** Shown at the left of the action row in the stacked layout, e.g. shortcuts. */
+  leadingActions?: ReactNode;
+  /**
+   * Fields use the whole available width and the actions move to their own row
+   * below them. Opt-in, so pages that do not ask for it keep the side column.
+   */
+  stacked?: boolean;
   className?: string;
 }>;
 
 export function SearchFilterBar({
   actions,
+  leadingActions,
+  stacked = false,
   className,
   children,
 }: SearchFilterBarProps) {
+  const fields = (
+    <div className="grid min-w-0 flex-1 grid-cols-1 gap-space-3 sm:grid-cols-[repeat(auto-fit,minmax(0,240px))] [&>*]:min-w-0 [&>form>*]:min-w-0">
+      {children}
+    </div>
+  );
+
   return (
     <ContentCard className={cn("mb-space-4", className)} bodyClassName="p-card-compact">
-      <div className="flex flex-col gap-space-3 lg:flex-row lg:items-end">
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-space-3 sm:grid-cols-[repeat(auto-fit,minmax(0,240px))] [&>*]:min-w-0 [&>form>*]:min-w-0">
-          {children}
+      {stacked ? (
+        <div className="flex flex-col gap-space-3">
+          {fields}
+          {(leadingActions || actions) && (
+            <div className="flex flex-wrap items-center justify-between gap-space-2 border-t border-border pt-space-3">
+              <div className="flex flex-wrap items-center gap-space-2">{leadingActions}</div>
+              <div className="flex flex-wrap items-center justify-end gap-space-2">{actions}</div>
+            </div>
+          )}
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-space-2">{actions}</div>}
-      </div>
+      ) : (
+        <div className="flex flex-col gap-space-3 lg:flex-row lg:items-end">
+          {fields}
+          {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-space-2">{actions}</div>}
+        </div>
+      )}
     </ContentCard>
   );
 }

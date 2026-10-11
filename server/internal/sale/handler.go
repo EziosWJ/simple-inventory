@@ -23,6 +23,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/sales")
 	g.POST("", h.create)
 	g.GET("", h.page)
+	g.GET("/items", h.itemPage)
 	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
 	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
@@ -177,6 +178,54 @@ func (h *Handler) page(c *gin.Context) {
 		return
 	}
 	v, e := h.s.Page(c.Request.Context(), q)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Description 只读查询跨单销售明细，并返回同筛选范围的金额与商品数量汇总。按原销售业务日期选取明细：成交明细取已保存内容或过账快照，退货只取截至查询时仍已过账的销售退货。草稿与已取消销售保留原数量和金额，但不计入有效退货与净销售合计；服务不能退货，净数量与净额等于原值。
+// @Summary 销售出库明细分页与净销售合计
+// @Tags 销售出库
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数，上限500"
+// @Param sortBy query string false "排序字段，默认业务日期" Enums(businessDate,unitPrice,amount,netAmount)
+// @Param sortDir query string false "排序方向，默认desc" Enums(asc,desc)
+// @Param documentNo query string false "单号"
+// @Param partnerId query int false "客户ID"
+// @Param productId query int false "商品ID"
+// @Param partnerKeyword query string false "往来单位多词字面检索，与partnerId互斥；含已保存客户名称"
+// @Param productKeyword query string false "商品多词字面检索，与productId互斥；逐明细匹配当前档案或该明细快照"
+// @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
+// @Param businessFrom query string false "业务日期起"
+// @Param businessTo query string false "业务日期止"
+// @Success 200 {object} ApiEnvelope{data=ItemPage}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
+// @Router /api/v1/sales/items [get]
+func (h *Handler) itemPage(c *gin.Context) {
+	q := ItemQuery{Query: Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
+	var e error
+	if q.Page, e = intQuery(c, "page", 1); e != nil {
+		fail(c, e)
+		return
+	}
+	if q.PageSize, e = intQuery(c, "pageSize", 10); e != nil {
+		fail(c, e)
+		return
+	}
+	if q.PartnerID, e = int64Query(c, "partnerId"); e != nil {
+		fail(c, e)
+		return
+	}
+	if q.ProductID, e = int64Query(c, "productId"); e != nil {
+		fail(c, e)
+		return
+	}
+	v, e := h.s.ItemPage(c.Request.Context(), q)
 	if e != nil {
 		fail(c, e)
 		return

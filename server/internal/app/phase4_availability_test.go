@@ -72,6 +72,9 @@ func (s saleErrorStore) Find(_ context.Context, _ int64) (*sale.Draft, error) { 
 func (s saleErrorStore) Page(_ context.Context, _ sale.Query) (sale.Page, error) {
 	return sale.Page{}, s.err
 }
+func (s saleErrorStore) ItemPage(_ context.Context, _ sale.ItemQuery) (sale.ItemPage, error) {
+	return sale.ItemPage{}, s.err
+}
 func (s saleErrorStore) DeliveryNote(_ context.Context, _ int64) (*sale.DeliveryNote, error) {
 	return nil, s.err
 }
@@ -183,7 +186,7 @@ func TestPhase4HandlersTemporaryUnavailable(t *testing.T) {
 		}, requests: []request{{"POST", "/purchases", draft}, {"PUT", "/purchases/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/purchases/1/post", `{"version":1}`}, {"POST", "/purchases/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/purchases", ""}, {"GET", "/purchases/1", ""}}, invalid: purchase.ErrInvalid, missing: purchase.ErrNotFound, conflict: purchase.ErrConflict},
 		{name: "sale", register: func(r *gin.Engine, e error) {
 			sale.RegisterRoutes(r, sale.NewHandler(sale.NewService(saleErrorStore{e})))
-		}, requests: []request{{"POST", "/sales", draft}, {"PUT", "/sales/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/sales/1/post", `{"version":1}`}, {"POST", "/sales/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/sales", ""}, {"GET", "/sales/1", ""}, {"GET", "/sales/1/delivery-note", ""}}, invalid: sale.ErrInvalid, missing: sale.ErrNotFound, conflict: sale.ErrConflict},
+		}, requests: []request{{"POST", "/sales", draft}, {"PUT", "/sales/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/sales/1/post", `{"version":1}`}, {"POST", "/sales/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/sales", ""}, {"GET", "/sales/items", ""}, {"GET", "/sales/1", ""}, {"GET", "/sales/1/delivery-note", ""}}, invalid: sale.ErrInvalid, missing: sale.ErrNotFound, conflict: sale.ErrConflict},
 		{name: "purchasereturn", register: func(r *gin.Engine, e error) {
 			purchasereturn.RegisterRoutes(r, purchasereturn.NewHandler(purchasereturn.NewService(purchasereturnErrorStore{e})))
 		}, requests: []request{{"POST", "/purchase-returns", `{"purchaseId":1,"businessDate":"2026-10-01","items":[{"purchaseItemId":1,"quantity":"1"}]}`}, {"PUT", "/purchase-returns/1", `{"version":1,` + strings.TrimPrefix(`{"purchaseId":1,"businessDate":"2026-10-01","items":[{"purchaseItemId":1,"quantity":"1"}]}`, "{")}, {"POST", "/purchase-returns/1/post", `{"version":1}`}, {"POST", "/purchase-returns/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/purchase-returns", ""}, {"GET", "/purchase-returns/1", ""}, {"GET", "/purchase-returns/source/1", ""}}, invalid: purchasereturn.ErrInvalid, missing: purchasereturn.ErrNotFound, conflict: purchasereturn.ErrConflict},
