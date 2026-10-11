@@ -23,6 +23,7 @@ func NewHandler(s *Service) *Handler { return &Handler{s} }
 func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/partner-balances")
 	g.GET("", h.balances)
+	g.GET("/overview", h.overview)
 	g.GET("/entries", h.page)
 	g.GET("/entries/:id", h.detail)
 	g.GET("/statement", h.statement)
@@ -134,7 +135,9 @@ func metadata(ctx context.Context) audit.Metadata {
 // @Param pageSize query int false "每页条数"
 // @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
 // @Param partnerId query int false "往来单位ID"
+// @Param category query string false "余额分类，省略时保留原单位方向排序；待处理分类按金额降序" Enums(ALL,RECEIVABLE,PAYABLE,CUSTOMER_REFUND,SUPPLIER_REFUND)
 // @Success 200 {object} ApiEnvelope{data=BalancePage}
+// @Failure 400 {object} ApiEnvelope
 // @Failure 401 {object} ApiEnvelope
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances [get]
@@ -157,13 +160,36 @@ func (h *Handler) balances(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.Balances(c.Request.Context(), partnerID, p, size, c.Query("direction"))
+	v, e := h.s.FilterBalances(c.Request.Context(), BalanceFilter{PartnerID: partnerID, Page: p, PageSize: size, Direction: c.Query("direction"), Category: c.Query("category")})
 	if e != nil {
 		if platform.IsTemporaryUnavailable(e) {
 			platform.TemporaryUnavailable(c)
 			return
 		}
 		platform.WriteError(c, 400, 400, e.Error(), nil)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 查询全店当前未结余额概览与客户应收、供应商应付前十名
+// @Description 四项金额与单位数覆盖全店，不受列表搜索和分页影响。退款按绝对值汇总；同一单位两个方向不抵扣。
+// @Tags 往来余额
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} ApiEnvelope{data=BalanceOverview}
+// @Failure 401 {object} ApiEnvelope
+// @Failure 500 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
+// @Router /api/v1/partner-balances/overview [get]
+func (h *Handler) overview(c *gin.Context) {
+	v, err := h.s.Overview(c.Request.Context())
+	if err != nil {
+		if platform.IsTemporaryUnavailable(err) {
+			platform.TemporaryUnavailable(c)
+			return
+		}
+		platform.WriteError(c, 500, 500, "读取全店往来概览失败", nil)
 		return
 	}
 	platform.OK(c, v)

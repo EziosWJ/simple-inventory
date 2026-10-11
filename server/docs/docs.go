@@ -4430,6 +4430,19 @@ const docTemplate = `{
                         "description": "往来单位ID",
                         "name": "partnerId",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ALL",
+                            "RECEIVABLE",
+                            "PAYABLE",
+                            "CUSTOMER_REFUND",
+                            "SUPPLIER_REFUND"
+                        ],
+                        "type": "string",
+                        "description": "余额分类，省略时保留原单位方向排序；待处理分类按金额降序",
+                        "name": "category",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4449,6 +4462,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
                     },
                     "401": {
@@ -4910,6 +4929,61 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/partner-balances/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "四项金额与单位数覆盖全店，不受列表搜索和分页影响。退款按绝对值汇总；同一单位两个方向不抵扣。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "查询全店当前未结余额概览与客户应收、供应商应付前十名",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/receivable.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/receivable.BalanceOverview"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/receivable.ApiEnvelope"
                         }
@@ -9471,6 +9545,29 @@ const docTemplate = `{
                 }
             }
         },
+        "receivable.BalanceOverview": {
+            "type": "object",
+            "properties": {
+                "summaries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.BalanceSummary"
+                    }
+                },
+                "topPayables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Balance"
+                    }
+                },
+                "topReceivables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/receivable.Balance"
+                    }
+                }
+            }
+        },
         "receivable.BalancePage": {
             "type": "object",
             "properties": {
@@ -9487,6 +9584,20 @@ const docTemplate = `{
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "receivable.BalanceSummary": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "partnerCount": {
                     "type": "integer"
                 }
             }

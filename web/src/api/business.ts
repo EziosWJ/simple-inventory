@@ -88,6 +88,13 @@ export const getDeliveryNote=(id:number)=>http.get<DeliveryNote>(`/api/v1/sales/
 export const getWarehouse=()=>http.get<{name:string;remark?:string|null}>("/api/v1/warehouse");
 export const saveWarehouse=(data:{name:string;remark?:string|null})=>http.put<void>("/api/v1/warehouse",data);
 export type PartnerBalance={partnerId:number;partnerName:string;direction:"CUSTOMER"|"SUPPLIER";amount:string;entryCount:number;hasRecords:boolean};
+export type PartnerBalanceCategory = "RECEIVABLE" | "PAYABLE" | "CUSTOMER_REFUND" | "SUPPLIER_REFUND";
+export type PartnerBalanceOverview = {
+  summaries: { category: PartnerBalanceCategory; amount: string; partnerCount: number }[];
+  topReceivables: PartnerBalance[];
+  topPayables: PartnerBalance[];
+};
+export const partnerBalanceOverview=()=>http.get<PartnerBalanceOverview>("/api/v1/partner-balances/overview");
 export type PartnerBalanceEntry={attachmentCount?:number;id:number;partnerId:number;direction:"CUSTOMER"|"SUPPLIER";entryType:"OPENING"|"RECEIPT"|"PAYMENT"|"REVERSAL"|"PURCHASE"|"SALE"|"PURCHASE_RETURN"|"SALE_RETURN"|"CUSTOMER_REFUND"|"SUPPLIER_REFUND";amount:string;balanceBefore:string;balanceAfter:string;businessDate:string;effectiveAt:string;description:string;documentNo:string;operatorId:number;operatorName?:string;partnerName?:string;purchaseReturnId?:number;saleReturnId?:number;reversedDocumentNo?:string;reversesId:number|null;reversedById:number|null;paymentMethod?:string;transactionNo?:string;purchaseId?:number;saleId?:number};
 export const partnerBalances=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalance>>("/api/v1/partner-balances",{query});
 export const partnerBalanceEntries=(query:Record<string,string|number>)=>http.get<BusinessPage<PartnerBalanceEntry>>("/api/v1/partner-balances/entries",{query});

@@ -141,8 +141,11 @@ func (s receivableErrorStore) Find(_ context.Context, _ int64) (receivable.Entry
 func (s receivableErrorStore) Page(_ context.Context, _ int64, _ string, _ int, _ int) (receivable.Page, error) {
 	return receivable.Page{}, s.err
 }
-func (s receivableErrorStore) Balances(_ context.Context, _ int64, _ int, _ int, _ string) (receivable.BalancePage, error) {
+func (s receivableErrorStore) FilterBalances(_ context.Context, _ receivable.BalanceFilter) (receivable.BalancePage, error) {
 	return receivable.BalancePage{}, s.err
+}
+func (s receivableErrorStore) Overview(_ context.Context) (receivable.BalanceOverview, error) {
+	return receivable.BalanceOverview{}, s.err
 }
 func (s receivableErrorStore) Reverse(_ context.Context, _ audit.Metadata, _ int64, _ string) (receivable.Entry, error) {
 	return receivable.Entry{}, s.err
@@ -190,7 +193,7 @@ func TestPhase4HandlersTemporaryUnavailable(t *testing.T) {
 		{name: "receivable", register: func(r *gin.Engine, e error) {
 			receivable.RegisterRoutes(r, receivable.NewHandler(receivable.NewService(receivableErrorStore{e})))
 		}, requests: []request{
-			{"POST", "/partner-balances/opening", funds}, {"POST", "/partner-balances/settlements", funds}, {"POST", "/partner-balances/refunds", funds}, {"POST", "/partner-balances/entries/1/reverse", `{"reason":"测试"}`}, {"GET", "/partner-balances", ""}, {"GET", "/partner-balances/entries", ""}, {"GET", "/partner-balances/entries/1", ""}, {"GET", "/partner-balances/entries/1/attachments", ""}, {"POST", "/partner-balances/entries/1/attachments", `{"fileIds":[1]}`}, {"DELETE", "/partner-balances/entries/1/attachments/1", ""}, {"GET", "/partner-balances/statement?partnerId=1&direction=CUSTOMER&from=2026-10-01T00:00:00Z&to=2026-10-02T00:00:00Z", ""}}, invalid: receivable.ErrInvalid, missing: receivable.ErrNotFound, conflict: receivable.ErrConflict},
+			{"POST", "/partner-balances/opening", funds}, {"POST", "/partner-balances/settlements", funds}, {"POST", "/partner-balances/refunds", funds}, {"POST", "/partner-balances/entries/1/reverse", `{"reason":"测试"}`}, {"GET", "/partner-balances", ""}, {"GET", "/partner-balances/overview", ""}, {"GET", "/partner-balances/entries", ""}, {"GET", "/partner-balances/entries/1", ""}, {"GET", "/partner-balances/entries/1/attachments", ""}, {"POST", "/partner-balances/entries/1/attachments", `{"fileIds":[1]}`}, {"DELETE", "/partner-balances/entries/1/attachments/1", ""}, {"GET", "/partner-balances/statement?partnerId=1&direction=CUSTOMER&from=2026-10-01T00:00:00Z&to=2026-10-02T00:00:00Z", ""}}, invalid: receivable.ErrInvalid, missing: receivable.ErrNotFound, conflict: receivable.ErrConflict},
 		{name: "printprofile", register: func(r *gin.Engine, e error) {
 			printprofile.RegisterRoutes(r, printprofile.NewHandler(printprofile.NewService(printprofileErrorStore{e})))
 		}, requests: []request{{"GET", "/print-profile", ""}, {"PUT", "/print-profile", `{"name":"经营者"}`}}, invalid: printprofile.ErrInvalid},

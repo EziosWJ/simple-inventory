@@ -108,7 +108,8 @@ type Store interface {
 	Create(context.Context, audit.Metadata, Input) (Entry, error)
 	Find(context.Context, int64) (Entry, error)
 	Page(context.Context, int64, string, int, int) (Page, error)
-	Balances(context.Context, int64, int, int, string) (BalancePage, error)
+	FilterBalances(context.Context, BalanceFilter) (BalancePage, error)
+	Overview(context.Context) (BalanceOverview, error)
 	Reverse(context.Context, audit.Metadata, int64, string) (Entry, error)
 	Settle(context.Context, audit.Metadata, SettlementInput) (Entry, error)
 	Refund(context.Context, audit.Metadata, SettlementInput) (Entry, error)
@@ -229,10 +230,7 @@ func (s *Service) Detail(ctx context.Context, id int64) (Entry, error) {
 	return s.store.Find(ctx, id)
 }
 func (s *Service) Balances(ctx context.Context, partnerID int64, page, size int, direction string) (BalancePage, error) {
-	if partnerID < 0 || page < 1 || size < 1 || size > 500 || (direction != "" && direction != "CUSTOMER" && direction != "SUPPLIER") {
-		return BalancePage{}, ErrInvalid
-	}
-	return s.store.Balances(ctx, partnerID, page, size, direction)
+	return s.FilterBalances(ctx, BalanceFilter{PartnerID: partnerID, Page: page, PageSize: size, Direction: direction})
 }
 func (s *Service) Reverse(ctx context.Context, meta audit.Metadata, id int64, reason string) (Entry, error) {
 	if id <= 0 || strings.TrimSpace(reason) == "" || utf8.RuneCountInString(strings.TrimSpace(reason)) > 500 {
@@ -376,45 +374,6 @@ func fromRow(r entryRow) Entry {
 	return Entry{AttachmentCount: r.AttachmentCount, PartnerName: r.PartnerName, OperatorName: r.OperatorName, PurchaseReturnID: r.PurchaseReturnID, SaleReturnID: r.SaleReturnID, ReversedDocumentNo: r.ReversedDocumentNo, ID: r.ID, PartnerID: r.PartnerID, Direction: r.Direction, EntryType: r.EntryType, Amount: money(r.AmountCents), BalanceBefore: money(r.BalanceBeforeCents), BalanceAfter: money(r.BalanceAfterCents), BusinessDate: r.BusinessDate, EffectiveAt: r.EffectiveAt, Description: r.Description, DocumentNo: r.DocumentNo, OperatorID: r.OperatorID, ReversesID: r.ReversesID, ReversedByID: r.ReversedByID, PaymentMethod: r.PaymentMethod, TransactionNo: r.TransactionNo, PurchaseID: r.PurchaseID, SaleID: r.SaleID}
 }
 
-func (s *Repository) Balances(ctx context.Context, partnerID int64, page, size int, direction string) (BalancePage, error) {
-	if page < 1 || size < 1 || size > 500 {
-		return BalancePage{}, ErrInvalid
-	}
-	if direction != "" && direction != "CUSTOMER" && direction != "SUPPLIER" {
-		return BalancePage{}, ErrInvalid
-	}
-	whereCustomer, whereSupplier := "(p.is_customer = TRUE OR b.id IS NOT NULL)", "(p.is_supplier = TRUE OR b.id IS NOT NULL)"
-	if direction == "SUPPLIER" {
-		whereCustomer = "1=0"
-	}
-	if direction == "CUSTOMER" {
-		whereSupplier = "1=0"
-	}
-	if partnerID > 0 {
-		whereCustomer = fmt.Sprintf("(%s) AND p.id=%d", whereCustomer, partnerID)
-		whereSupplier = fmt.Sprintf("(%s) AND p.id=%d", whereSupplier, partnerID)
-	}
-	query := `SELECT p.id AS partner_id,p.name AS partner_name,'CUSTOMER' AS direction,COALESCE(b.amount_cents,0) AS amount_cents,COALESCE(b.entry_count,0) AS entry_count,CASE WHEN b.id IS NULL THEN FALSE ELSE TRUE END AS has_records FROM partner p LEFT JOIN partner_balance b ON b.partner_id=p.id AND b.direction='CUSTOMER' WHERE ` + whereCustomer + ` UNION ALL SELECT p.id AS partner_id,p.name AS partner_name,'SUPPLIER' AS direction,COALESCE(b.amount_cents,0) AS amount_cents,COALESCE(b.entry_count,0) AS entry_count,CASE WHEN b.id IS NULL THEN FALSE ELSE TRUE END AS has_records FROM partner p LEFT JOIN partner_balance b ON b.partner_id=p.id AND b.direction='SUPPLIER' WHERE ` + whereSupplier
-	var total int64
-	if e := s.db.WithContext(ctx).Table("(" + query + ") AS balances").Count(&total).Error; e != nil {
-		return BalancePage{}, e
-	}
-	type row struct {
-		PartnerID               int64 `gorm:"column:partner_id"`
-		PartnerName, Direction  string
-		AmountCents, EntryCount int64
-		HasRecords              bool
-	}
-	rows := []row{}
-	if e := s.db.WithContext(ctx).Table("(" + query + ") AS balances").Select("partner_id,partner_name,direction,amount_cents,entry_count,has_records").Order("partner_id,direction").Offset((page - 1) * size).Limit(size).Scan(&rows).Error; e != nil {
-		return BalancePage{}, e
-	}
-	out := BalancePage{Records: []Balance{}, Total: total, Page: page, PageSize: size}
-	for _, r := range rows {
-		out.Records = append(out.Records, Balance{PartnerID: r.PartnerID, PartnerName: r.PartnerName, Direction: r.Direction, Amount: money(r.AmountCents), EntryCount: r.EntryCount, HasRecords: r.HasRecords})
-	}
-	return out, nil
-}
 func (s *Repository) Reverse(ctx context.Context, meta audit.Metadata, id int64, reason string) (Entry, error) {
 	reason = strings.TrimSpace(reason)
 	if id <= 0 || reason == "" || utf8.RuneCountInString(reason) > 500 {
