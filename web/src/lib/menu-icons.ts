@@ -26,6 +26,7 @@ import {
   User,
   Users,
   Warehouse,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +66,7 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   "rotate-ccw": RotateCcw,
   "contact-round": ContactRound,
   warehouse: Warehouse,
+  truck: Truck,
   module: Boxes,
   boxes: Boxes,
   "clipboard-list": ClipboardList,

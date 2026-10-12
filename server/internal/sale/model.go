@@ -29,6 +29,7 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
+	SourceOrderID    *int64                       `json:"sourceOrderId"`
 	MatchesHistory   bool                         `json:"matchesHistory,omitempty" gorm:"-"`
 	SaveReceipt      *SaveReceipt                 `json:"saveReceipt,omitempty" gorm:"-"`
 	SaveRequest      *SaveRequest                 `json:"-" gorm:"-"`
@@ -67,6 +68,9 @@ type Draft struct {
 func (Draft) TableName() string { return "sale_document" }
 
 type Line struct {
+	PurchaseSources []PurchaseSource `json:"purchaseSources" gorm:"-"`
+	SourceChange    *[]SourceValue   `json:"-" gorm:"-"`
+
 	MatchesProduct       bool    `json:"matchesProduct,omitempty" gorm:"-"`
 	ID                   int64   `json:"id"`
 	DocumentID           int64   `json:"-" gorm:"column:document_id"`
@@ -89,13 +93,14 @@ type Line struct {
 func (Line) TableName() string { return "sale_document_item" }
 
 type LineInput struct {
-	ID          int64   `json:"id"`
-	ProductID   int64   `json:"productId"`
-	ProductType string  `json:"productType"`
-	Unit        string  `json:"unit"`
-	Quantity    string  `json:"quantity"`
-	UnitPrice   string  `json:"unitPrice"`
-	Remark      *string `json:"remark"`
+	PurchaseSources *[]SourceInput `json:"purchaseSources"`
+	ID              int64          `json:"id"`
+	ProductID       int64          `json:"productId"`
+	ProductType     string         `json:"productType"`
+	Unit            string         `json:"unit"`
+	Quantity        string         `json:"quantity"`
+	UnitPrice       string         `json:"unitPrice"`
+	Remark          *string        `json:"remark"`
 }
 type Input struct {
 	RequestKey       *string `json:"requestKey,omitempty"`

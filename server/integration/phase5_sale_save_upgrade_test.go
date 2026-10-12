@@ -81,6 +81,9 @@ func assertSaleSaveUpgrade(t *testing.T, db *platformdatabase.Database, dialect,
 			if e := db.GORM.Table(table).Order("id").Find(&rows).Error; e != nil {
 				t.Fatal(e)
 			}
+			for _, row := range rows {
+				delete(row, "source_order_id")
+			}
 			out[table] = rows
 		}
 		return out
@@ -90,6 +93,9 @@ func assertSaleSaveUpgrade(t *testing.T, db *platformdatabase.Database, dialect,
 	if e := goose.UpContext(context.Background(), db.SQL, filepath.Join(root, "schema")); e != nil {
 		t.Fatal(e)
 	}
+	// Migration changes SELECT * result shapes; restart idle connections as the API does after upgrade.
+	db.SQL.SetMaxIdleConns(0)
+	db.SQL.SetMaxIdleConns(5)
 	if !reflect.DeepEqual(stored, snapshot()) {
 		t.Fatal("upgrade changed legacy documents, items, ledger or audit")
 	}

@@ -3703,6 +3703,497 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/direct-orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "分页查询直送单",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "供应商ID",
+                        "name": "supplierId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "客户ID",
+                        "name": "customerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "一个供应商一个客户，至少一条实物；草稿不改变库存或往来。requestKey 用于保存结果核实和防重。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "新建直送草稿",
+                "parameters": [
+                    {
+                        "description": "直送资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directorder.Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/direct-orders/save-requests/{operation}/{requestKey}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "核实直送草稿保存结果",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CREATE 或 EDIT",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/direct-orders/save-requests/{operation}/{requestKey}/resolve": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "核实并关闭未提交的直送保存标识",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CREATE 或 EDIT",
+                        "name": "operation",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "保存标识",
+                        "name": "requestKey",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.SaveResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/direct-orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "查询直送详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "直送单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "编辑直送草稿",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "直送单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "当前版本及直送资料",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directorder.EditInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/direct-orders/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "有生效退货时拒绝；冲销采购销售同事务完成，保留真实收付款，后续独立新建不与原取消关联。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "整笔取消直送",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "直送单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "版本与取消原因",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directorder.CancelInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/direct-orders/{id}/post": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "两边单据、库存、往来及审计同事务提交；实物库存净变化为零。重复原版本请求不重复生效。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "直送单"
+                ],
+                "summary": "一次确认直送并过账采购销售",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "直送单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "当前版本",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directorder.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/directorder.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/directorder.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/directorder.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/inventory/adjustments": {
             "get": {
                 "security": [
@@ -3751,6 +4242,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "商品内部ID",
                         "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "当前商品资料或已保存的商品快照关键词",
+                        "name": "productKeyword",
                         "in": "query"
                     },
                     {
@@ -4228,6 +4725,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "精确商品内部ID，与keyword互斥",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "商品分类",
                         "name": "category",
@@ -4316,6 +4819,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "商品内部ID",
                         "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "当前商品资料或历史商品快照关键词",
+                        "name": "productKeyword",
                         "in": "query"
                     },
                     {
@@ -4435,6 +4944,35 @@ const docTemplate = `{
                         "type": "string",
                         "description": "单位多词字面检索，仅当前档案；与partnerId互斥",
                         "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单号多词检索",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "EFFECTIVE",
+                            "REVERSED",
+                            "REVERSAL"
+                        ],
+                        "type": "string",
+                        "description": "冲销状态",
+                        "name": "reversalStatus",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起（含），YYYY-MM-DD",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止（含），YYYY-MM-DD",
+                        "name": "businessTo",
                         "in": "query"
                     },
                     {
@@ -5744,6 +6282,30 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "供应商多词检索当前档案",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词检索当前档案或明细快照",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "交付方式：true直送，false普通",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "状态",
                         "name": "status",
                         "in": "query"
@@ -6172,6 +6734,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "交付方式：true直送，false普通",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "DRAFT",
                             "POSTED",
@@ -6289,6 +6857,153 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/purchases/items": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "采购入库"
+                ],
+                "summary": "跨采购单查询商品明细",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "采购单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "供应商ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "供应商关键词",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "当前商品及历史快照关键词",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "POSTED",
+                            "CANCELLED"
+                        ],
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "交付方式",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "businessDate",
+                            "unitPrice",
+                            "amount",
+                            "netAmount"
+                        ],
+                        "type": "string",
+                        "description": "排序字段",
+                        "name": "sortBy",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "排序方向",
+                        "name": "sortDir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/purchase.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/purchase.ItemPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/purchase.ApiEnvelope"
                         }
@@ -6726,6 +7441,30 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "客户ID",
                         "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户多词检索当前档案或历史名称快照",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品多词检索当前档案或明细快照",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "交付方式：true直送，false普通",
+                        "name": "directDelivery",
                         "in": "query"
                     },
                     {
@@ -7169,6 +7908,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "交付方式：true直送，false普通",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "业务日期起",
                         "name": "businessFrom",
                         "in": "query"
@@ -7364,6 +8109,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "状态",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "交付方式：true直送，false普通",
+                        "name": "directDelivery",
                         "in": "query"
                     },
                     {
@@ -7853,6 +8604,130 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sales/{id}/purchase-sources": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "允许草稿和普通已过账销售；人工追溯，不占用采购数量或改变库存往来。晚于销售日期的新增来源必须明确确认。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售出库"
+                ],
+                "summary": "补填或更正销售采购来源",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "销售单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "当前版本及明细来源",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sale.SourceEditInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sale.Draft"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sales/{id}/purchase-sources/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "销售出库"
+                ],
+                "summary": "查询销售采购来源修改历史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "销售单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/sale.ApiEnvelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/sale.SourceHistory"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }
@@ -8400,6 +9275,341 @@ const docTemplate = `{
                 }
             }
         },
+        "directorder.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "directorder.CancelInput": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.Draft": {
+            "type": "object",
+            "properties": {
+                "activePurchaseReturns": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "activeSaleReturns": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "cancelReason": {
+                    "type": "string"
+                },
+                "cancelledAt": {
+                    "type": "string"
+                },
+                "cancelledBy": {
+                    "type": "integer"
+                },
+                "cancelledByName": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "integer"
+                },
+                "createdByName": {
+                    "type": "string"
+                },
+                "customerId": {
+                    "type": "integer"
+                },
+                "customerName": {
+                    "type": "string"
+                },
+                "deliveryAddress": {
+                    "type": "string"
+                },
+                "deliveryContact": {
+                    "type": "string"
+                },
+                "deliveryPhone": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directorder.Line"
+                    }
+                },
+                "postedAt": {
+                    "type": "string"
+                },
+                "postedBy": {
+                    "type": "integer"
+                },
+                "postedByName": {
+                    "type": "string"
+                },
+                "purchaseId": {
+                    "type": "integer"
+                },
+                "purchaseTotal": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "saleId": {
+                    "type": "integer"
+                },
+                "saleTotal": {
+                    "type": "string"
+                },
+                "saveReceipt": {
+                    "$ref": "#/definitions/directorder.SaveReceipt"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "supplierId": {
+                    "type": "integer"
+                },
+                "supplierName": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.EditInput": {
+            "type": "object",
+            "properties": {
+                "businessDate": {
+                    "type": "string"
+                },
+                "customerId": {
+                    "type": "integer"
+                },
+                "deliveryAddress": {
+                    "type": "string"
+                },
+                "deliveryContact": {
+                    "type": "string"
+                },
+                "deliveryPhone": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directorder.LineInput"
+                    }
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "supplierId": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.Input": {
+            "type": "object",
+            "properties": {
+                "businessDate": {
+                    "type": "string"
+                },
+                "customerId": {
+                    "type": "integer"
+                },
+                "deliveryAddress": {
+                    "type": "string"
+                },
+                "deliveryContact": {
+                    "type": "string"
+                },
+                "deliveryPhone": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directorder.LineInput"
+                    }
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "supplierId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.Line": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productModel": {
+                    "type": "string"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productSpecification": {
+                    "type": "string"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "purchaseAmount": {
+                    "type": "string"
+                },
+                "purchasePrice": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "saleAmount": {
+                    "type": "string"
+                },
+                "salePrice": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "directorder.LineInput": {
+            "type": "object",
+            "properties": {
+                "productId": {
+                    "type": "integer"
+                },
+                "productType": {
+                    "type": "string"
+                },
+                "purchasePrice": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "remark": {
+                    "type": "string"
+                },
+                "salePrice": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "directorder.Page": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/directorder.Draft"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.PostInput": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.SaveReceipt": {
+            "type": "object",
+            "properties": {
+                "documentId": {
+                    "type": "integer"
+                },
+                "operation": {
+                    "type": "string"
+                },
+                "requestKey": {
+                    "type": "string"
+                },
+                "savedVersion": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directorder.SaveResult": {
+            "type": "object",
+            "properties": {
+                "document": {
+                    "$ref": "#/definitions/directorder.Draft"
+                },
+                "receipt": {
+                    "$ref": "#/definitions/directorder.SaveReceipt"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
         "filemgmt.ApiEnvelope": {
             "type": "object",
             "properties": {
@@ -8602,6 +9812,9 @@ const docTemplate = `{
                 "createTime": {
                     "type": "string"
                 },
+                "directDelivery": {
+                    "type": "boolean"
+                },
                 "documentNo": {
                     "type": "string"
                 },
@@ -8719,6 +9932,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "matchesProduct": {
+                    "type": "boolean"
                 },
                 "productCode": {
                     "type": "string"
@@ -9099,6 +10315,9 @@ const docTemplate = `{
                 "saveReceipt": {
                     "$ref": "#/definitions/purchase.SaveReceipt"
                 },
+                "sourceOrderId": {
+                    "type": "integer"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -9162,6 +10381,163 @@ const docTemplate = `{
                 },
                 "requestKey": {
                     "type": "string"
+                }
+            }
+        },
+        "purchase.ItemAmounts": {
+            "type": "object",
+            "properties": {
+                "itemCount": {
+                    "type": "integer"
+                },
+                "netAmount": {
+                    "type": "string"
+                },
+                "originalAmount": {
+                    "type": "string"
+                },
+                "returnedAmount": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "purchase.ItemPage": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/purchase.ItemRecord"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/purchase.ItemSummary"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "purchase.ItemQuantity": {
+            "type": "object",
+            "properties": {
+                "netQuantity": {
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "returnedQuantity": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
+        "purchase.ItemRecord": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "businessDate": {
+                    "type": "string"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "matchesHistory": {
+                    "type": "boolean"
+                },
+                "netAmount": {
+                    "type": "string"
+                },
+                "netQuantity": {
+                    "type": "string"
+                },
+                "partnerId": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "productCode": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "productModel": {
+                    "type": "string"
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "productSpecification": {
+                    "type": "string"
+                },
+                "purchaseId": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "returnedAmount": {
+                    "type": "string"
+                },
+                "returnedQuantity": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "unitPrice": {
+                    "type": "string"
+                }
+            }
+        },
+        "purchase.ItemSummary": {
+            "type": "object",
+            "properties": {
+                "amounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/purchase.ItemAmounts"
+                    }
+                },
+                "quantities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/purchase.ItemQuantity"
+                    }
                 }
             }
         },
@@ -10191,6 +11567,9 @@ const docTemplate = `{
                 "saveReceipt": {
                     "$ref": "#/definitions/sale.SaveReceipt"
                 },
+                "sourceOrderId": {
+                    "type": "integer"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -10485,6 +11864,12 @@ const docTemplate = `{
                 "productType": {
                     "type": "string"
                 },
+                "purchaseSources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.PurchaseSource"
+                    }
+                },
                 "quantity": {
                     "type": "string"
                 },
@@ -10510,6 +11895,12 @@ const docTemplate = `{
                 },
                 "productType": {
                     "type": "string"
+                },
+                "purchaseSources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.SourceInput"
+                    }
                 },
                 "quantity": {
                     "type": "string"
@@ -10553,6 +11944,44 @@ const docTemplate = `{
                 }
             }
         },
+        "sale.PurchaseSource": {
+            "type": "object",
+            "properties": {
+                "businessDate": {
+                    "type": "string"
+                },
+                "confirmLaterDate": {
+                    "type": "boolean"
+                },
+                "documentNo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "partnerName": {
+                    "type": "string"
+                },
+                "purchaseId": {
+                    "type": "integer"
+                },
+                "purchaseItemId": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "string"
+                },
+                "returnedQuantity": {
+                    "type": "string"
+                },
+                "saleItemId": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "sale.SaveReceipt": {
             "type": "object",
             "properties": {
@@ -10581,6 +12010,77 @@ const docTemplate = `{
                 },
                 "state": {
                     "type": "string"
+                }
+            }
+        },
+        "sale.SourceEditInput": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.SourceLineInput"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sale.SourceHistory": {
+            "type": "object",
+            "properties": {
+                "afterData": {
+                    "type": "string"
+                },
+                "beforeData": {
+                    "type": "string"
+                },
+                "createTime": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "operatorId": {
+                    "type": "integer"
+                },
+                "operatorName": {
+                    "type": "string"
+                },
+                "saleId": {
+                    "type": "integer"
+                },
+                "saleItemId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sale.SourceInput": {
+            "type": "object",
+            "properties": {
+                "confirmLaterDate": {
+                    "type": "boolean"
+                },
+                "purchaseItemId": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "string"
+                }
+            }
+        },
+        "sale.SourceLineInput": {
+            "type": "object",
+            "properties": {
+                "saleItemId": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sale.SourceInput"
+                    }
                 }
             }
         },

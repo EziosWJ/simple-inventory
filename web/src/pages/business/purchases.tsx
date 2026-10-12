@@ -157,14 +157,14 @@ export function PurchasesPage() {
       render: (_, record) => (
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => void openDetail(record)}>查看</Button>
-          {record.status === "DRAFT" && (
+          {record.status === "DRAFT" && !record.sourceOrderId && (
             <>
               <Button size="sm" variant="secondary" onClick={() => void startEdit(record)}>编辑</Button>
               <Button size="sm" onClick={() => setPostTarget(record)}>过账</Button>
               <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>取消</Button>
             </>
           )}
-          {record.status === "POSTED" && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => goTo(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}
+          {record.status === "POSTED" && !record.sourceOrderId && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => goTo(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}{record.sourceOrderId && <Button size="sm" onClick={() => goTo(`/business/direct-orders/${record.sourceOrderId}`)}>来源直送单</Button>}
         </div>
       ),
     },
@@ -244,9 +244,10 @@ export function PurchasesPage() {
       >
         {detail && (
           <>
-            {detail.status === "DRAFT" && <Button onClick={()=>startEdit(detail)}>编辑草稿</Button>}
-            <p className="mb-3">{detail.directDelivery ? "直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
-            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${formatDateTime(d.postedAt)}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
+            {detail.status === "DRAFT" && !detail.sourceOrderId && <Button onClick={()=>startEdit(detail)}>编辑草稿</Button>}
+            {detail.sourceOrderId && <Button onClick={() => goTo(`/business/direct-orders/${detail.sourceOrderId}`)}>查看来源直送单</Button>}
+            <p className="mb-3">{detail.sourceOrderId ? "直送单生成：采购与销售统一确认或取消。" : detail.directDelivery ? "旧版直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
+            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${formatDateTime(d.postedAt)}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{!detail.sourceOrderId && detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
             <DataTable
               columns={[
                 { title: "商品", key: "product", render: (_, item) => <div className="min-w-[12rem] space-y-1"><div>{[item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ")}</div>{item.remark?.trim() && <div className="whitespace-pre-wrap break-words text-xs text-text-secondary">备注：{item.remark.trim()}</div>}</div> },

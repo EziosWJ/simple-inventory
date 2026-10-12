@@ -44,6 +44,10 @@ import { PartnerBalancesPage } from "@/pages/business/partner-balances";
 import { PartnerFundsPage } from "@/pages/business/partner-funds";
 import { OpeningBalancesPage } from "@/pages/business/opening-balances";
 
+import { DirectOrderDetailPage } from "@/pages/business/direct-order-detail";
+import { DirectOrdersPage } from "@/pages/business/direct-orders";
+import { DirectOrderFormPage } from "@/pages/business/direct-order-form";
+
 export const router = createBrowserRouter([
   {
     path: "/login",
@@ -76,6 +80,10 @@ export const router = createBrowserRouter([
       { path: "business/inventory-balances", element: <InventoryBalancesPage /> },
       { path: "business/inventory-entries", element: <InventoryEntriesPage /> },
       { path: "business/print-profile", element: <PrintProfilePage /> },
+      { path: "business/direct-orders", element: <DirectOrdersPage /> },
+      { path: "business/direct-orders/new", element: <DirectOrderFormPage key="new" /> },
+      { path: "business/direct-orders/:id/edit", element: <DirectOrderFormPage key="edit" /> },
+      { path: "business/direct-orders/:id", element: <DirectOrderDetailPage /> },
       { path: "business/purchases", element: <PurchasesPage /> },
       { path: "business/purchases/new", element: <PurchaseFormPage /> },
       { path: "business/purchases/:id/edit", element: <PurchaseFormPage /> },

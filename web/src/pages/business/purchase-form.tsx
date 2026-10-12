@@ -281,12 +281,13 @@ export function PurchaseFormPage() {
       </div>
     </div>}
     {(conflict || (error && id && !document)) && <Button disabled={saving || Boolean(pending)} onClick={() => { if (!dirty || window.confirm("重新加载将丢弃当前未保存输入，继续吗？")) void load(document?.id ?? documentID, true); }}>重新加载最新单据</Button>}
+    {document?.sourceOrderId && <Link className="text-primary hover:underline" to={`/business/direct-orders/${document.sourceOrderId}`}>来源直送单：请从直送入口统一办理</Link>}
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <fieldset disabled={locked} className="min-w-0 space-y-space-4">
         <FormSection title="供应商与业务资料">
           <Field label="供应商" required><PartnerSelect inlineBrowse label="供应商" identity="SUPPLIER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={p => { setPartner(p); setForm(current => ({ ...current, partnerId: p?.id ?? 0 })); }} /></Field>
           <Field label="业务日期" required htmlFor="purchase-date"><Input id="purchase-date" type="date" value={form.businessDate} onChange={e => setForm({ ...form, businessDate: e.target.value })} /></Field>
-          <Field label="交付方式"><label className="flex items-center gap-space-2"><input type="checkbox" checked={form.directDelivery} onChange={e => setForm({ ...form, directDelivery: e.target.checked })} />供应商直接送达客户</label></Field>
+          {document?.directDelivery && !document.sourceOrderId && <Field label="交付方式"><label className="flex items-center gap-space-2"><input type="checkbox" checked={form.directDelivery} onChange={e => setForm({ ...form, directDelivery: e.target.checked })} />旧版直送：供应商直接送达客户</label></Field>}
           <Field label="整单备注" htmlFor="purchase-remark"><Textarea id="purchase-remark" maxLength={500} value={form.remark} onChange={e => setForm({ ...form, remark: e.target.value })} /></Field>
         </FormSection>
         <FormSection title="采购明细" description="可将同一商品按不同成交价分别录入；金额按行四舍五入至分。">
@@ -320,7 +321,7 @@ export function PurchaseFormPage() {
         {preview.items.map((line, index) => <li key={index}>{index + 1}. {[products.find(p => p.id === line.productId)?.code, products.find(p => p.id === line.productId)?.name, products.find(p => p.id === line.productId)?.model, products.find(p => p.id === line.productId)?.specification].filter(Boolean).join(" · ") || document?.items[index]?.productName || `商品 #${line.productId}`} · 数量 {line.quantity} {line.unit} · 单价 ¥{line.unitPrice} · 金额 ¥{money(amount(line.quantity, line.unitPrice) ?? 0n)}</li>)}
       </ol>
       <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
-      <p className="mt-space-3">{preview.directDelivery ? "直送采购：不进入店内库存，增加供应商应付；采购和销售仍需分别过账。" : "确认后增加商品库存和供应商应付。"} 保存失败不继续过账，过账失败保留同一草稿。</p>
+      <p className="mt-space-3">{preview.directDelivery ? "旧版直送采购：先增加账面库存及供应商应付；关联销售仍需单独过账扣减。" : "确认后增加商品库存和供应商应付。"} 保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>
     {selectionChoice.dialog}
       <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />

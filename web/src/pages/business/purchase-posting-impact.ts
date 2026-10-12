@@ -11,7 +11,6 @@ function quantity(value: bigint): string {
 }
 
 export function purchaseInventoryImpact(items: Pick<PurchaseLine, "productId" | "productCode" | "productName" | "productModel" | "productSpecification" | "unit" | "quantity">[], directDelivery: boolean): string[] {
-  if (directDelivery) return ["直送采购：不增加店内库存"];
   const groups = new Map<string, { line: (typeof items)[number]; total: bigint }>();
   for (const line of items) {
     if (!/^\d+(?:\.\d{0,3})?$/.test(line.quantity)) continue;
@@ -20,7 +19,7 @@ export function purchaseInventoryImpact(items: Pick<PurchaseLine, "productId" | 
     group.total += milli(line.quantity);
     groups.set(key, group);
   }
-  return [...groups.values()].map(({ line, total }) => `${[line.productCode, line.productName, line.productModel, line.productSpecification].filter(Boolean).join(" · ")}：增加 ${quantity(total)} ${line.unit}`);
+  return [...(directDelivery ? ["旧版直送采购：先增加账面库存，关联销售过账后再扣减。"] : []), ...[...groups.values()].map(({ line, total }) => `${[line.productCode, line.productName, line.productModel, line.productSpecification].filter(Boolean).join(" · ")}：增加 ${quantity(total)} ${line.unit}`)];
 }
 
 export function purchasePostingConfirmation(document: PurchaseDraft): string[] {

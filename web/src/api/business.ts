@@ -45,6 +45,7 @@ export type InventoryEntryType = "ORIGINAL" | "REVERSAL";
 export type InventorySourceType = "ADJUSTMENT" | "PURCHASE" | "SALE" | "PURCHASE_RETURN" | "SALE_RETURN";
 export type InventoryEntryReason = AdjustmentReason | "PURCHASE" | "PURCHASE_CANCEL" | "SALE" | "SALE_CANCEL" | "PURCHASE_RETURN" | "PURCHASE_RETURN_CANCEL" | "SALE_RETURN" | "SALE_RETURN_CANCEL";
 export type InventoryEntry = {
+  directDelivery?: boolean;
   id: number; productId: number; adjustmentId?: number; adjustmentItemId?: number; purchaseId?: number; purchaseItemId?: number; saleId?: number; saleItemId?: number; purchaseReturnId?:number; purchaseReturnItemId?:number; saleReturnId?:number; saleReturnItemId?:number; sourceType:InventorySourceType;
   entryType: InventoryEntryType; quantity: string; balanceBefore: string; balanceAfter: string;
   reason: InventoryEntryReason; remark?: string | null;
@@ -57,7 +58,7 @@ export const inventoryBalancePage=(query:Record<string,string|number>)=>http.get
 export const inventoryEntryPage=(query:Record<string,string|number>)=>http.get<BusinessPage<InventoryEntry>>("/api/v1/inventory/entries",{query});
 export type PurchaseLine = {id:number;productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;productType:"GOODS";unit:string;quantity:string;unitPrice:string;amount:string;remark?:string|null};
 export type DirectDocument = {id:number;documentNo:string;status:"DRAFT"|"POSTED"|"CANCELLED";partnerName:string;postedAt?:string|null;postedByName?:string;cancelledAt?:string|null;cancelledByName?:string;cancelReason?:string|null};
-export type PurchaseDraft = {matchesHistory?:boolean;saveReceipt?:PurchaseSaveReceipt;directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
+export type PurchaseDraft = {sourceOrderId?:number|null;matchesHistory?:boolean;saveReceipt?:PurchaseSaveReceipt;directTrace?:DirectTrace|null;directDelivery:boolean;directDocuments:DirectDocument[];id:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";version:number;remark?:string|null;createdBy:number;createdByName:string;postedBy?:number|null;postedByName?:string;postedAt?:string|null;cancelledBy?:number|null;cancelledByName?:string;cancelReason?:string|null;createTime:string;cancelledAt?:string|null;items:PurchaseLine[];totalAmount:string};
 export type PurchaseLineInput = {productId:number;productType:"GOODS";unit:string;quantity:string;unitPrice:string;remark?:string};
 export type PurchaseInput = {requestKey?:string;directDelivery?:boolean;partnerId:number;businessDate:string;remark?:string;items:PurchaseLineInput[]};
 export type PurchaseSaveReceipt = {requestKey:string;operation:"CREATE"|"EDIT";documentId:number;savedVersion:number};
@@ -73,9 +74,9 @@ export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api
 export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>http.put<PurchaseDraft>(`/api/v1/purchases/${id}`,data);
 export const cancelPurchase=(id:number,data:{version:number;reason:string})=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/cancel`,data);
 export const postPurchase=(id:number,version:number)=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/post`,{version});
-export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"SERVICE";matchesProduct?:boolean};
+export type SaleLine = Omit<PurchaseLine,"productType"> & {purchaseSources?:PurchaseSourceInput[];productType:"GOODS"|"SERVICE";matchesProduct?:boolean};
 export type SaleDraft = {directPurchaseId?:number|null} & Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {postedBy?:number|null;postedByName?:string;postedAt?:string|null;ownerName?:string;ownerPhone?:string;ownerAddress?:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
-export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {id?:number;productType:"GOODS"|"SERVICE"};
+export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {purchaseSources?:PurchaseSourceInput[];id?:number;productType:"GOODS"|"SERVICE"};
 export type SaleInput = {directPurchaseId?:number} & Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};
 export type SaleSaveResult = Omit<PurchaseSaveResult,"document"> & {document?:SaleDraft};
 export const saleSaveResult=(operation:"CREATE"|"EDIT",key:string)=>http.get<SaleSaveResult>(`/api/v1/sales/save-requests/${operation}/${encodeURIComponent(key)}`);
@@ -148,3 +149,8 @@ export type PartnerAttachment = { id: number; entryId: number; fileId: number; o
 export const partnerAttachments = (id: number) => http.get<PartnerAttachment[]>(`/api/v1/partner-balances/entries/${id}/attachments`);
 export const addPartnerAttachments = (id: number, fileIds: number[]) => http.post<void>(`/api/v1/partner-balances/entries/${id}/attachments`, { fileIds });
 export const removePartnerAttachment = (id: number, attachmentId: number) => http.delete<void>(`/api/v1/partner-balances/entries/${id}/attachments/${attachmentId}`);
+
+export type PurchaseSourceInput = {purchaseItemId:number;quantity:string;confirmLaterDate:boolean;purchaseId?:number;documentNo?:string;partnerName?:string;businessDate?:string;status?:"DRAFT"|"POSTED"|"CANCELLED";returnedQuantity?:string};
+export type PurchaseSourceHistory = {id:number;saleId:number;saleItemId:number;beforeData:string;afterData:string;operatorId:number;operatorName:string;createTime:string};
+export const updateSaleSources=(id:number,data:{version:number;items:{saleItemId:number;sources:PurchaseSourceInput[]}[]})=>http.put<SaleDraft>(`/api/v1/sales/${id}/purchase-sources`,data);
+export const saleSourceHistory=(id:number)=>http.get<PurchaseSourceHistory[]>(`/api/v1/sales/${id}/purchase-sources/history`);

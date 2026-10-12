@@ -17,6 +17,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/config"
 	"github.com/EziosWJ/simple-inventory/server/internal/dept"
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
+	"github.com/EziosWJ/simple-inventory/server/internal/directorder"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
@@ -131,6 +132,7 @@ func main() {
 		Warehouse:      warehouseService,
 		Inventory:      inventory.NewService(inventory.NewRepository(database.GORM)),
 		PrintProfile:   printprofile.NewService(printprofile.NewRepository(database.GORM)),
+		DirectOrder:    directorder.NewService(directorder.NewRepository(database.GORM)),
 		Purchase:       purchase.NewService(purchase.NewRepository(database.GORM)),
 		PurchaseReturn: purchasereturn.NewService(purchasereturn.NewRepository(database.GORM)),
 		Sale:           sale.NewService(sale.NewRepository(database.GORM)),

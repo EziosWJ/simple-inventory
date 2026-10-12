@@ -1,3 +1,5 @@
+import { SalePurchaseSources } from "@/components/business/sale-purchase-sources";
+import { Link } from "react-router-dom";
 import type { SaleDraft } from "@/api/business";
 import { DetailDialog } from "@/components/common/detail-dialog";
 import { StatusTag } from "@/components/common/status-tag";
@@ -7,7 +9,7 @@ import { DataTable } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/datetime";
 import { statusText, statusTone } from "./sale-query-status";
-export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, goTo, onEdit }: {
+export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, goTo, onEdit, onChange }: {
     detail: SaleDraft | null;
     saleId: number;
     loading: boolean;
@@ -16,6 +18,7 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
     onClose: () => void;
     goTo: (path: string) => void;
     onEdit: (row: SaleDraft) => void;
+    onChange?: (row: SaleDraft) => void;
 }) {
     const deliveryInfo = [
         { label: "送货联系人", value: detail?.deliveryContact },
@@ -34,7 +37,7 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
         <span aria-hidden="true">·</span>
         <span>{detail.businessDate}</span>
         <StatusTag tone={statusTone(detail.status)}>{statusText(detail.status)}</StatusTag>
-        <span>{detail.directDelivery ? "直送销售" : "普通销售"}</span>
+        <span>{detail.sourceOrderId ? "直送单生成" : detail.directDelivery ? "旧版直送销售" : "普通销售"}</span>
       </div>) : undefined} onCancel={onClose} footer={detail && (<div className="flex flex-col gap-space-3 border-t border-border pt-space-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <div className="[&>div]:mb-0"><BusinessReturnLink /></div>
@@ -43,7 +46,7 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
           </Button>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          {detail.status === "DRAFT" && (<Button onClick={() => onEdit(detail)}>编辑草稿</Button>)}
+          {detail.status === "DRAFT" && !detail.sourceOrderId && (<Button onClick={() => onEdit(detail)}>编辑草稿</Button>)}
           {detail.status !== "CANCELLED" && (<Button variant="secondary" onClick={() => goTo(`/business/sales/${detail.id}/delivery-note`)}>
               打印送货单
             </Button>)}
@@ -55,8 +58,10 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
     {loading && <p role="status">正在读取销售来源单…</p>}
     {error && <div role="alert" className="text-error">{error} <Button variant="secondary" onClick={onRetry}>重试读取来源单</Button></div>}
     {detail && (<div className="space-y-space-5">
+        {detail.sourceOrderId && <Link className="text-primary hover:underline" to={`/business/direct-orders/${detail.sourceOrderId}`}>查看来源直送单</Link>}
+        <SalePurchaseSources document={detail} onChange={onChange ?? (() => onRetry())} />
         {detail.directDelivery && (<p className="rounded-control bg-neutral-background p-space-3 text-sm text-text-secondary">
-            直送销售：采购与销售单据分别过账。
+            {detail.sourceOrderId ? "由直送单统一确认和取消，采购与销售同时生效。" : "旧版直送销售：采购与销售单据分别过账。"}
           </p>)}
 
         {(deliveryInfo.length > 0 || ownerInfo.length > 0) && (<section className="grid gap-x-space-6 gap-y-space-4 sm:grid-cols-2" aria-label="送货及经营者资料">

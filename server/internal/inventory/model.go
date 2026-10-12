@@ -53,6 +53,7 @@ func (Item) TableName() string { return "inventory_adjustment_item" }
 // Entry is one line of the append-only inventory ledger. It has no update or
 // delete entry point: corrections happen through cancellation reversals.
 type Entry struct {
+	DirectDelivery       bool    `json:"directDelivery" gorm:"->;-:migration"`
 	ID                   int64   `json:"id"`
 	ProductID            int64   `json:"productId"`
 	AdjustmentID         int64   `json:"adjustmentId,omitempty"`

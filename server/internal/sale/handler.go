@@ -27,6 +27,8 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
 	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
+	g.PUT("/:id/purchase-sources", h.updateSources)
+	g.GET("/:id/purchase-sources/history", h.sourceHistory)
 	g.GET("/:id/delivery-note", h.deliveryNote)
 	g.PUT("/:id", h.edit)
 	g.POST("/:id/post", h.post)
@@ -365,7 +367,9 @@ func fail(c *gin.Context, e error) {
 		return
 	}
 	status, code, msg := http.StatusInternalServerError, 500, "服务暂不可用"
-	if errors.Is(e, ErrInvalid) {
+	if errors.Is(e, ErrForbidden) {
+		status, code, msg = 403, 403, e.Error()
+	} else if errors.Is(e, ErrInvalid) {
 		status, code, msg = 400, 400, e.Error()
 	} else if errors.Is(e, ErrNotFound) {
 		status, code, msg = 404, 404, "销售单不存在"
@@ -373,4 +377,53 @@ func fail(c *gin.Context, e error) {
 		status, code, msg = 409, 409, e.Error()
 	}
 	platform.WriteError(c, status, code, msg, nil)
+}
+
+// @Summary 补填或更正销售采购来源
+// @Description 允许草稿和普通已过账销售；人工追溯，不占用采购数量或改变库存往来。晚于销售日期的新增来源必须明确确认。
+// @Tags 销售出库
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "销售单ID"
+// @Param body body SourceEditInput true "当前版本及明细来源"
+// @Success 200 {object} ApiEnvelope{data=Draft}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 409 {object} ApiEnvelope
+// @Router /api/v1/sales/{id}/purchase-sources [put]
+func (h *Handler) updateSources(c *gin.Context) {
+	id, e := pathID(c)
+	var in SourceEditInput
+	if e != nil || c.ShouldBindJSON(&in) != nil {
+		fail(c, ErrInvalid)
+		return
+	}
+	v, e := h.s.UpdateSources(c.Request.Context(), meta(c), id, in)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 查询销售采购来源修改历史
+// @Tags 销售出库
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "销售单ID"
+// @Success 200 {object} ApiEnvelope{data=[]SourceHistory}
+// @Failure 404 {object} ApiEnvelope
+// @Router /api/v1/sales/{id}/purchase-sources/history [get]
+func (h *Handler) sourceHistory(c *gin.Context) {
+	id, e := pathID(c)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	v, e := h.s.SourceHistory(c.Request.Context(), id)
+	if e != nil {
+		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
 }

@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	ErrForbidden       = errors.New("无销售采购来源操作权限")
 	ErrRequestConflict = errors.New("保存标识已用于不同内容，请核实原保存结果")
 	ErrInvalid         = errors.New("销售单参数错误")
 	ErrNotFound        = errors.New("销售单不存在")
@@ -191,7 +192,15 @@ func validate(in Input) (Draft, []Line, error) {
 		if x.ID > 0 {
 			seenLineIDs[x.ID] = true
 		}
-		lines = append(lines, Line{ID: x.ID, ProductID: x.ProductID, ProductType: x.ProductType, Unit: strings.TrimSpace(x.Unit), QuantityMilli: qty, UnitPriceCents: price, AmountCents: amount, Remark: lr})
+		var sourceChange *[]SourceValue
+		if x.PurchaseSources != nil {
+			v, e := normalizeSources(*x.PurchaseSources, x.ProductType, qty)
+			if e != nil {
+				return Draft{}, nil, e
+			}
+			sourceChange = &v
+		}
+		lines = append(lines, Line{ID: x.ID, ProductID: x.ProductID, ProductType: x.ProductType, Unit: strings.TrimSpace(x.Unit), QuantityMilli: qty, UnitPriceCents: price, AmountCents: amount, Remark: lr, SourceChange: sourceChange})
 	}
 	h.TotalAmount = moneyText(total)
 	h.Items = lines
@@ -276,3 +285,6 @@ func lineAmount(qty, price int64) (int64, error) {
 	return n.Int64(), nil
 }
 func moneyText(c int64) string { return fmt.Sprintf("%d.%02d", c/100, c%100) }
+
+// ValidateDraftInput normalizes draft business values without persistence.
+func ValidateDraftInput(in Input) (Draft, []Line, error) { return validate(in) }

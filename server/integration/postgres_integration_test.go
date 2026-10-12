@@ -26,6 +26,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/config"
 	"github.com/EziosWJ/simple-inventory/server/internal/dept"
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
+	"github.com/EziosWJ/simple-inventory/server/internal/directorder"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
@@ -36,9 +37,9 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchase"
 	"github.com/EziosWJ/simple-inventory/server/internal/purchasereturn"
-	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sale"
+	"github.com/EziosWJ/simple-inventory/server/internal/salereturn"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/warehouse"
@@ -1132,6 +1133,7 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 		Notification:   mustNotificationService(t, notificationRepository),
 		Inventory:      inventory.NewService(inventory.NewRepository(database.GORM)),
 		PrintProfile:   printprofile.NewService(printprofile.NewRepository(database.GORM)),
+		DirectOrder:    directorder.NewService(directorder.NewRepository(database.GORM)),
 		Purchase:       purchase.NewService(purchase.NewRepository(database.GORM)),
 		PurchaseReturn: purchasereturn.NewService(purchasereturn.NewRepository(database.GORM)),
 		Sale:           sale.NewService(sale.NewRepository(database.GORM)),

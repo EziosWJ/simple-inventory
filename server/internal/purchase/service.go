@@ -265,3 +265,6 @@ func lineAmount(qty, price int64) (int64, error) {
 	return n.Int64(), nil
 }
 func moneyText(c int64) string { return fmt.Sprintf("%d.%02d", c/100, c%100) }
+
+// ValidateDraftInput normalizes draft business values without persistence.
+func ValidateDraftInput(in Input) (Draft, []Line, error) { return validate(in) }

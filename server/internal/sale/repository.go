@@ -18,11 +18,22 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Repository struct{ db *gorm.DB }
+type Repository struct {
+	db      *gorm.DB
+	orderID int64
+}
 
-func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
+func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
+// NewOrderRepository permits only the coordinator to change its generated documents.
+func NewOrderRepository(tx *gorm.DB, orderID int64) *Repository {
+	return &Repository{db: tx, orderID: orderID}
+}
 func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event audit.Event) (Draft, error) {
+	if r.orderID > 0 {
+		h.SourceOrderID = &r.orderID
+	}
+
 	var out Draft
 	var nonce [10]byte
 	if _, e := rand.Read(nonce[:]); e != nil {
@@ -36,6 +47,9 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 		} else if replay != nil {
 			out = *replay
 			return nil
+		}
+		if e := lockSourcePurchases(tx, 0, lines, h.DirectPurchaseID); e != nil {
+			return e
 		}
 		if e := validateDirect(tx, h, 0, false, lines); e != nil {
 			return e
@@ -56,7 +70,11 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 		if h.DeliveryAddress == nil {
 			h.DeliveryAddress = copyString(p.Address)
 		}
-		if e := tx.Create(&h).Error; e != nil {
+		create := tx
+		if h.SourceOrderID == nil {
+			create = tx.Omit("SourceOrderID")
+		}
+		if e := create.Create(&h).Error; e != nil {
 			return e
 		}
 		for i := range lines {
@@ -64,6 +82,9 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 			if e := tx.Create(&lines[i]).Error; e != nil {
 				return e
 			}
+		}
+		if e := applySourceChanges(ctx, tx, h, lines, event.Metadata.ActorID); e != nil {
+			return e
 		}
 		event.ResourceID = h.ID
 		if e := audit.RecordOn(ctx, tx, event); e != nil {
@@ -104,12 +125,18 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 		if prior.DirectPurchaseID != nil && !samePurchase(prior.DirectPurchaseID, h.DirectPurchaseID) {
 			return fmt.Errorf("%w：已关联销售须取消后重新建立，保留历史关联", ErrConflict)
 		}
+		if e := lockSourcePurchases(tx, id, lines, prior.DirectPurchaseID); e != nil {
+			return e
+		}
 		if e := validateDirect(tx, h, id, false, lines); e != nil {
 			return e
 		}
 		old, e := lockDraft(tx, id, version)
 		if e != nil {
 			return e
+		}
+		if old.SourceOrderID != nil && r.orderID != *old.SourceOrderID {
+			return ErrConflict
 		}
 		if old.DirectPurchaseID != nil && (h.DirectPurchaseID == nil || *old.DirectPurchaseID != *h.DirectPurchaseID) {
 			return fmt.Errorf("%w：已关联销售须取消后重新建立，保留历史关联", ErrConflict)
@@ -155,9 +182,24 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 			}
 		}
 		if len(removed) > 0 {
+			if tx.Migrator().HasTable(&PurchaseSource{}) {
+				for _, removedID := range removed {
+					l := oldByID[removedID]
+					empty := []SourceValue{}
+					l.SourceChange = &empty
+					if e := applySourceChanges(ctx, tx, old, []Line{l}, event.Metadata.ActorID); e != nil {
+						return e
+					}
+				}
+			}
+
 			if e = tx.Where("document_id=? AND id IN ?", id, removed).Delete(&Line{}).Error; e != nil {
 				return e
 			}
+		}
+		h.ID = id
+		if e := applySourceChanges(ctx, tx, h, lines, event.Metadata.ActorID); e != nil {
+			return e
 		}
 		event.ResourceID = id
 		if e = audit.RecordOn(ctx, tx, event); e != nil {
@@ -190,7 +232,10 @@ func (r *Repository) Cancel(ctx context.Context, id, version int64, reason strin
 		if e != nil {
 			return e
 		}
-		now := time.Now().UTC()
+		if h.SourceOrderID != nil && r.orderID != *h.SourceOrderID {
+			return ErrConflict
+		}
+		now := directdelivery.EffectiveTime(tx.Statement.Context)
 		if h.Status == "POSTED" {
 			if err := rejectSaleWithReturns(tx, id); err != nil {
 				return err
@@ -269,6 +314,9 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		if e != nil {
 			return e
 		}
+		if h.SourceOrderID != nil && r.orderID != *h.SourceOrderID {
+			return ErrConflict
+		}
 		lines := []Line{}
 		if e = tx.Where("document_id=?", id).Order("id ASC").Find(&lines).Error; e != nil {
 			return e
@@ -346,7 +394,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		if er != nil {
 			return er
 		}
-		now := time.Now().UTC()
+		now := directdelivery.EffectiveTime(tx.Statement.Context)
 		for _, l := range lines {
 			if l.ProductType != "GOODS" {
 				continue
@@ -528,7 +576,7 @@ func reverseSale(tx *gorm.DB, h Draft, id int64, reason string, occurred *time.T
 			return fmt.Errorf("%w：商品%d冲销后库存超出范围，销售单未取消", ErrInvalid, productID)
 		}
 	}
-	now := time.Now().UTC()
+	now := directdelivery.EffectiveTime(tx.Statement.Context)
 	*occurred = now
 	for _, l := range lines {
 		if l.ProductType != "GOODS" {
@@ -783,6 +831,9 @@ func find(db *gorm.DB, id int64) (*Draft, error) {
 		lines[i].Amount = moneyText(lines[i].AmountCents)
 		total += lines[i].AmountCents
 	}
+	if e := loadSources(db, lines); e != nil {
+		return nil, e
+	}
 	h.Items = lines
 	h.TotalAmount = moneyText(total)
 	h.DirectTrace, e = directdelivery.SaleTrace(db, id)
@@ -823,6 +874,9 @@ func validateDirect(tx *gorm.DB, h Draft, id int64, posting bool, lines []Line) 
 	var p directdelivery.Purchase
 	if e := directdelivery.LockPurchase(tx, *h.DirectPurchaseID, &p); e != nil {
 		return fmt.Errorf("%w：关联采购不存在", ErrInvalid)
+	}
+	if p.SourceOrderID != nil && (h.SourceOrderID == nil || *h.SourceOrderID != *p.SourceOrderID) {
+		return fmt.Errorf("%w：请从来源直送单办理", ErrConflict)
 	}
 	if !p.DirectDelivery || p.Status == "CANCELLED" {
 		return fmt.Errorf("%w：必须关联未取消的直送采购单", ErrConflict)

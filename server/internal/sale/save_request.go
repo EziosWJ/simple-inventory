@@ -40,10 +40,11 @@ func prepareSaveRequest(key *string, operation string, id, version int64, h Draf
 		ProductType, Unit string
 		Quantity, Price   int64
 		Remark            *string
+		Sources           *[]SourceValue `json:"Sources,omitempty"`
 	}
 	items := make([]canonicalLine, len(lines))
 	for i, l := range lines {
-		items[i] = canonicalLine{l.ID, l.ProductID, l.ProductType, l.Unit, l.QuantityMilli, l.UnitPriceCents, l.Remark}
+		items[i] = canonicalLine{l.ID, l.ProductID, l.ProductType, l.Unit, l.QuantityMilli, l.UnitPriceCents, l.Remark, l.SourceChange}
 	}
 	data, e := json.Marshal(struct {
 		ID, Version, PartnerID                          int64

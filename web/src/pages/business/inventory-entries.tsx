@@ -127,7 +127,7 @@ export function InventoryEntriesPage() {
       render: (value) => <span className={String(value ?? "").startsWith("-") ? "tabular-nums text-danger" : "tabular-nums text-success"}>{String(value ?? "")}</span>,
     },
     { title: "调整前 → 调整后", key: "balance", render: (_, record) => <span className="tabular-nums">{record.balanceBefore} → {record.balanceAfter}</span> },
-    { title: "业务来源", dataIndex: "sourceType", render: (value) => sourceLabels[value as InventorySourceType] ?? String(value ?? "") },
+    { title: "业务来源", dataIndex: "sourceType", render: (value, row) => `${sourceLabels[value as InventorySourceType] ?? String(value ?? "")}${row.directDelivery ? " · 直送" : ""}` },
     { title: "类型", dataIndex: "entryType", render: (value) => businessDictLabel(entryTypeFallback, value as InventoryEntryType) },
     { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(entryReasonOptions, value as InventoryEntryReason) },
     { title: "说明", dataIndex: "remark", render: (value) => <span className="whitespace-pre-wrap">{value || "-"}</span> },

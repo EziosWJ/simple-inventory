@@ -19,10 +19,9 @@ export function saleInventoryImpact(items: Pick<SaleLine, "productId" | "product
     group.total += milli(line.quantity);
     groups.set(key, group);
   }
-  return directDelivery ? "直送销售：无实物库存变化" :
-    [...groups.values()].map(({ line, total }) =>
+  return (directDelivery ? "旧版直送销售：扣减此前采购增加的账面库存。\n" : "") + ([...groups.values()].map(({ line, total }) =>
       `${[line.productCode, line.productName, line.productModel, line.productSpecification].filter(Boolean).join(" · ")}：扣减 ${quantity(total)} ${line.unit}`,
-    ).join("\n") || "无实物库存变化（服务不扣减库存）";
+    ).join("\n") || "无实物库存变化（服务不扣减库存）");
 }
 
 export function salePostingConfirmation(document: SaleDraft): string {

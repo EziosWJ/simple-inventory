@@ -12,6 +12,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/config"
 	"github.com/EziosWJ/simple-inventory/server/internal/dept"
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
+	"github.com/EziosWJ/simple-inventory/server/internal/directorder"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
@@ -50,6 +51,7 @@ type Dependencies struct {
 	Warehouse      *warehouse.Service
 	Inventory      *inventory.Service
 	PrintProfile   *printprofile.Service
+	DirectOrder    *directorder.Service
 	Purchase       *purchase.Service
 	PurchaseReturn *purchasereturn.Service
 	SaleReturn     *salereturn.Service
@@ -170,6 +172,9 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	}
 	if deps.PrintProfile != nil {
 		printprofile.RegisterRoutes(apiV1, printprofile.NewHandler(deps.PrintProfile))
+	}
+	if deps.DirectOrder != nil {
+		directorder.RegisterRoutes(apiV1, directorder.NewHandler(deps.DirectOrder))
 	}
 	if deps.Purchase != nil {
 		purchase.RegisterRoutes(apiV1, purchase.NewHandler(deps.Purchase))

@@ -316,6 +316,226 @@ definitions:
       unitPrice:
         type: string
     type: object
+  directorder.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  directorder.CancelInput:
+    properties:
+      reason:
+        type: string
+      version:
+        type: integer
+    type: object
+  directorder.Draft:
+    properties:
+      activePurchaseReturns:
+        items:
+          type: integer
+        type: array
+      activeSaleReturns:
+        items:
+          type: integer
+        type: array
+      businessDate:
+        type: string
+      cancelReason:
+        type: string
+      cancelledAt:
+        type: string
+      cancelledBy:
+        type: integer
+      cancelledByName:
+        type: string
+      createTime:
+        type: string
+      createdBy:
+        type: integer
+      createdByName:
+        type: string
+      customerId:
+        type: integer
+      customerName:
+        type: string
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/directorder.Line'
+        type: array
+      postedAt:
+        type: string
+      postedBy:
+        type: integer
+      postedByName:
+        type: string
+      purchaseId:
+        type: integer
+      purchaseTotal:
+        type: string
+      remark:
+        type: string
+      saleId:
+        type: integer
+      saleTotal:
+        type: string
+      saveReceipt:
+        $ref: '#/definitions/directorder.SaveReceipt'
+      status:
+        type: string
+      supplierId:
+        type: integer
+      supplierName:
+        type: string
+      version:
+        type: integer
+    type: object
+  directorder.EditInput:
+    properties:
+      businessDate:
+        type: string
+      customerId:
+        type: integer
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/directorder.LineInput'
+        type: array
+      remark:
+        type: string
+      requestKey:
+        type: string
+      supplierId:
+        type: integer
+      version:
+        type: integer
+    type: object
+  directorder.Input:
+    properties:
+      businessDate:
+        type: string
+      customerId:
+        type: integer
+      deliveryAddress:
+        type: string
+      deliveryContact:
+        type: string
+      deliveryPhone:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/directorder.LineInput'
+        type: array
+      remark:
+        type: string
+      requestKey:
+        type: string
+      supplierId:
+        type: integer
+    type: object
+  directorder.Line:
+    properties:
+      id:
+        type: integer
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      productType:
+        type: string
+      purchaseAmount:
+        type: string
+      purchasePrice:
+        type: string
+      quantity:
+        type: string
+      remark:
+        type: string
+      saleAmount:
+        type: string
+      salePrice:
+        type: string
+      unit:
+        type: string
+    type: object
+  directorder.LineInput:
+    properties:
+      productId:
+        type: integer
+      productType:
+        type: string
+      purchasePrice:
+        type: string
+      quantity:
+        type: string
+      remark:
+        type: string
+      salePrice:
+        type: string
+      unit:
+        type: string
+    type: object
+  directorder.Page:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/directorder.Draft'
+        type: array
+      total:
+        type: integer
+    type: object
+  directorder.PostInput:
+    properties:
+      version:
+        type: integer
+    type: object
+  directorder.SaveReceipt:
+    properties:
+      documentId:
+        type: integer
+      operation:
+        type: string
+      requestKey:
+        type: string
+      savedVersion:
+        type: integer
+    type: object
+  directorder.SaveResult:
+    properties:
+      document:
+        $ref: '#/definitions/directorder.Draft'
+      receipt:
+        $ref: '#/definitions/directorder.SaveReceipt'
+      state:
+        type: string
+    type: object
   filemgmt.ApiEnvelope:
     properties:
       code:
@@ -448,6 +668,8 @@ definitions:
         type: string
       createTime:
         type: string
+      directDelivery:
+        type: boolean
       documentNo:
         type: string
       entryType:
@@ -528,6 +750,8 @@ definitions:
         type: string
       id:
         type: integer
+      matchesProduct:
+        type: boolean
       productCode:
         type: string
       productId:
@@ -777,6 +1001,8 @@ definitions:
         type: string
       saveReceipt:
         $ref: '#/definitions/purchase.SaveReceipt'
+      sourceOrderId:
+        type: integer
       status:
         type: string
       totalAmount:
@@ -819,6 +1045,109 @@ definitions:
         type: string
       requestKey:
         type: string
+    type: object
+  purchase.ItemAmounts:
+    properties:
+      itemCount:
+        type: integer
+      netAmount:
+        type: string
+      originalAmount:
+        type: string
+      returnedAmount:
+        type: string
+      status:
+        type: string
+    type: object
+  purchase.ItemPage:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      records:
+        items:
+          $ref: '#/definitions/purchase.ItemRecord'
+        type: array
+      summary:
+        $ref: '#/definitions/purchase.ItemSummary'
+      total:
+        type: integer
+    type: object
+  purchase.ItemQuantity:
+    properties:
+      netQuantity:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productName:
+        type: string
+      quantity:
+        type: string
+      returnedQuantity:
+        type: string
+      status:
+        type: string
+      unit:
+        type: string
+    type: object
+  purchase.ItemRecord:
+    properties:
+      amount:
+        type: string
+      businessDate:
+        type: string
+      documentNo:
+        type: string
+      id:
+        type: integer
+      matchesHistory:
+        type: boolean
+      netAmount:
+        type: string
+      netQuantity:
+        type: string
+      partnerId:
+        type: integer
+      partnerName:
+        type: string
+      productCode:
+        type: string
+      productId:
+        type: integer
+      productModel:
+        type: string
+      productName:
+        type: string
+      productSpecification:
+        type: string
+      purchaseId:
+        type: integer
+      quantity:
+        type: string
+      returnedAmount:
+        type: string
+      returnedQuantity:
+        type: string
+      status:
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: string
+    type: object
+  purchase.ItemSummary:
+    properties:
+      amounts:
+        items:
+          $ref: '#/definitions/purchase.ItemAmounts'
+        type: array
+      quantities:
+        items:
+          $ref: '#/definitions/purchase.ItemQuantity'
+        type: array
     type: object
   purchase.Line:
     properties:
@@ -1493,6 +1822,8 @@ definitions:
         type: string
       saveReceipt:
         $ref: '#/definitions/sale.SaveReceipt'
+      sourceOrderId:
+        type: integer
       status:
         type: string
       totalAmount:
@@ -1691,6 +2022,10 @@ definitions:
         type: string
       productType:
         type: string
+      purchaseSources:
+        items:
+          $ref: '#/definitions/sale.PurchaseSource'
+        type: array
       quantity:
         type: string
       remark:
@@ -1708,6 +2043,10 @@ definitions:
         type: integer
       productType:
         type: string
+      purchaseSources:
+        items:
+          $ref: '#/definitions/sale.SourceInput'
+        type: array
       quantity:
         type: string
       remark:
@@ -1735,6 +2074,31 @@ definitions:
       version:
         type: integer
     type: object
+  sale.PurchaseSource:
+    properties:
+      businessDate:
+        type: string
+      confirmLaterDate:
+        type: boolean
+      documentNo:
+        type: string
+      id:
+        type: integer
+      partnerName:
+        type: string
+      purchaseId:
+        type: integer
+      purchaseItemId:
+        type: integer
+      quantity:
+        type: string
+      returnedQuantity:
+        type: string
+      saleItemId:
+        type: integer
+      status:
+        type: string
+    type: object
   sale.SaveReceipt:
     properties:
       documentId:
@@ -1754,6 +2118,52 @@ definitions:
         $ref: '#/definitions/sale.SaveReceipt'
       state:
         type: string
+    type: object
+  sale.SourceEditInput:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/sale.SourceLineInput'
+        type: array
+      version:
+        type: integer
+    type: object
+  sale.SourceHistory:
+    properties:
+      afterData:
+        type: string
+      beforeData:
+        type: string
+      createTime:
+        type: string
+      id:
+        type: integer
+      operatorId:
+        type: integer
+      operatorName:
+        type: string
+      saleId:
+        type: integer
+      saleItemId:
+        type: integer
+    type: object
+  sale.SourceInput:
+    properties:
+      confirmLaterDate:
+        type: boolean
+      purchaseItemId:
+        type: integer
+      quantity:
+        type: string
+    type: object
+  sale.SourceLineInput:
+    properties:
+      saleItemId:
+        type: integer
+      sources:
+        items:
+          $ref: '#/definitions/sale.SourceInput'
+        type: array
     type: object
   salereturn.ApiEnvelope:
     properties:
@@ -4335,6 +4745,295 @@ paths:
       summary: 用户分页
       tags:
       - 用户管理
+  /api/v1/direct-orders:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 供应商ID
+        in: query
+        name: supplierId
+        type: integer
+      - description: 客户ID
+        in: query
+        name: customerId
+        type: integer
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Page'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 分页查询直送单
+      tags:
+      - 直送单
+    post:
+      consumes:
+      - application/json
+      description: 一个供应商一个客户，至少一条实物；草稿不改变库存或往来。requestKey 用于保存结果核实和防重。
+      parameters:
+      - description: 直送资料
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/directorder.Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Draft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 新建直送草稿
+      tags:
+      - 直送单
+  /api/v1/direct-orders/{id}:
+    get:
+      parameters:
+      - description: 直送单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Draft'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询直送详情
+      tags:
+      - 直送单
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 直送单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 当前版本及直送资料
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/directorder.EditInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 编辑直送草稿
+      tags:
+      - 直送单
+  /api/v1/direct-orders/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: 有生效退货时拒绝；冲销采购销售同事务完成，保留真实收付款，后续独立新建不与原取消关联。
+      parameters:
+      - description: 直送单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本与取消原因
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/directorder.CancelInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Draft'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 整笔取消直送
+      tags:
+      - 直送单
+  /api/v1/direct-orders/{id}/post:
+    post:
+      consumes:
+      - application/json
+      description: 两边单据、库存、往来及审计同事务提交；实物库存净变化为零。重复原版本请求不重复生效。
+      parameters:
+      - description: 直送单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 当前版本
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/directorder.PostInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.Draft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/directorder.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 一次确认直送并过账采购销售
+      tags:
+      - 直送单
+  /api/v1/direct-orders/save-requests/{operation}/{requestKey}:
+    get:
+      parameters:
+      - description: CREATE 或 EDIT
+        in: path
+        name: operation
+        required: true
+        type: string
+      - description: 保存标识
+        in: path
+        name: requestKey
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.SaveResult'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 核实直送草稿保存结果
+      tags:
+      - 直送单
+  /api/v1/direct-orders/save-requests/{operation}/{requestKey}/resolve:
+    post:
+      parameters:
+      - description: CREATE 或 EDIT
+        in: path
+        name: operation
+        required: true
+        type: string
+      - description: 保存标识
+        in: path
+        name: requestKey
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/directorder.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/directorder.SaveResult'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 核实并关闭未提交的直送保存标识
+      tags:
+      - 直送单
   /api/v1/inventory/adjustments:
     get:
       parameters:
@@ -4362,6 +5061,10 @@ paths:
         in: query
         name: productId
         type: integer
+      - description: 当前商品资料或已保存的商品快照关键词
+        in: query
+        name: productKeyword
+        type: string
       - description: 创建时间下界，包含，RFC3339
         in: query
         name: createdFrom
@@ -4648,6 +5351,10 @@ paths:
         in: query
         name: keyword
         type: string
+      - description: 精确商品内部ID，与keyword互斥
+        in: query
+        name: productId
+        type: integer
       - description: 商品分类
         in: query
         name: category
@@ -4704,6 +5411,10 @@ paths:
         in: query
         name: productId
         type: integer
+      - description: 当前商品资料或历史商品快照关键词
+        in: query
+        name: productKeyword
+        type: string
       - description: 来源单据类型
         enum:
         - ADJUSTMENT
@@ -4779,6 +5490,26 @@ paths:
       - description: 单位多词字面检索，仅当前档案；与partnerId互斥
         in: query
         name: partnerKeyword
+        type: string
+      - description: 单号多词检索
+        in: query
+        name: documentNo
+        type: string
+      - description: 冲销状态
+        enum:
+        - EFFECTIVE
+        - REVERSED
+        - REVERSAL
+        in: query
+        name: reversalStatus
+        type: string
+      - description: 业务日期起（含），YYYY-MM-DD
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止（含），YYYY-MM-DD
+        in: query
+        name: businessTo
         type: string
       - description: 余额分类，省略时保留原单位方向排序；待处理分类按金额降序
         enum:
@@ -5576,6 +6307,22 @@ paths:
         in: query
         name: partnerId
         type: integer
+      - description: 供应商多词检索当前档案
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 商品多词检索当前档案或明细快照
+        in: query
+        name: productKeyword
+        type: string
+      - description: 交付方式：true直送，false普通
+        in: query
+        name: directDelivery
+        type: string
       - description: 状态
         in: query
         name: status
@@ -5828,6 +6575,10 @@ paths:
         in: query
         name: productKeyword
         type: string
+      - description: 交付方式：true直送，false普通
+        in: query
+        name: directDelivery
+        type: string
       - description: 状态
         enum:
         - DRAFT
@@ -6060,6 +6811,101 @@ paths:
       summary: 过账采购入库单
       tags:
       - 采购入库
+  /api/v1/purchases/items:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 采购单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 供应商ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 供应商关键词
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 当前商品及历史快照关键词
+        in: query
+        name: productKeyword
+        type: string
+      - description: 状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 交付方式
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: directDelivery
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      - description: 排序字段
+        enum:
+        - businessDate
+        - unitPrice
+        - amount
+        - netAmount
+        in: query
+        name: sortBy
+        type: string
+      - description: 排序方向
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sortDir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/purchase.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/purchase.ItemPage'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 跨采购单查询商品明细
+      tags:
+      - 采购入库
   /api/v1/purchases/save-requests/{operation}/{requestKey}:
     get:
       description: COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。
@@ -6163,6 +7009,22 @@ paths:
         in: query
         name: partnerId
         type: integer
+      - description: 客户多词检索当前档案或历史名称快照
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 商品多词检索当前档案或明细快照
+        in: query
+        name: productKeyword
+        type: string
+      - description: 交付方式：true直送，false普通
+        in: query
+        name: directDelivery
+        type: string
       - description: 状态
         in: query
         name: status
@@ -6424,6 +7286,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: 交付方式：true直送，false普通
+        in: query
+        name: directDelivery
+        type: string
       - description: 业务日期起
         in: query
         name: businessFrom
@@ -6675,6 +7541,79 @@ paths:
       summary: 过账销售出库单
       tags:
       - 销售出库
+  /api/v1/sales/{id}/purchase-sources:
+    put:
+      consumes:
+      - application/json
+      description: 允许草稿和普通已过账销售；人工追溯，不占用采购数量或改变库存往来。晚于销售日期的新增来源必须明确确认。
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 当前版本及明细来源
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sale.SourceEditInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/sale.Draft'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 补填或更正销售采购来源
+      tags:
+      - 销售出库
+  /api/v1/sales/{id}/purchase-sources/history:
+    get:
+      parameters:
+      - description: 销售单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/sale.ApiEnvelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/sale.SourceHistory'
+                  type: array
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查询销售采购来源修改历史
+      tags:
+      - 销售出库
   /api/v1/sales/items:
     get:
       description: 只读查询跨单销售明细，并返回同筛选范围的金额与商品数量汇总。按原销售业务日期选取明细：成交明细取已保存内容或过账快照，退货只取截至查询时仍已过账的销售退货。草稿与已取消销售保留原数量和金额，但不计入有效退货与净销售合计；服务不能退货，净数量与净额等于原值。
@@ -6730,6 +7669,10 @@ paths:
         - CANCELLED
         in: query
         name: status
+        type: string
+      - description: 交付方式：true直送，false普通
+        in: query
+        name: directDelivery
         type: string
       - description: 业务日期起
         in: query

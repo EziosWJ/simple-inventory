@@ -11,6 +11,7 @@ import (
 )
 
 type Purchase struct {
+	SourceOrderID  *int64
 	ID             int64
 	DirectDelivery bool
 	Status         string

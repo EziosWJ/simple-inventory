@@ -1,3 +1,6 @@
+import { PurchaseSourcesEditor } from "@/components/business/purchase-sources-editor";
+import { purchaseSourcesInvalid } from "@/components/business/purchase-source-validation";
+import { SalePurchaseSources } from "@/components/business/sale-purchase-sources";
 import { saleInventoryImpact } from "./sale-posting-impact";
 import { useSelectionChoice } from "@/hooks/use-selection-choice";
 import { businessToday } from "@/lib/datetime";
@@ -11,7 +14,7 @@ import { businessReturnTo, withBusinessReturn } from "@/lib/business-navigation"
 import { draftLineAmount as amount, draftMoney as money } from "@/components/business/draft-amount";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { createSale, getPartner, getProduct, getSale, getPurchase, postSale, saleSaveResult, resolveSaleSave, updateSale, type PartnerRecord, type ProductRecord, type SaleDraft, type SaleInput, type SaleSaveResult, type PurchaseDraft } from "@/api/business";
+import { createSale, getPartner, getProduct, getSale, getPurchase, postSale, saleSaveResult, resolveSaleSave, updateSale, type PartnerRecord, type ProductRecord, type SaleDraft, type SaleInput, type SaleSaveResult, type PurchaseDraft, type PurchaseSourceInput } from "@/api/business";
 import { PartnerSelect, ProductSelect, PurchaseSourceSelect } from "@/components/business/master-data-select";
 import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
 import { PageHeader } from "@/components/common/page-header";
@@ -24,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
 
-type Line = { priceEdited?: boolean; id?: number; productId: number; productType: "GOODS" | "SERVICE"; unit: string; quantity: string; unitPrice: string; remark: string };
+type Line = { purchaseSources?: PurchaseSourceInput[]; priceEdited?: boolean; id?: number; productId: number; productType: "GOODS" | "SERVICE"; unit: string; quantity: string; unitPrice: string; remark: string };
 type Form = { partnerId: number; businessDate: string; directDelivery: boolean; directPurchaseId?: number; deliveryContact: string; deliveryPhone: string; deliveryAddress: string; remark: string; items: Line[] };
 type Pending = { key: string; operation: "CREATE" | "EDIT"; id: number; version: number; postAfter?: boolean };
 type PendingPost = { id: number; version: number };
@@ -35,7 +38,7 @@ function initialForm(): Form {
   return { partnerId: 0, businessDate, directDelivery: false, deliveryContact: "", deliveryPhone: "", deliveryAddress: "", remark: "", items: [blankLine()] };
 }
 function fromDraft(d: SaleDraft): Form {
-  return { partnerId: d.partnerId, businessDate: d.businessDate, directDelivery: d.directDelivery, directPurchaseId: d.directPurchaseId ?? undefined, deliveryContact: d.deliveryContact ?? "", deliveryPhone: d.deliveryPhone ?? "", deliveryAddress: d.deliveryAddress ?? "", remark: d.remark ?? "", items: d.items.map(i => ({ id: i.id, productId: i.productId, productType: i.productType, unit: i.unit, quantity: i.quantity, unitPrice: i.unitPrice, priceEdited:true, remark: i.remark ?? "" })) };
+  return { partnerId: d.partnerId, businessDate: d.businessDate, directDelivery: d.directDelivery, directPurchaseId: d.directPurchaseId ?? undefined, deliveryContact: d.deliveryContact ?? "", deliveryPhone: d.deliveryPhone ?? "", deliveryAddress: d.deliveryAddress ?? "", remark: d.remark ?? "", items: d.items.map(i => ({ id: i.id, productId: i.productId, productType: i.productType, unit: i.unit, quantity: i.quantity, unitPrice: i.unitPrice, priceEdited:true, purchaseSources:i.purchaseSources, remark: i.remark ?? "" })) };
 }
 export function SaleFormPage() {
   const { id } = useParams();
@@ -150,6 +153,7 @@ export function SaleFormPage() {
   async function selectProduct(index:number,p:ProductRecord|null){
     const line=form.items[index];if(!line)return false;
     if(line.productId===(p?.id??0)){if(p)setProducts(current=>[...current.filter(x=>x.id!==p.id),p]);return true}
+    if ((line.purchaseSources?.length ?? 0)>0 && !window.confirm("更换商品将清空本行采购来源，请确认后重新填写。")) return false;
     const unitChanged=Boolean(line.unit&&p&&line.unit!==p.unit);
     let replace=true;
     if(line.priceEdited||unitChanged){
@@ -157,7 +161,7 @@ export function SaleFormPage() {
       if(result===null)return false;replace=result;
     }
     if(p)setProducts(current=>[...current.filter(x=>x.id!==p.id),p]);
-    updateLine(index,{productId:p?.id??0,unit:p?.unit??"",productType:p?.type??"GOODS",unitPrice:replace?p?.salePrice??"0.00":line.unitPrice,priceEdited:!replace});
+    updateLine(index,{purchaseSources:line.purchaseSources ? [] : undefined, productId:p?.id??0,unit:p?.unit??"",productType:p?.type??"GOODS",unitPrice:replace?p?.salePrice??"0.00":line.unitPrice,priceEdited:!replace});
     if(p)requestAnimationFrame(()=>window.document.getElementById(`quantity-${index}`)?.focus());
     return true;
   }
@@ -171,7 +175,7 @@ export function SaleFormPage() {
   const unitPending = form.items.some(line => { const p = products.find(p => p.id === line.productId); return Boolean(p && (p.type !== line.productType || p.unit !== line.unit)); });
   const lineAmounts = form.items.map(line => amount(line.quantity, line.unitPrice));
   const total = lineAmounts.every(a => a !== null) ? lineAmounts.reduce<bigint>((sum, a) => sum + (a ?? 0n), 0n) : null;
-  const invalid = (form.directDelivery && !form.directPurchaseId) || !form.partnerId || !form.businessDate || !form.items.length || form.items.length > 200 || form.items.some(line => !line.productId || !line.unit) || total === null || total > 9223372036854775807n || unitPending;
+  const invalid = (form.directDelivery && !form.directPurchaseId) || !form.partnerId || !form.businessDate || !form.items.length || form.items.length > 200 || form.items.some(line => !line.productId || !line.unit) || total === null || total > 9223372036854775807n || unitPending || form.items.some(line => line.purchaseSources && purchaseSourcesInvalid(line.purchaseSources,line.quantity,form.businessDate));
 
   function clearPending() {
     if (storageKey) localStorage.removeItem(storageKey);
@@ -321,15 +325,17 @@ export function SaleFormPage() {
       </div>
     </div>}
     {(conflict || (error && id && !document)) && <Button disabled={saving || Boolean(pending)} onClick={() => { if (!dirty || window.confirm("重新加载将丢弃当前未保存输入，继续吗？")) void load(document?.id ?? documentID, true); }}>重新加载最新单据</Button>}
+    {document?.sourceOrderId && <Link className="text-primary hover:underline" to={`/business/direct-orders/${document.sourceOrderId}`}>来源直送单：从直送入口办理确认或取消</Link>}
+    {document?.status === "POSTED" && !document.directDelivery && <SalePurchaseSources document={document} onChange={d => {const next=fromDraft(d);setDocument(d);setForm(next);setBaseline(JSON.stringify(next));}} />}
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <fieldset disabled={locked} className="min-w-0 space-y-space-4">
         <FormSection title="客户与业务资料">
           <Field label="客户" required><PartnerSelect inlineBrowse label="客户" identity="CUSTOMER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={selectCustomer} /></Field>
           <Field label="业务日期" required htmlFor="sale-date"><Input id="sale-date" type="date" value={form.businessDate} onChange={e => setForm({ ...form, businessDate: e.target.value })} /></Field>
-          <Field label="关联直送采购" help="普通销售可留空；直送采购与销售分别过账，实物按商品汇总数量一致，可添加服务。">
+          {(document?.directDelivery || directSourceID) && <Field label="关联旧版直送采购" help="普通销售可留空；直送采购与销售分别过账，实物按商品汇总数量一致，可添加服务。">
             <PurchaseSourceSelect inlineBrowse label="关联直送采购" value={form.directPurchaseId ?? 0} disabled={locked || Boolean(document?.directPurchaseId)} onChange={p => void chooseSource(p)} />
             {source && <p>{source.documentNo} · {source.partnerName} · {source.status === "POSTED" ? "采购已过账" : "采购尚未过账"}</p>}
-          </Field>
+          </Field>}
           <Field label="送货联系人" htmlFor="sale-contact"><Input id="sale-contact" maxLength={100} value={form.deliveryContact} onChange={e => {deliveryEdited.current=true; setForm({ ...form, deliveryContact: e.target.value })}} /></Field>
           <Field label="收货人电话" htmlFor="sale-phone"><Input id="sale-phone" maxLength={50} value={form.deliveryPhone} onChange={e => {deliveryEdited.current=true; setForm({ ...form, deliveryPhone: e.target.value })}} /></Field>
           <Field label="送货地址" htmlFor="sale-address" help="请填写完整地址，包含楼栋、楼层及房间号"><Textarea id="sale-address" rows={3} maxLength={500} placeholder="例如：南屯为民服务中心 3楼301室" value={form.deliveryAddress} onChange={e => {deliveryEdited.current=true; setForm({ ...form, deliveryAddress: e.target.value })}} /></Field>
@@ -346,6 +352,7 @@ export function SaleFormPage() {
                 <div className="space-y-space-2"><p>金额：¥{lineAmounts[index] === null ? "待核对" : money(lineAmounts[index]!)}</p><Button disabled={form.items.length === 1} onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== index) })}>删除</Button></div>
                 <DraftProductConfirmation type={line.productType} unit={line.unit} current={selected} onConfirm={() => { if (selected) updateLine(index, { productType: selected.type, unit: selected.unit }); }} />
                 <Field label="行备注" htmlFor={`line-remark-${index}`}><Input id={`line-remark-${index}`} maxLength={500} value={line.remark} onChange={e => updateLine(index, { remark: e.target.value })} /></Field>
+                {!form.directDelivery && line.productType === "GOODS" && <div className="md:col-span-4"><PurchaseSourcesEditor label={`第 ${index + 1} 行采购`} productId={line.productId} quantity={line.quantity} businessDate={form.businessDate} value={line.purchaseSources ?? []} disabled={locked} onChange={v => updateLine(index,{purchaseSources:v})} /></div>}
               </div>;
             })}
             <Button disabled={form.items.length >= 200} onClick={() => setForm({ ...form, items: [...form.items, blankLine()] })}>添加明细</Button>
@@ -367,7 +374,7 @@ export function SaleFormPage() {
       </ol>
       <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
       <p>送货：{preview.deliveryContact} / {preview.deliveryPhone} / {preview.deliveryAddress}</p>
-      <p className="mt-space-3">{preview.directDelivery ? `直送销售：关联采购 #${preview.directPurchaseId}；不扣店内库存，先采购后销售分别过账。` : preview.items.some(line => line.productType === "GOODS") ? "扣减店内实物库存（同商品及单位合计）：" : "纯服务销售：不改变库存。"}</p>
+      <p className="mt-space-3">{preview.directDelivery ? `直送销售：关联采购 #${preview.directPurchaseId}；扣减此前采购增加的账面库存；旧版流程先采购后销售分别过账。` : preview.items.some(line => line.productType === "GOODS") ? "扣减店内实物库存（同商品及单位合计）：" : "纯服务销售：不改变库存。"}</p>
       <p className="whitespace-pre-wrap">{inventoryImpact}</p>
       <p>增加客户应收；零金额不产生往来金额流水。保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>

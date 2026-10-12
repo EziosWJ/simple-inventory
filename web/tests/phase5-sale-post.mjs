@@ -9,7 +9,7 @@ async function call(path, body, method = body === undefined ? "GET" : "POST", au
   const res = await fetch(`${api}/api${path}`, { method, headers: { Authorization: auth ?? "", "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const json = await res.json(); assert.equal(res.status, 200, `${path}: ${json.message}`); return json.data;
 }
-async function select(page,label,code){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();await group.locator(`span[title*="${code}"]`).waitFor();}
+async function select(page,label,code){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();if(label.includes("商品"))await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "保存并过账" && !button.disabled));}
 try {
   for (let i = 0; i < 60; i++) { try { if ((await fetch(base)).ok) break; } catch { /* starting */ } await delay(250); }
   token = (await call("/auth/login", { username: "admin", password: process.env.PHASE5_UI_PASSWORD ?? "admin123" })).tokenValue;
@@ -118,6 +118,7 @@ try {
   // Same-product split lines aggregate stock; a zero-total sale still posts.
   await newForm(); await page.getByLabel("成交单价（元）").fill("0");
   await page.getByRole("button",{name:"添加明细"}).click(); await select(page,"第 2 行商品",product.code); await page.getByLabel("成交单价（元）").last().fill("0");
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "保存并过账" && !button.disabled));
   await page.getByRole("button",{name:"保存并过账",exact:true}).click();
   await page.getByRole("dialog").getByText(/过账商品：扣减 2 台/).waitFor();
   await page.getByRole("dialog").getByRole("button",{name:"确认保存并过账"}).click(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
@@ -133,7 +134,10 @@ try {
   const directID=Number(page.url().match(/sales\/(\d+)\/edit/)[1]);
   assert.equal((await call(`/v1/sales/${directID}`)).status,"DRAFT");
   await call(`/v1/purchases/${direct.id}/post`,{version:direct.version});
-  await confirm(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "库存无变化" }).waitFor();
+  await page.getByRole("button", { name: "保存并过账", exact: true }).click();
+  await page.getByRole("dialog").getByText(/旧版直送销售：扣减此前采购增加的账面库存/).waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "确认保存并过账" }).click();
+  await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   assert.equal((await call(`/v1/sales/${directID}`)).directPurchaseId,direct.id);
   await page.getByRole("button",{name:"打印已保存送货单"}).click(); await page.locator(".delivery-page").waitFor();
   assert.deepEqual(errors, []);

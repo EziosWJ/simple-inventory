@@ -1,0 +1,36 @@
+-- +goose Up
+ALTER TABLE purchase_document ADD COLUMN source_order_id BIGINT REFERENCES direct_order_document(id);
+ALTER TABLE sale_document ADD COLUMN source_order_id BIGINT REFERENCES direct_order_document(id);
+CREATE UNIQUE INDEX purchase_source_order_idx ON purchase_document(source_order_id);
+CREATE UNIQUE INDEX sale_source_order_idx ON sale_document(source_order_id);
+ALTER TABLE direct_order_document ADD COLUMN purchase_id BIGINT REFERENCES purchase_document(id);
+ALTER TABLE direct_order_document ADD COLUMN sale_id BIGINT REFERENCES sale_document(id);
+ALTER TABLE direct_order_document ADD COLUMN posted_by BIGINT REFERENCES sys_user(id);
+ALTER TABLE direct_order_document ADD COLUMN posted_at TIMESTAMPTZ;
+ALTER TABLE direct_order_document ADD COLUMN cancelled_by BIGINT REFERENCES sys_user(id);
+ALTER TABLE direct_order_document ADD COLUMN cancelled_at TIMESTAMPTZ;
+ALTER TABLE direct_order_document ADD COLUMN cancel_reason VARCHAR(500);
+ALTER TABLE direct_order_document ADD COLUMN supplier_snapshot VARCHAR(200);
+ALTER TABLE direct_order_document ADD COLUMN customer_snapshot VARCHAR(200);
+ALTER TABLE direct_order_item ADD COLUMN product_code VARCHAR(100);
+ALTER TABLE direct_order_item ADD COLUMN product_name VARCHAR(200);
+ALTER TABLE direct_order_item ADD COLUMN product_model VARCHAR(200);
+ALTER TABLE direct_order_item ADD COLUMN product_specification VARCHAR(500);
+-- +goose Down
+ALTER TABLE direct_order_item DROP COLUMN product_specification;
+ALTER TABLE direct_order_item DROP COLUMN product_model;
+ALTER TABLE direct_order_item DROP COLUMN product_name;
+ALTER TABLE direct_order_item DROP COLUMN product_code;
+ALTER TABLE direct_order_document DROP COLUMN customer_snapshot;
+ALTER TABLE direct_order_document DROP COLUMN supplier_snapshot;
+ALTER TABLE direct_order_document DROP COLUMN cancel_reason;
+ALTER TABLE direct_order_document DROP COLUMN cancelled_at;
+ALTER TABLE direct_order_document DROP COLUMN cancelled_by;
+ALTER TABLE direct_order_document DROP COLUMN posted_at;
+ALTER TABLE direct_order_document DROP COLUMN posted_by;
+ALTER TABLE direct_order_document DROP COLUMN sale_id;
+ALTER TABLE direct_order_document DROP COLUMN purchase_id;
+DROP INDEX sale_source_order_idx;
+DROP INDEX purchase_source_order_idx;
+ALTER TABLE sale_document DROP COLUMN source_order_id;
+ALTER TABLE purchase_document DROP COLUMN source_order_id;

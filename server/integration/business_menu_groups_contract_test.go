@@ -42,6 +42,11 @@ func assertBusinessMenuGroupsMigrationContract(t *testing.T, sqlDB *sql.DB, db *
 	goose.SetTableName("goose_seed_db_version")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	// This contract captures the leaves that existed before the grouping seed.
+	// Remove subsequent menu additions before asserting historical identities.
+	if err := goose.DownToContext(ctx, sqlDB, seedDir, 24); err != nil {
+		t.Fatal(err)
+	}
 
 	type leaf struct {
 		ID             int64
@@ -109,7 +114,7 @@ func assertBusinessMenuGroupsMigrationContract(t *testing.T, sqlDB *sql.DB, db *
 	wantGroups := map[string][]string{
 		"/business/group/basic":     {"/business/products", "/business/partners", "/business/warehouse", "/business/print-profile"},
 		"/business/group/purchases": {"/business/purchases", "/business/purchase-returns"},
-		"/business/group/sales":     {"/business/sales", "/business/sale-returns"},
+		"/business/group/sales":     {"/business/sales", "/business/sale-returns", "/business/direct-orders"},
 		"/business/group/inventory": {"/business/inventory-balances", "/business/inventory-entries", "/business/inventory-adjustments"},
 		"/business/group/partners":  {"/business/partner-balances", "/business/partner-ledger", "/business/settlements", "/business/refunds", "/business/opening-balances"},
 	}

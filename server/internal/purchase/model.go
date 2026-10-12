@@ -29,6 +29,7 @@ func (d *BusinessDate) Scan(value any) error {
 func (d BusinessDate) Value() (driver.Value, error) { return string(d), nil }
 
 type Draft struct {
+	SourceOrderID   *int64                       `json:"sourceOrderId"`
 	MatchesHistory  bool                         `json:"matchesHistory,omitempty" gorm:"-"`
 	SaveReceipt     *SaveReceipt                 `json:"saveReceipt,omitempty" gorm:"-"`
 	SaveRequest     *SaveRequest                 `json:"-" gorm:"-"`

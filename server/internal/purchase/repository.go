@@ -18,10 +18,22 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Repository struct{ db *gorm.DB }
+type Repository struct {
+	db      *gorm.DB
+	orderID int64
+}
 
-func NewRepository(db *gorm.DB) *Repository { return &Repository{db} }
+func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
+
+// NewOrderRepository permits only the coordinator to change its generated documents.
+func NewOrderRepository(tx *gorm.DB, orderID int64) *Repository {
+	return &Repository{db: tx, orderID: orderID}
+}
 func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event audit.Event) (Draft, error) {
+	if r.orderID > 0 {
+		h.SourceOrderID = &r.orderID
+	}
+
 	var out Draft
 	stamp := time.Now().UTC()
 	var nonce [10]byte
@@ -40,7 +52,11 @@ func (r *Repository) Create(ctx context.Context, h Draft, lines []Line, event au
 		if e := validPartnerProduct(tx, h.PartnerID, lines); e != nil {
 			return e
 		}
-		if e := tx.Create(&h).Error; e != nil {
+		create := tx
+		if h.SourceOrderID == nil {
+			create = tx.Omit("SourceOrderID")
+		}
+		if e := create.Create(&h).Error; e != nil {
 			return e
 		}
 		for i := range lines {
@@ -78,6 +94,9 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 		var old Draft
 		if e := directdelivery.LockPurchase(tx, id, &old); e != nil {
 			return e
+		}
+		if old.SourceOrderID != nil && r.orderID != *old.SourceOrderID {
+			return ErrConflict
 		}
 		if old.Status != "DRAFT" || old.Version != version {
 			return ErrConflict
@@ -126,10 +145,13 @@ func (r *Repository) Edit(ctx context.Context, id, version int64, h Draft, lines
 func (r *Repository) Cancel(ctx context.Context, id, version int64, reason string, event audit.Event) (Draft, error) {
 	var out Draft
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		now := time.Now().UTC()
+		now := directdelivery.EffectiveTime(tx.Statement.Context)
 		var old Draft
 		if x := directdelivery.LockPurchase(tx, id, &old); x != nil {
 			return x
+		}
+		if old.SourceOrderID != nil && r.orderID != *old.SourceOrderID {
+			return ErrConflict
 		}
 		if old.Version != version || (old.Status != "DRAFT" && old.Status != "POSTED") {
 			return ErrConflict
@@ -211,7 +233,7 @@ func reversePurchase(tx *gorm.DB, h Draft, id int64, occurred *time.Time, actor 
 			return fmt.Errorf("%w：商品%d当前库存不足，采购单未取消", ErrConflict, productID)
 		}
 	}
-	now := time.Now().UTC()
+	now := directdelivery.EffectiveTime(tx.Statement.Context)
 	*occurred = now
 	for _, l := range lines {
 		before, after, e := decreaseStock(tx, l.ProductID, l.QuantityMilli, now)
@@ -267,6 +289,9 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 		h, e := lockPurchase(tx, id, version)
 		if e != nil {
 			return e
+		}
+		if h.SourceOrderID != nil && r.orderID != *h.SourceOrderID {
+			return ErrConflict
 		}
 		lines := []Line{}
 		if e = tx.Where("document_id=?", id).Order("id").Find(&lines).Error; e != nil {
@@ -327,7 +352,7 @@ func (r *Repository) Post(ctx context.Context, id, version int64, event audit.Ev
 			}
 			total += line.AmountCents
 		}
-		now := time.Now().UTC()
+		now := directdelivery.EffectiveTime(tx.Statement.Context)
 		for i := range lines {
 			before, after, er := changeStock(tx, lines[i].ProductID, lines[i].QuantityMilli, now)
 			if er != nil {

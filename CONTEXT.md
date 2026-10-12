@@ -81,6 +81,10 @@ _Avoid_：因当前档案编辑而改变历史单据和流水中的商品描述�
 
 **直送业务**：供应商直接向客户交付实物商品的采购与销售业务；采购入库单和销售出库单关联同一笔业务。
 
+**直送单（新方案）**：记录一个供应商直接向一个客户交付商品的业务单据，同时表达采购价格和销售价格；以客户已收货为确认依据，确认后同事务生成采购单和销售单。
+
+**销售采购来源**：销售中用于人工追溯商品采购出处的可选记录，指向采购单的具体明细并记录来源数量；一张销售单可以记录多个采购单的来源，不代表库存批次分配或单件身份确认。
+
 **往来冲销**：纠正已生效的收付款、退款或期初欠款记录时追加相反金额的记录，原记录保留；不直接修改或删除原记录。
 
 **往来业务附件**：附属于一条收付款、退款或期初应收／应付记录的可选佐证材料，例如截图或付款单据 PDF；附件本身不产生或改变往来金额。
@@ -265,3 +269,5 @@ Phase 1 不新增进销存业务表或业务接口，只完成项目身份、目
 Phase 2 基础资料功能已实现，规格及任务 #1～#6 已关闭，历史需求讨论见 [Phase 2 需求讨论记录](docs/phase-2-plan.md)。Phase 3 库存基础的[需求访谈](docs/phase-3-plan.md)及[完整规格](docs/phase-3-spec.md)均已确认，规格发布为 [GitHub #7](https://github.com/EziosWJ/simple-inventory/issues/7)，[六个实现任务](docs/phase-3-tickets/README.md)均已有实现。最近验收已关闭 #8、#9、#11、#12；Phase 3 旧数据中的空型号/规格快照已在双库增量升级验收中核对保留；GitHub issue 状态以线上记录为准。Phase 4 采购与销售的[需求讨论](docs/phase-4-plan.md)已完成，Q1～Q42 已确认。范围包括采购/销售、直送、实物退货、期初往来欠款、按往来总余额收付款与退款、往来查询，以及送货单/对账单打印；已按采购 → 销售分批实现。库存成本与毛利、SN、服务退费、普通预收预付及逐单核销不在本阶段范围内。正式规格已发布为 [GitHub #14](https://github.com/EziosWJ/simple-inventory/issues/14)，本地见 [Phase 4 规格](docs/phase-4-spec.md)及[实现任务索引](docs/phase-4-tickets/README.md)；规格和任务已按用户授权发布；本地实现与验收结果见 [Phase 4 交付记录](docs/phase-4-remaining-acceptance.md)，GitHub issue 状态以线上记录为准。
 
 Phase 5 的[需求讨论](docs/phase-5-plan.md)已确认，Q1～Q22 完成。首批使用者为共同经营个体店铺的两名经营者，使用电脑浏览器和独立账号，共享店铺业务。重点为采购/销售录单、商品及往来搜索、欠款与单据查询、常用操作入口，以及可部署版本和备份恢复准备；在隔离环境验收并安排经营者试用，正式云服务器上线另行安排。报表、成本毛利、手机适配及其他扩展暂缓。正式规格已发布为 [GitHub #39](https://github.com/EziosWJ/simple-inventory/issues/39)，本地见 [Phase 5 规格](docs/phase-5-spec.md)及[12 项实现任务](docs/phase-5-tickets/README.md)；任务已按用户确认的拆分由 gpt-6-luna 发布为 #40～#51，15 条原生阻塞关系已核对，已开始实施，具体已完成项与待办见 `docs/phase-5-progress.md`。
+
+独立直送单与普通销售采购来源的需求已确认并按用户授权发布为 [GitHub #78](https://github.com/EziosWJ/simple-inventory/issues/78)，本地见 [正式规格](docs/direct-delivery-redesign-spec.md)及[五项实现任务](docs/direct-delivery-redesign-tickets/README.md)。T01～T05 已完成实现与统一验收；独立直送草稿、同事务确认、整笔取消与旧版兼容，以及普通销售采购来源均已实现。实施与验证见 [进度记录](docs/direct-delivery-redesign-progress.md)。代码提交与推送状态、GitHub issue 状态以线上记录为准。
