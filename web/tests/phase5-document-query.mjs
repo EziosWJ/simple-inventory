@@ -7,7 +7,7 @@ const api=process.env.PHASE5_API_URL??'http://127.0.0.1:18109',base='http://127.
 const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4194','--strictPort'],{cwd:new URL('..',import.meta.url),env:{...process.env,VITE_API_BASE_URL:api},stdio:'ignore'});
 let browser,token;
 async function call(path,body,method=body===undefined?'GET':'POST'){const r=await fetch(`${api}/api${path}`,{method,headers:{Authorization:token??'','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();assert.equal(r.status,200,`${path}: ${j.message}`);return j.data;}
-async function select(page,label,code){const g=page.getByRole('group',{name:label,exact:true});await g.getByRole('button').first().click();await g.getByRole('textbox').fill(code);await g.locator('button[aria-pressed]').filter({hasText:code}).last().click();}
+async function select(page,label,code,id){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();await page.waitForURL(url=>url.searchParams.get(label.includes('商品')?'productId':'partnerId')===String(id));}
 try{
  for(let n=0;n<60;n++){try{if((await fetch(base)).ok)break;}catch{}await delay(250);}
  token=(await call('/auth/login',{username:'admin',password:process.env.PHASE5_UI_PASSWORD??'admin123'})).tokenValue;
@@ -31,8 +31,8 @@ try{
   const purchase=kind==='purchases';
   await call(`/v1/partners/${partner.id}`,{name:'同名历史对象',type:'COMPANY',isCustomer:purchase,isSupplier:!purchase},'PUT');
   await page.goto(`${base}/business/${kind}`);
-  await select(page,purchase?'筛选供应商':'客户筛选',partner.code);
-  await select(page,purchase?'筛选商品':'商品或服务筛选',product.code);
+  await select(page,purchase?'筛选供应商':'客户筛选',partner.code,partner.id);
+  await select(page,purchase?'筛选商品':'商品或服务筛选',product.code,product.id);
   await page.locator('input[type=date]').first().fill('2026-09-15');await page.locator('input[type=date]').last().fill('2026-09-15');
   await page.getByRole('button',{name:'查询',exact:true}).click();
   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
@@ -49,7 +49,7 @@ try{
   await page.waitForURL(/\/business\/(purchases|sales)\/\d+\/edit(?:\?.*)?$/);
   await page.getByRole('button',{name:purchase?'返回采购列表':'返回销售列表'}).click();
   assert.equal(new URL(page.url()).searchParams.get('page'),'2');
-  await page.getByRole('dialog').getByRole('button',{name:purchase?'关闭详情弹窗':'关闭',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'关闭详情弹窗',exact:true}).click();
   // A slow page-two result cannot replace the newer cancelled-only filter.
   let delayed=false;
   await page.route(`**/api/v1/${kind}?*`,async route=>{const u=new URL(route.request().url());if(u.searchParams.get('page')==='2'&&!u.searchParams.get('status')){const response=await route.fetch();delayed=true;await delay(1800);try{await route.fulfill({response});}catch{}}else await route.continue();});

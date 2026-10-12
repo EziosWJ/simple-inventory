@@ -67,6 +67,7 @@ type Draft struct {
 func (Draft) TableName() string { return "sale_document" }
 
 type Line struct {
+	MatchesProduct       bool    `json:"matchesProduct,omitempty" gorm:"-"`
 	ID                   int64   `json:"id"`
 	DocumentID           int64   `json:"-" gorm:"column:document_id"`
 	ProductID            int64   `json:"productId"`

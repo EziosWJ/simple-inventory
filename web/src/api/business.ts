@@ -69,7 +69,7 @@ export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api
 export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>http.put<PurchaseDraft>(`/api/v1/purchases/${id}`,data);
 export const cancelPurchase=(id:number,data:{version:number;reason:string})=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/cancel`,data);
 export const postPurchase=(id:number,version:number)=>http.post<PurchaseDraft>(`/api/v1/purchases/${id}/post`,{version});
-export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"SERVICE"};
+export type SaleLine = Omit<PurchaseLine,"productType"> & {productType:"GOODS"|"SERVICE";matchesProduct?:boolean};
 export type SaleDraft = {directPurchaseId?:number|null} & Omit<PurchaseDraft,"postedBy"|"postedByName"|"postedAt"|"items"> & {postedBy?:number|null;postedByName?:string;postedAt?:string|null;ownerName?:string;ownerPhone?:string;ownerAddress?:string;deliveryContact?:string|null;deliveryPhone?:string|null;deliveryAddress?:string|null;items:SaleLine[]};
 export type SaleLineInput = Omit<PurchaseLineInput,"productType"> & {id?:number;productType:"GOODS"|"SERVICE"};
 export type SaleInput = {directPurchaseId?:number} & Omit<PurchaseInput,"items"> & {deliveryContact?:string;deliveryPhone?:string;deliveryAddress?:string;items:SaleLineInput[]};

@@ -134,14 +134,10 @@ func itemQuery(tx *gorm.DB, q ItemQuery) (*gorm.DB, string, []any) {
 		historyArgs = append(historyArgs, ca...)
 	}
 	if strings.TrimSpace(q.ProductKeyword) != "" {
-		// A keyword matches a line through its own saved snapshot or through the
-		// current archive of that line's product, never through another line of
-		// the same document.
-		snapshot, sa := platformdatabase.WordsCondition(d, q.ProductKeyword, "i.product_code", "i.product_name", "i.product_model", "i.product_specification")
-		archive, aa := platformdatabase.WordsCondition(d, q.ProductKeyword, "pr.code", "pr.name", "pr.brand", "pr.model", "pr.specification")
-		d = d.Where("(("+snapshot+") OR EXISTS(SELECT 1 FROM product pr WHERE pr.id=i.product_id AND "+archive+"))", concatArgs(sa, aa)...)
-		history = append(history, "(("+snapshot+") AND NOT EXISTS(SELECT 1 FROM product pr WHERE pr.id=i.product_id AND "+archive+"))")
-		historyArgs = append(historyArgs, concatArgs(sa, aa)...)
+		match, args, historical, ha := productLineMatch(d, q.ProductKeyword)
+		d = d.Joins("JOIN product pr ON pr.id=i.product_id").Where(match, args...)
+		history = append(history, historical)
+		historyArgs = append(historyArgs, ha...)
 	}
 	return d, "(" + strings.Join(history, " OR ") + ")", historyArgs
 }
@@ -269,4 +265,14 @@ func itemQuantities(tx *gorm.DB, q ItemQuery) ([]ItemQuantity, error) {
 func concatArgs(a, b []any) []any {
 	out := make([]any, 0, len(a)+len(b))
 	return append(append(out, a...), b...)
+}
+
+// productLineMatch is shared by document selection, line markers and item
+// queries. All words may match current archive fields or the saved snapshot.
+func productLineMatch(db *gorm.DB, keyword string) (string, []any, string, []any) {
+	columns := []string{"pr.code", "pr.name", "pr.brand", "pr.model", "pr.specification"}
+	current, ca := platformdatabase.WordsCondition(db, keyword, columns...)
+	columns = append(columns, "i.product_code", "i.product_name", "i.product_model", "i.product_specification")
+	match, args := platformdatabase.WordsCondition(db, keyword, columns...)
+	return match, args, "(" + match + " AND NOT COALESCE(" + current + ",FALSE))", concatArgs(args, ca)
 }

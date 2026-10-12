@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -438,6 +439,74 @@ func assertSaleItemQueryContract(t *testing.T, router http.Handler, dialect stri
 	stopped := items(fmt.Sprintf("pageSize=50&productId=%d", productB))
 	if stopped.Total != 1 || stopped.Records[0].ProductName != "乙商品B" {
 		t.Fatalf("stopped archive: %+v", stopped)
+	}
+
+	// Whole-document markers and item queries use the same server predicate.
+	// Current brand, mixed current/snapshot words, case and literal wildcards
+	// must highlight only A, while keeping every other saved line in the sale.
+	ok(http.MethodPut, fmt.Sprintf("/api/v1/products/%d", productA), `{"name":"新甲商品Z","brand":"Brand%_X","model":"NEW-Model","type":"GOODS","unit":"台"}`)
+	assertMarkers := func(condition string) {
+		t.Helper()
+		page := inventoryData[struct {
+			Total   int64 `json:"total"`
+			Records []struct {
+				ID    int64 `json:"id"`
+				Items []struct {
+					ID             int64  `json:"id"`
+					ProductID      int64  `json:"productId"`
+					ProductName    string `json:"productName"`
+					MatchesProduct bool   `json:"matchesProduct"`
+				} `json:"items"`
+			} `json:"records"`
+		}](t, ok(http.MethodGet, "/api/v1/sales?pageSize=50&"+condition, ""), 200)
+		matchedIDs := map[int64]bool{}
+		foundMixed := false
+		for _, doc := range page.Records {
+			if doc.ID == saleTwo {
+				foundMixed = true
+				if len(doc.Items) != 3 {
+					t.Fatalf("must preserve the whole mixed sale: %+v", doc)
+				}
+			}
+			for _, row := range doc.Items {
+				if row.MatchesProduct != (row.ProductID == productA) {
+					t.Fatalf("incorrect line marker for %s: %+v", condition, row)
+				}
+				if row.MatchesProduct {
+					matchedIDs[row.ID] = true
+					if row.ProductName != "甲商品A" {
+						t.Fatalf("marker overwrote snapshot: %+v", row)
+					}
+				}
+			}
+		}
+		matchingItems := items("pageSize=50&" + condition)
+		if !foundMixed || len(matchedIDs) != 5 || matchingItems.Total != 5 {
+			t.Fatalf("document/item matching disagrees: %+v total=%d", matchedIDs, matchingItems.Total)
+		}
+		for _, row := range matchingItems.Records {
+			if !matchedIDs[row.ID] {
+				t.Fatalf("item not marked in document: %+v", row)
+			}
+		}
+	}
+	assertMarkers(fmt.Sprintf("productId=%d", productA))
+	for _, keyword := range []string{"甲商品A", "新甲商品Z", "brand%_x", "new-model", "Brand%_X 甲商品A", "SIQ-A-" + strings.ToUpper(dialect)} {
+		assertMarkers("productKeyword=" + url.QueryEscape(keyword))
+	}
+	unfiltered := inventoryData[struct {
+		Records []struct {
+			Items []struct {
+				MatchesProduct bool `json:"matchesProduct"`
+			} `json:"items"`
+		} `json:"records"`
+	}](t, ok(http.MethodGet, "/api/v1/sales?pageSize=50", ""), 200)
+	for _, doc := range unfiltered.Records {
+		for _, row := range doc.Items {
+			if row.MatchesProduct {
+				t.Fatal("unfiltered rows must not be marked")
+			}
+		}
 	}
 
 	// Selecting by the original sale business date keeps a later return in the

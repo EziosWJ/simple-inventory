@@ -5,7 +5,7 @@ import { PagedRecordSelect } from "@/components/common/paged-record-select";
 import { RecordPicker } from "@/components/common/record-picker";
 import { useAuthStore } from "@/store/auth-store";
 
-type Selection<T> = { label: string; value: number; fallback?: string; disabled?: boolean; historical?: boolean; keyword?: string; onKeywordChange?: (keyword:string)=>void; onQuery?:()=>void; onDraftKeywordChange?:(keyword:string)=>void; onChange: (record: T | null) => void | boolean | Promise<void | boolean> };
+type Selection<T> = { inlineBrowse?: boolean; placeholder?: string; label: string; value: number; fallback?: string; disabled?: boolean; historical?: boolean; keyword?: string; onKeywordChange?: (keyword:string)=>void; onQuery?:()=>void; onDraftKeywordChange?:(keyword:string)=>void; onChange: (record: T | null) => void | boolean | Promise<void | boolean> };
 
 export function ProductSelect({ type, historical = false, ...props }: Selection<ProductRecord> & { type?: "GOODS" | "SERVICE" }) {
   const user = useAuthStore(s=>s.user);

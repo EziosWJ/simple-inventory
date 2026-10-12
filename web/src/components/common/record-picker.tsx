@@ -1,3 +1,4 @@
+import { List, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ type Props<T extends {
     id: number;
 }> = {
     label: string;
+    inlineBrowse?: boolean;
+    placeholder?: string;
     value: number;
     fallback?: string;
     disabled?: boolean;
@@ -40,7 +43,7 @@ function Highlight({ text, keyword }: {
 }
 export function RecordPicker<T extends {
     id: number;
-}>({ label, value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
+}>({ label, inlineBrowse = false, placeholder = "输入名称、型号或联系方式", value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
     const id = useId(), input = useRef<HTMLInputElement>(null), panel = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false), [modal, setModal] = useState(false), [text, setText] = useState(applied), [page, setPage] = useState(1);
     const [records, setRecords] = useState<T[]>([]), [selected, setSelected] = useState<T | null>(null), [total, setTotal] = useState(0), [active, setActive] = useState(-1);
@@ -196,14 +199,16 @@ export function RecordPicker<T extends {
         }
     }
     const current = selected?.id === value ? selected : null, info = current ? describe(current) : null;
-    const search = (inModal = false) => <Input ref={inModal ? undefined : input} className="min-w-0 grow basis-[12rem]" autoFocus={inModal} role="combobox" aria-label={`搜索${label}`} aria-expanded={inModal || open} aria-haspopup={inModal ? "grid" : "listbox"} aria-controls={`${id}-${inModal ? "all" : "quick"}`} aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined} disabled={disabled} value={text} placeholder="输入名称、型号或联系方式" onFocus={() => { if (!inModal && !suppressFocus.current)
+    const search = (inModal = false) => <Input ref={inModal ? undefined : input} className={inlineBrowse && !inModal ? "min-w-0 w-full pr-20" : "min-w-0 grow basis-[12rem]"} autoFocus={inModal} role="combobox" aria-label={`搜索${label}`} aria-expanded={inModal || open} aria-haspopup={inModal ? "grid" : "listbox"} aria-controls={`${id}-${inModal ? "all" : "quick"}`} aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined} disabled={disabled} value={inlineBrowse && !inModal && value > 0 && !text ? (info?.name ?? fallback ?? `#${value}`) : text} placeholder={placeholder} onFocus={() => { if (!inModal && !suppressFocus.current)
         setOpen(true); }} onChange={e => { setText(e.target.value); onDraftKeywordChange?.(e.target.value); setPage(1); setActive(-1); if (!inModal)
         setOpen(true); }} onKeyDown={keys}/>;
     const status = <>{loading && <p role="status" className="p-3 text-sm text-text-secondary">搜索中…</p>}{error && <div role="alert" className="p-3 text-sm text-error">{error} <Button onClick={() => setRetry(n => n + 1)}>重试搜索</Button></div>}{!loading && !error && !records.length && <p role="status" className="p-3 text-sm text-text-secondary">没有匹配档案{onKeywordChange ? "，仍可按关键词查询历史业务。" : "，请调整关键词。"}</p>}</>;
     function summary(r: T) { const d = describe(r); return <><strong className="block font-medium"><Highlight text={d.name} keyword={text}/></strong><span className="mt-1 flex flex-wrap gap-x-3 text-sm text-text-secondary">{d.details.map((s, i) => <span key={i}><Highlight text={s} keyword={text}/></span>)}</span></>; }
     return <div role="group" aria-label={label} className="min-w-0 space-y-2">
-  <div className="flex min-w-0 flex-wrap gap-2">{search()}<Button disabled={disabled} onClick={() => { setOpen(false); setModal(true); setPage(1); setActive(-1); }}>浏览选择</Button></div>
-  {(value > 0 || applied) && <div className="flex min-w-0 items-center gap-2 text-sm"><span className="min-w-0 flex-1 truncate" title={info ? [info.name, ...info.details, ...info.tags, info.code].join("；") : fallback}>{value > 0 ? `指定${label}：${info?.name ?? fallback ?? `#${value}`}` : `${label}关键词：${applied}`}</span>{info && <details className="shrink-0"><summary className="cursor-pointer text-primary">资料</summary><p className="max-w-sm whitespace-normal text-text-secondary">{[...info.details, ...info.tags, info.code].join("；")}</p></details>}<Button disabled={disabled} size="sm" aria-label={`清除${label}`} onClick={() => { if (applied && onKeywordChange)
+  <div className={inlineBrowse ? "relative min-w-0" : "flex min-w-0 flex-wrap gap-2"}>{search()}
+    {inlineBrowse && (value > 0 || text || applied) && <Button type="button" variant="ghost" size="sm" className="absolute right-10 top-0 h-full px-2" aria-label={`清除${label}`} title={`清除${label}`} disabled={disabled} onClick={() => { setText(""); onDraftKeywordChange?.(""); if (onKeywordChange) onKeywordChange(""); else void choose(null); }}><X className="h-4 w-4" aria-hidden /></Button>}
+    <Button type="button" variant={inlineBrowse ? "ghost" : "primary"} className={inlineBrowse ? "absolute right-0 top-0 h-full px-3" : undefined} aria-label={inlineBrowse ? `浏览选择${label}` : undefined} title={inlineBrowse ? `浏览选择${label}` : undefined} disabled={disabled} onClick={() => { setOpen(false); setModal(true); setPage(1); setActive(-1); }}>{inlineBrowse ? <List className="h-4 w-4" aria-hidden /> : "浏览选择"}</Button></div>
+  {!inlineBrowse && (value > 0 || applied) && <div className="flex min-w-0 items-center gap-2 text-sm"><span className="min-w-0 flex-1 truncate" title={info ? [info.name, ...info.details, ...info.tags, info.code].join("；") : fallback}>{value > 0 ? `指定${label}：${info?.name ?? fallback ?? `#${value}`}` : `${label}关键词：${applied}`}</span>{info && <details className="shrink-0"><summary className="cursor-pointer text-primary">资料</summary><p className="max-w-sm whitespace-normal text-text-secondary">{[...info.details, ...info.tags, info.code].join("；")}</p></details>}<Button disabled={disabled} size="sm" aria-label={`清除${label}`} onClick={() => { if (applied && onKeywordChange)
         onKeywordChange("");
     else
         void choose(null); }}>清除</Button></div>}

@@ -7105,7 +7105,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。",
+                "description": "单号按去首尾空白、忽略ASCII大小写的字面片段查询；对象和商品按保存ID组合过滤，包含停用与历史身份变化对象。\n返回整单及逐明细 matchesProduct 标识；无商品条件不标记，历史描述保持原快照。",
                 "produces": [
                     "application/json"
                 ],
@@ -10463,6 +10463,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "matchesProduct": {
+                    "type": "boolean"
                 },
                 "productCode": {
                     "type": "string"

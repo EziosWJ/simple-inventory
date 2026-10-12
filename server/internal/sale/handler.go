@@ -155,6 +155,7 @@ func (h *Handler) resolveSave(c *gin.Context) {
 // @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
+// @Description 返回整单及逐明细 matchesProduct 标识；无商品条件不标记，历史描述保持原快照。
 // @Success 200 {object} ApiEnvelope{data=Page}
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales [get]

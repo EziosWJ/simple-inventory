@@ -685,15 +685,11 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 		historyArgs = append(historyArgs, ca...)
 	}
 	if strings.TrimSpace(q.ProductKeyword) != "" {
-		cols := []string{"p.code", "p.name", "p.brand", "p.model", "p.specification"}
-		current, ca := platformdatabase.WordsCondition(d, q.ProductKeyword, cols...)
-		cols = append(cols, "i.product_code", "i.product_name", "i.product_model", "i.product_specification")
-		both, args := platformdatabase.WordsCondition(d, q.ProductKeyword, cols...)
-		prefix := "SELECT 1 FROM sale_document_item i JOIN product p ON p.id=i.product_id WHERE i.document_id=sale_document.id AND "
-		d = d.Where("EXISTS("+prefix+both+")", args...)
-		historySQL = append(historySQL, "EXISTS("+prefix+both+" AND NOT COALESCE("+current+",FALSE))")
-		historyArgs = append(historyArgs, args...)
-		historyArgs = append(historyArgs, ca...)
+		match, args, history, ha := productLineMatch(d, q.ProductKeyword)
+		prefix := "SELECT 1 FROM sale_document_item i JOIN product pr ON pr.id=i.product_id WHERE i.document_id=sale_document.id AND "
+		d = d.Where("EXISTS("+prefix+match+")", args...)
+		historySQL = append(historySQL, "EXISTS("+prefix+history+")")
+		historyArgs = append(historyArgs, ha...)
 	}
 	if e := d.Count(&p.Total).Error; e != nil {
 		return p, e
@@ -709,6 +705,26 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 		v, e := find(r.db.WithContext(ctx), id.ID)
 		if e != nil {
 			return p, e
+		}
+		if q.ProductID > 0 || strings.TrimSpace(q.ProductKeyword) != "" {
+			matches := r.db.WithContext(ctx).Table("sale_document_item i").Joins("JOIN product pr ON pr.id=i.product_id").Where("i.document_id=?", id.ID)
+			if q.ProductID > 0 {
+				matches = matches.Where("i.product_id=?", q.ProductID)
+			} else {
+				condition, args, _, _ := productLineMatch(matches, q.ProductKeyword)
+				matches = matches.Where(condition, args...)
+			}
+			var lineIDs []int64
+			if e := matches.Pluck("i.id", &lineIDs).Error; e != nil {
+				return p, e
+			}
+			matched := make(map[int64]bool, len(lineIDs))
+			for _, lineID := range lineIDs {
+				matched[lineID] = true
+			}
+			for i := range v.Items {
+				v.Items[i].MatchesProduct = matched[v.Items[i].ID]
+			}
 		}
 		v.MatchesHistory = id.MatchesHistory
 		p.Records = append(p.Records, *v)

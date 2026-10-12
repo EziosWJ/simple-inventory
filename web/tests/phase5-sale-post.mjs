@@ -9,7 +9,7 @@ async function call(path, body, method = body === undefined ? "GET" : "POST", au
   const res = await fetch(`${api}/api${path}`, { method, headers: { Authorization: auth ?? "", "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const json = await res.json(); assert.equal(res.status, 200, `${path}: ${json.message}`); return json.data;
 }
-async function select(page, label, code) { const g = page.getByRole("group", { name: label, exact: true }); await g.getByRole("button").first().click(); await g.getByRole("textbox").fill(code); await g.locator('button[aria-pressed]').filter({ hasText: code }).last().click(); }
+async function select(page,label,code){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();await group.locator(`span[title*="${code}"]`).waitFor();}
 try {
   for (let i = 0; i < 60; i++) { try { if ((await fetch(base)).ok) break; } catch { /* starting */ } await delay(250); }
   token = (await call("/auth/login", { username: "admin", password: process.env.PHASE5_UI_PASSWORD ?? "admin123" })).tokenValue;
@@ -119,7 +119,7 @@ try {
   await newForm(); await page.getByLabel("成交单价（元）").fill("0");
   await page.getByRole("button",{name:"添加明细"}).click(); await select(page,"第 2 行商品",product.code); await page.getByLabel("成交单价（元）").last().fill("0");
   await page.getByRole("button",{name:"保存并过账",exact:true}).click();
-  await page.getByRole("dialog").getByText(/过账商品：-2.000 台/).waitFor();
+  await page.getByRole("dialog").getByText(/过账商品：扣减 2 台/).waitFor();
   await page.getByRole("dialog").getByRole("button",{name:"确认保存并过账"}).click(); await page.getByRole("status", { name: "操作结果" }).filter({ hasText: "销售单过账成功" }).waitFor();
   // Pure service has no stock, including a lost save response followed by posting.
   const service=await call("/v1/products",{code:`${prefix}-SERVICE`,name:"无库存服务",type:"SERVICE",unit:"次",salePrice:"0.00"});

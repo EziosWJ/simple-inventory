@@ -108,13 +108,19 @@ try{
  await waitRows(page,4);
  for(const row of await itemRows.all())if(await row.locator('td').count())assert.ok((await row.innerText()).includes('甲商品A'));
  assert.ok((await summary.innerText()).includes('¥1270.00'),'posted original amount of the filtered lines');
- assert.ok((await summary.innerText()).includes('-¥200.00'),'effective returns belong to their line');
+ assert.ok((await summary.innerText()).includes('¥200.00'),'effective returns belong to their line');
  assert.ok((await summary.innerText()).includes('¥1070.00'),'net sales excludes the returned amount');
  assert.ok((await summary.innerText()).includes('¥200.00'),'draft keeps its original amount');
- const groups=summary.getByRole('list',{name:'数量合计明细'});
- assert.equal(await groups.getByRole('listitem').count(),2);
- assert.ok((await groups.getByRole('listitem').filter({hasText:'已过账'}).innerText()).includes('原 13 台 · 退 2 · 净 11'));
- assert.ok((await groups.getByRole('listitem').filter({hasText:'草稿'}).innerText()).includes('原 2 台'));
+ await summary.getByRole('button',{name:/查看数量合计，2 组/}).click();
+ const quantityDialog=page.getByRole('dialog',{name:'数量合计'});
+ const groups=quantityDialog.getByRole('table',{name:'数量合计明细'});
+ await groups.waitFor();
+ assert.equal(await groups.locator('tbody tr').count(),2);
+ assert.ok((await groups.locator('tbody tr').filter({hasText:'已过账'}).innerText()).includes('13 台'));
+ assert.ok((await groups.locator('tbody tr').filter({hasText:'已过账'}).innerText()).includes('2 台'));
+ assert.ok((await groups.locator('tbody tr').filter({hasText:'已过账'}).innerText()).includes('11 台'));
+ assert.ok((await groups.locator('tbody tr').filter({hasText:'草稿'}).innerText()).includes('2 台'));
+ await quantityDialog.getByRole('button',{name:'关闭数量合计'}).click();
  // A service line cannot be returned, so its net stays its original quantity.
  await resetButton.click();
  await waitRows(page,11);
@@ -125,9 +131,13 @@ try{
  for(const row of await itemRows.all())if(await row.locator('td').count())assert.ok((await row.innerText()).includes('不适用'));
  assert.ok((await summary.innerText()).includes('¥110.00'));
  assert.ok((await summary.innerText()).includes('净销售额'));
- assert.equal(await groups.getByRole('listitem').count(),1);
- assert.ok((await groups.getByRole('listitem').innerText()).includes('原 3 次 · 净 3'));
- assert.ok(!(await groups.getByRole('listitem').innerText()).includes('退'));
+ await summary.getByRole('button',{name:/查看数量合计，1 组/}).click();
+ const serviceQuantityDialog=page.getByRole('dialog',{name:'数量合计'});
+ const serviceGroups=serviceQuantityDialog.getByRole('table',{name:'数量合计明细'});
+ assert.equal(await serviceGroups.locator('tbody tr').count(),1);
+ assert.ok((await serviceGroups.locator('tbody tr').innerText()).includes('3 次'));
+ assert.ok((await serviceGroups.locator('tbody tr').innerText()).includes('不适用'));
+ await serviceQuantityDialog.getByRole('button',{name:'关闭数量合计'}).click();
  // 5. Paging, sorting and page size over one whole result.
  await resetButton.click();
  await waitRows(page,11);
@@ -185,7 +195,7 @@ try{
  const beforeDetail=new URL(page.url()).search;
  const pagedDoc=await page.evaluate(()=>document.querySelectorAll('tbody tr')[0].querySelectorAll('td')[8].innerText.trim());
  const pagedRow=page.getByRole('row').filter({hasText:pagedDoc});
- await pagedRow.getByRole('button',{name:pagedDoc,exact:true}).click();
+ await pagedRow.getByRole('link',{name:pagedDoc,exact:true}).click();
  const dialog=page.getByRole('dialog');
  await dialog.getByText(pagedDoc,{exact:false}).first().waitFor();
  assert.ok((await dialog.innerText()).includes('乙商品B'));

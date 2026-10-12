@@ -1,3 +1,4 @@
+import { saleInventoryImpact } from "./sale-posting-impact";
 import { useSelectionChoice } from "@/hooks/use-selection-choice";
 import { businessToday } from "@/lib/datetime";
 import { randomUUID } from "@/lib/uuid";
@@ -290,15 +291,11 @@ export function SaleFormPage() {
   }
   const preview = confirmation === "RETRY_POST" && document ? fromDraft(document) : form;
 
-  const goodsImpact = new Map<number, { name: string; unit: string; quantity: bigint }>();
-  for (const [index, line] of preview.items.entries()) {
-    if (line.productType !== "GOODS") continue;
-    const [whole, decimal=""] = line.quantity.split(".");
-    if (!/^\d+$/.test(whole) || !/^\d{0,3}$/.test(decimal)) continue;
-    const q = BigInt(whole)*1000n+BigInt(decimal.padEnd(3,"0"));
-    const old = goodsImpact.get(line.productId);
-    goodsImpact.set(line.productId, { name: products.find(p=>p.id===line.productId)?.name ?? document?.items[index]?.productName ?? `商品 #${line.productId}`, unit: line.unit, quantity: (old?.quantity ?? 0n)+q });
-  }
+  const inventoryImpact = saleInventoryImpact(preview.items.map((line, index) => {
+    const product = products.find(product => product.id === line.productId);
+    const saved = document?.items[index];
+    return { ...line, productCode: product?.code ?? saved?.productCode ?? "", productName: product?.name ?? saved?.productName ?? `商品 #${line.productId}`, productModel: product?.model ?? saved?.productModel, productSpecification: product?.specification ?? saved?.productSpecification };
+  }), preview.directDelivery);
   return <div className="mx-auto max-w-[1200px] space-y-space-4">
     <PageHeader title={document ? `销售录单 · ${document.documentNo}` : "新建销售单"} description={document ? `版本 ${document.version} · ${document.status === "DRAFT" ? "草稿，未改变库存与应收" : "单据已生效或取消，不能编辑"}` : "保存草稿后生成单号；草稿不改变库存或应收。"} actions={<Button onClick={() => navigate(returnTo)}>{returnTo.split("?")[0] === "/business/sales" ? "返回销售列表" : "返回来源页面"}</Button>} />
     <BusinessFeedback feedback={feedback}>
@@ -370,8 +367,8 @@ export function SaleFormPage() {
       </ol>
       <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
       <p>送货：{preview.deliveryContact} / {preview.deliveryPhone} / {preview.deliveryAddress}</p>
-      <p className="mt-space-3">{preview.directDelivery ? `直送销售：关联采购 #${preview.directPurchaseId}；不扣店内库存，先采购后销售分别过账。` : goodsImpact.size ? "扣减店内实物库存（同商品合计）：" : "纯服务销售：不改变库存。"}</p>
-      {!preview.directDelivery && [...goodsImpact].map(([id, item]) => <p key={id}>{item.name}：-{item.quantity / 1000n}.{String(item.quantity % 1000n).padStart(3,"0")} {item.unit}</p>)}
+      <p className="mt-space-3">{preview.directDelivery ? `直送销售：关联采购 #${preview.directPurchaseId}；不扣店内库存，先采购后销售分别过账。` : preview.items.some(line => line.productType === "GOODS") ? "扣减店内实物库存（同商品及单位合计）：" : "纯服务销售：不改变库存。"}</p>
+      <p className="whitespace-pre-wrap">{inventoryImpact}</p>
       <p>增加客户应收；零金额不产生往来金额流水。保存失败不继续过账，过账失败保留同一草稿。</p>
     </FormDialog>
     {selectionChoice.dialog}
