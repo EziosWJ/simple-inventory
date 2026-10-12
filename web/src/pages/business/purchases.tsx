@@ -249,7 +249,7 @@ export function PurchasesPage() {
             {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${formatDateTime(d.postedAt)}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
             <DataTable
               columns={[
-                { title: "商品", key: "product", render: (_, item) => [item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ") },
+                { title: "商品", key: "product", render: (_, item) => <div className="min-w-[12rem] space-y-1"><div>{[item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ")}</div>{item.remark?.trim() && <div className="whitespace-pre-wrap break-words text-xs text-text-secondary">备注：{item.remark.trim()}</div>}</div> },
                 { title: "数量", dataIndex: "quantity" },
                 { title: "单位", dataIndex: "unit" },
                 { title: "成交单价", dataIndex: "unitPrice", align: "right" },
@@ -264,9 +264,11 @@ export function PurchasesPage() {
               创建人：{detail.createdByName} · 创建时间：{formatDateTime(detail.createTime)}
               {detail.postedByName && ` · 过账人：${detail.postedByName}${detail.postedAt ? ` · 实际过账时间：${formatDateTime(detail.postedAt)}` : ""}`}
               {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
+              {detail.cancelledAt && ` · 取消时间：${formatDateTime(detail.cancelledAt)}`}
             </p>
             <DirectDeliveryTrace trace={detail.directTrace}/>
             {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
+            {detail.remark?.trim() && <p className="mt-space-2 whitespace-pre-wrap break-words text-sm">单据备注：{detail.remark.trim()}</p>}
             <Button className="mt-space-3" variant="secondary" onClick={() => goTo(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
           </>
         )}

@@ -9,6 +9,7 @@ const product = { id: 1, code: 'UI-G', name: '回归商品', type: 'GOODS', unit
 const partner = { id: 1, code: 'UI-P', name: '回归往来单位', type: 'COMPANY', isSupplier: true, isCustomer: true, status: 1 };
 const line = { id: 1, productId: 1, productCode: product.code, productName: product.name, productType: 'GOODS', unit: '台', quantity: '1', unitPrice: '2.00', amount: '2.00' };
 const draft = { id: 1, documentNo: 'UI-001', partnerId: 1, partnerName: partner.name, businessDate: '2026-10-02', status: 'DRAFT', version: 1, directDelivery: false, directDocuments: [], createdBy: 1, createdByName: '回归', createTime: '2026-10-02T00:00:00Z', items: [line], totalAmount: '2.00', deliveryContact: '', deliveryPhone: '', deliveryAddress: '' };
+let purchaseDetailRecord = { ...draft, remark: '采购整单备注', items: [{ ...line, remark: '采购行备注' }] };
 const directPurchaseDocuments = [{ id: 2, documentNo: 'PI-UI-001', status: 'POSTED', partnerName: partner.name, postedAt: '2026-10-02T12:00:00Z', postedByName: '回归' }];
 let saleDetailRecord = {
   ...draft,
@@ -29,8 +30,8 @@ let saleDetailRecord = {
   ],
   totalAmount: '152.50',
 };
-const returnLine = { ...line, purchaseItemId: 1, saleItemId: 1, originalQuantity: '1', returnedQuantity: '0', remainingQuantity: '1', priorReturnAmount: '0.00' };
-const returnDraft = { ...draft, purchaseId: 1, saleId: 1, purchaseNo: draft.documentNo, saleNo: draft.documentNo, items: [returnLine] };
+const returnLine = { ...line, productModel: '退货型号', productSpecification: '退货规格', purchaseItemId: 1, saleItemId: 1, originalQuantity: '1', returnedQuantity: '0', remainingQuantity: '1', priorReturnAmount: '0.00', remark: '退货行备注' };
+let returnDraft = { ...draft, purchaseId: 1, saleId: 1, purchaseNo: draft.documentNo, saleNo: draft.documentNo, remark: '退货整单备注', items: [returnLine] };
 const adjustment = { ...draft, items: [{ ...line, reason: 'OPENING', remark: '' }] };
 const records = values => ({ records: values, total: values.length, page: 1, pageSize: 10 });
 const dicts = {
@@ -85,9 +86,9 @@ try {
     else if (path === '/api/v1/partners') data = records([partner, { ...partner, id: 2, code: 'UI-P2' }]);
     else if (path === '/api/v1/partners/1') data = partner;
     else if (/^\/api\/v1\/(purchases|sales)$/.test(path)) data = records([draft]);
-    else if (path === '/api/v1/sales/1') data = saleDetailRecord;
     else if (path === '/api/v1/purchases/2') data = { ...draft, id: 2, documentNo: 'PI-UI-001' };
-    else if (/^\/api\/v1\/(purchases|sales)\/1$/.test(path)) data = draft;
+    else if (path === '/api/v1/purchases/1') data = purchaseDetailRecord;
+    else if (path === '/api/v1/sales/1') data = saleDetailRecord;
     else if (path === '/api/v1/inventory/adjustments') data = records([adjustment]);
     else if (path === '/api/v1/inventory/adjustments/1') data = adjustment;
     else if (/^\/api\/v1\/(purchase-returns|sale-returns)$/.test(path)) data = records([returnDraft]);
@@ -199,6 +200,40 @@ try {
   }
   console.log('PASS sales detail dialog: draft/posted/cancelled actions, item and optional fields, navigation, and 1440/750px layout');
   saleDetailRecord = { ...draft };
+  purchaseDetailRecord = {
+    ...purchaseDetailRecord,
+    status: 'CANCELLED',
+    cancelledByName: '采购取消人',
+    cancelledAt: '2026-10-03T12:00:00Z',
+    cancelReason: '采购取消原因',
+  };
+  await visit(page, 'business/purchases?purchaseId=1');
+  let purchaseDetail = page.getByRole('dialog'); await purchaseDetail.waitFor();
+  await purchaseDetail.getByText('采购整单备注', { exact: false }).waitFor();
+  await purchaseDetail.getByText('采购行备注', { exact: false }).waitFor();
+  await purchaseDetail.getByText(/取消时间：/).waitFor();
+  assert.match(await purchaseDetail.innerText(), /采购取消原因/);
+  for (const [kind, queryKey] of [['purchase-returns', 'purchaseReturnId'], ['sale-returns', 'saleReturnId']]) {
+    for (const status of ['DRAFT', 'POSTED', 'CANCELLED']) {
+      returnDraft = {
+        ...returnDraft,
+        status,
+        businessDate: '2026-09-28',
+        remark: '退货整单备注',
+        items: [returnLine],
+      };
+      await visit(page, `business/${kind}?${queryKey}=1`);
+      const detail = page.getByRole('dialog'); await detail.waitFor();
+      await detail.getByText(/业务日期 2026-09-28/).waitFor();
+      await detail.getByText('退货整单备注', { exact: false }).waitFor();
+      await detail.getByText(/退货型号 · 退货规格/).waitFor();
+      await detail.getByText('单位：台', { exact: true }).waitFor();
+      await detail.getByText('退货行备注', { exact: false }).waitFor();
+      await detail.getByText('本次数量', { exact: true }).waitFor();
+      console.log('RETURN_DETAIL', kind, status);
+    }
+  }
+  console.log('PASS purchase and return detail annotations: header/line remarks, cancel time, return date and item snapshot');
   // Selector zero/error/retry/multiple pages in 240px and 270px actual containers.
   for (const width of [240, 270]) {
     await visit(page, 'business/purchases');
