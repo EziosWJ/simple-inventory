@@ -30,7 +30,7 @@ func directDraftDatabase(t *testing.T, dialect string) (*platformdatabase.Databa
 		runSQLiteMigrations(t, path)
 		return openSQLiteDatabase(t, path), filepath.Join(projectRoot(t), "migrations", "sqlite")
 	}
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	return openTemporaryDatabase(t, pg.dsn), filepath.Join(projectRoot(t), "migrations")
 }
@@ -181,7 +181,7 @@ func assertDirectOrderDraftUpgrade(t *testing.T, dialect string) {
 		root = filepath.Join(root, "sqlite")
 		gooseDialect = "sqlite3"
 	} else {
-		pg := startPostgres(t)
+		pg := createTestDatabase(t)
 		db = openTemporaryDatabase(t, pg.dsn)
 	}
 	defer db.Close()

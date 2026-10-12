@@ -21,7 +21,7 @@ func TestSQLitePhase5SaleSaveUpgrade(t *testing.T) {
 	assertSaleSaveUpgrade(t, db, "sqlite3", filepath.Join(projectRoot(t), "migrations", "sqlite"))
 }
 func TestPostgresPhase5SaleSaveUpgrade(t *testing.T) {
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()
 	assertSaleSaveUpgrade(t, db, "postgres", filepath.Join(projectRoot(t), "migrations"))

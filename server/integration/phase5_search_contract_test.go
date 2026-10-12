@@ -29,7 +29,7 @@ func TestSQLitePhase5SearchHTTPContract(t *testing.T) {
 }
 
 func TestPostgresPhase5SearchHTTPContract(t *testing.T) {
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()

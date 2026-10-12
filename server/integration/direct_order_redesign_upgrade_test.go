@@ -30,7 +30,7 @@ func assertDirectOrderRedesignUpgrade(t *testing.T, dialect string) {
 		root = filepath.Join(root, "sqlite")
 		gooseDialect = "sqlite3"
 	} else {
-		pg := startPostgres(t)
+		pg := createTestDatabase(t)
 		db = openTemporaryDatabase(t, pg.dsn)
 	}
 	defer db.Close()

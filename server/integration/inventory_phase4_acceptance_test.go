@@ -34,7 +34,7 @@ func TestPostgresInventoryPhase4AcceptancePostgresSQLiteHTTPContract(t *testing.
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()

@@ -27,7 +27,7 @@ func TestSQLitePhase4FixesHTTPContract(t *testing.T) {
 	assertPhase4Fixes(t, r, db)
 }
 func TestPostgresPhase4FixesHTTPContract(t *testing.T) {
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()

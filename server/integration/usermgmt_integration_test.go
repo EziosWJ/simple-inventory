@@ -39,7 +39,7 @@ func TestUserPageLoadsDepartmentAndRolesInBatches(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()

@@ -5,6 +5,8 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,8 +18,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -59,7 +64,7 @@ func TestPostgresMigrationsUseEphemeralDatabase(t *testing.T) {
 		t.Fatalf("inspect cmd/migrate: %v", err)
 	}
 
-	database := startPostgres(t)
+	database := createTestDatabase(t)
 	runMigrations(t, root, database.dsn)
 	database.assertGooseSchemaVersionTable(t)
 	verifyDatabaseReadiness(t, database.dsn)
@@ -79,7 +84,7 @@ func TestPostgresLogClearSeedDefaultsByEnvironment(t *testing.T) {
 		{environment: config.EnvironmentProd, want: "false"},
 	} {
 		t.Run(test.environment, func(t *testing.T) {
-			database := startPostgres(t)
+			database := createTestDatabase(t)
 			runMigrationsWithEnvironment(t, projectRoot(t), database.dsn, test.environment)
 			connection := openTemporaryDatabase(t, database.dsn)
 			defer func() { _ = connection.Close() }()
@@ -101,7 +106,7 @@ func TestPostgresProductPartnerWarehouseContract(t *testing.T) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
@@ -243,7 +248,7 @@ func TestAuthContractUsesPostgresSessions(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -302,7 +307,7 @@ func TestRBACContractWritesAuditLog(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -360,7 +365,7 @@ func TestRBACWritesAndAuditsInOneTransaction(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -412,7 +417,7 @@ func TestSysConfigCreateRollsBackWhenAuditFails(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -462,7 +467,7 @@ func TestDepartmentAndUserContractRevokesSessions(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -528,7 +533,7 @@ func TestDictionaryAndConfigContractUsesSeedAndAudit(t *testing.T) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -562,7 +567,7 @@ func TestLoginAndOperLogContractServesQueriesAndDetails(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -657,7 +662,7 @@ func TestFileContractUploadsAndStreamsWithPostgres(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -786,7 +791,7 @@ func TestNotificationContractUsesPostgres(t *testing.T) {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
 
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), temporary.dsn)
 	database := openTemporaryDatabase(t, temporary.dsn)
 	defer func() { _ = database.Close() }()
@@ -888,68 +893,166 @@ func servePlain(t *testing.T, router http.Handler, method, path, token string) *
 	return response
 }
 
-type temporaryPostgres struct {
+// sharedPostgres is the single PostgreSQL container this test process reuses.
+// One container takes startup cost out of every test; one database per test
+// keeps data, sequences, triggers and migration versions isolated.
+type sharedPostgres struct {
 	container string
-	dsn       string
+	host      string
+	port      string
+	user      string
+	password  string
 }
 
-func startPostgres(t *testing.T) temporaryPostgres {
+// testDatabase is the private database a single test runs against.
+type testDatabase struct {
+	name   string
+	shared sharedPostgres
+	dsn    string
+}
+
+const (
+	postgresAdminDatabase = "postgres"
+	postgresUser          = "integration"
+	postgresPassword      = "integration-password"
+	postgresStartTimeout  = 45 * time.Second
+)
+
+var (
+	sharedPostgresOnce  sync.Once
+	sharedPostgresValue sharedPostgres
+	sharedPostgresSkip  string
+	sharedPostgresFatal string
+	sharedPostgresGone  sync.Once
+)
+
+// TestMain owns the shared container, which outlives every individual test and
+// so cannot belong to any single t.Cleanup. The exit path also proves that each
+// test dropped its own database before the container disappears.
+func TestMain(m *testing.M) {
+	interrupted := make(chan os.Signal, 1)
+	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interrupted
+		removeSharedPostgres()
+		os.Exit(1)
+	}()
+
+	code := m.Run()
+	if orphaned := orphanedTestDatabases(); len(orphaned) > 0 {
+		fmt.Fprintf(os.Stderr, "test databases survived their test: %s\n", strings.Join(orphaned, ", "))
+		code = 1
+	}
+	removeSharedPostgres()
+	os.Exit(code)
+}
+
+func removeSharedPostgres() {
+	sharedPostgresGone.Do(func() {
+		if sharedPostgresValue.container != "" {
+			_ = exec.Command("docker", "rm", "--force", sharedPostgresValue.container).Run()
+		}
+	})
+}
+
+// orphanedTestDatabases lists databases that outlived the test owning them. The
+// admin database and PostgreSQL's own templates are not test databases.
+func orphanedTestDatabases() []string {
+	if sharedPostgresValue.container == "" {
+		return nil
+	}
+	query := "SELECT datname FROM pg_database WHERE datname LIKE 'integration\\_%'"
+	command := exec.Command("docker", "exec", sharedPostgresValue.container, "psql", "-U", postgresUser, "-d", postgresAdminDatabase, "-tAc", query)
+	output, err := command.Output()
+	if err != nil {
+		return []string{fmt.Sprintf("could not list test databases: %v", err)}
+	}
+	var orphaned []string
+	for _, line := range strings.Split(string(output), "\n") {
+		if name := strings.TrimSpace(line); name != "" {
+			orphaned = append(orphaned, name)
+		}
+	}
+	return orphaned
+}
+
+// ensurePostgresContainer starts the shared container on first use and hands the
+// same one to every later caller. A failed start is remembered so each test
+// reports it instead of retrying Docker.
+func ensurePostgresContainer(t *testing.T) sharedPostgres {
 	t.Helper()
-	container := fmt.Sprintf("server-integration-%d", time.Now().UnixNano())
-	password := "integration-password"
+	sharedPostgresOnce.Do(func() {
+		sharedPostgresValue, sharedPostgresSkip, sharedPostgresFatal = startSharedPostgres()
+	})
+	if sharedPostgresSkip != "" {
+		t.Skip(sharedPostgresSkip)
+	}
+	if sharedPostgresFatal != "" {
+		t.Fatalf("%s", sharedPostgresFatal)
+	}
+	return sharedPostgresValue
+}
+
+func startSharedPostgres() (sharedPostgres, string, string) {
+	if _, err := exec.LookPath("docker"); err != nil {
+		return sharedPostgres{}, "Docker is required for PostgreSQL integration tests", ""
+	}
+	// The name carries the process id so a run that was killed can be recognised
+	// and replaced instead of accumulating containers.
+	container := fmt.Sprintf("server-integration-%d", os.Getpid())
+	_ = exec.Command("docker", "rm", "--force", container).Run()
 	command := exec.Command(
 		"docker", "run", "--detach", "--rm", "--name", container,
-		"--env", "POSTGRES_DB=integration",
-		"--env", "POSTGRES_USER=integration",
-		"--env", "POSTGRES_PASSWORD="+password,
+		"--env", "POSTGRES_DB="+postgresAdminDatabase,
+		"--env", "POSTGRES_USER="+postgresUser,
+		"--env", "POSTGRES_PASSWORD="+postgresPassword,
 		"--publish", "127.0.0.1::5432",
 		postgresImage,
 	)
 	output, err := command.CombinedOutput()
 	if err != nil {
-		if strings.Contains(strings.ToLower(string(output)), "permission denied") || strings.Contains(strings.ToLower(string(output)), "cannot connect to the docker daemon") {
-			t.Skipf("Docker daemon is unavailable for PostgreSQL integration: %s", strings.TrimSpace(string(output)))
+		lowered := strings.ToLower(string(output))
+		if strings.Contains(lowered, "permission denied") || strings.Contains(lowered, "cannot connect to the docker daemon") {
+			return sharedPostgres{}, fmt.Sprintf("Docker daemon is unavailable for PostgreSQL integration: %s", strings.TrimSpace(string(output))), ""
 		}
-		t.Fatalf("start temporary PostgreSQL: %v\n%s", err, output)
+		return sharedPostgres{}, "", fmt.Sprintf("start shared PostgreSQL: %v\n%s", err, output)
 	}
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rm", "--force", container).Run()
-	})
 
 	portOutput, err := exec.Command("docker", "port", container, "5432/tcp").Output()
 	if err != nil {
-		t.Fatalf("resolve temporary PostgreSQL port: %v", err)
+		return sharedPostgres{}, "", fmt.Sprintf("resolve shared PostgreSQL port: %v", err)
 	}
 	_, port, err := net.SplitHostPort(strings.TrimSpace(string(portOutput)))
 	if err != nil {
-		t.Fatalf("parse temporary PostgreSQL port: %v", err)
+		return sharedPostgres{}, "", fmt.Sprintf("parse shared PostgreSQL port: %v", err)
 	}
 
-	database := temporaryPostgres{
+	shared := sharedPostgres{
 		container: container,
-		dsn:       "postgres://integration:" + password + "@127.0.0.1:" + port + "/integration?sslmode=disable",
+		host:      "127.0.0.1",
+		port:      port,
+		user:      postgresUser,
+		password:  postgresPassword,
 	}
-	database.waitUntilReady(t)
-	return database
+	if err := shared.waitUntilReady(); err != nil {
+		return sharedPostgres{}, "", err.Error()
+	}
+	return shared, "", ""
 }
 
-func (database temporaryPostgres) waitUntilReady(t *testing.T) {
-	t.Helper()
-	endpoint, err := url.Parse(database.dsn)
-	if err != nil {
-		t.Fatalf("parse temporary PostgreSQL endpoint: %v", err)
-	}
-	deadline := time.Now().Add(45 * time.Second)
+func (shared sharedPostgres) waitUntilReady() error {
+	address := net.JoinHostPort(shared.host, shared.port)
+	deadline := time.Now().Add(postgresStartTimeout)
 	readyStreak := 0
 	for time.Now().Before(deadline) {
 		// Probe TCP rather than the initialization-only Unix socket server.
-		if err := exec.Command("docker", "exec", database.container, "pg_isready", "-h", "127.0.0.1", "-U", "integration", "-d", "integration").Run(); err == nil {
-			connection, dialErr := net.DialTimeout("tcp", endpoint.Host, time.Second)
+		if err := exec.Command("docker", "exec", shared.container, "pg_isready", "-h", "127.0.0.1", "-U", shared.user, "-d", postgresAdminDatabase).Run(); err == nil {
+			connection, dialErr := net.DialTimeout("tcp", address, time.Second)
 			if dialErr == nil {
 				_ = connection.Close()
 				readyStreak++
 				if readyStreak >= 2 {
-					return
+					return nil
 				}
 			} else {
 				readyStreak = 0
@@ -959,7 +1062,24 @@ func (database temporaryPostgres) waitUntilReady(t *testing.T) {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	t.Fatal("temporary PostgreSQL did not become ready within 45 seconds")
+	return fmt.Errorf("shared PostgreSQL did not become ready within %s", postgresStartTimeout)
+}
+
+func (shared sharedPostgres) dsnFor(databaseName string) string {
+	return "postgres://" + shared.user + ":" + shared.password + "@" + net.JoinHostPort(shared.host, shared.port) + "/" + databaseName + "?sslmode=disable"
+}
+
+// adminConfig connects to the admin database, which exists for CREATE and DROP
+// DATABASE and never holds test data.
+func (shared sharedPostgres) adminConfig() config.DatabaseConfig {
+	return config.DatabaseConfig{
+		Driver:       platformdatabase.DriverPostgres,
+		URL:          "postgres://" + net.JoinHostPort(shared.host, shared.port) + "/" + postgresAdminDatabase + "?sslmode=disable",
+		Username:     shared.user,
+		Password:     shared.password,
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
+	}
 }
 
 func runMigrations(t *testing.T, root, dsn string) {
@@ -975,7 +1095,7 @@ func runMigrationsWithEnvironment(t *testing.T, root, dsn, environment string) {
 	command.Dir = root
 	command.Env = integrationEnvironment(t, dsn, environment)
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("run migrations against temporary PostgreSQL: %v\n%s", err, output)
+		t.Fatalf("run migrations against the test database: %v\n%s", err, output)
 	}
 }
 
@@ -998,9 +1118,94 @@ func integrationEnvironment(t *testing.T, dsn, environmentName string) []string 
 	)
 }
 
-func (database temporaryPostgres) assertGooseSchemaVersionTable(t *testing.T) {
+// createTestDatabase creates the database this test owns inside the shared
+// container and returns its DSN. Migrations stay with the caller, because the
+// empty-database, version-upgrade and seed-difference cases each have to run
+// their own real flow.
+func createTestDatabase(t *testing.T) testDatabase {
 	t.Helper()
-	command := exec.Command("docker", "exec", database.container, "psql", "-U", "integration", "-d", "integration", "-tAc", "SELECT 1 FROM goose_schema_db_version LIMIT 1")
+	shared := ensurePostgresContainer(t)
+	name := testDatabaseName(t)
+
+	admin := openSharedDatabase(t, shared.adminConfig(), "connect to the shared PostgreSQL admin database")
+	if _, err := admin.SQL.ExecContext(context.Background(), `CREATE DATABASE "`+name+`"`); err != nil {
+		_ = admin.Close()
+		t.Fatalf("create test database %s: %v", name, err)
+	}
+	if err := admin.Close(); err != nil {
+		t.Fatalf("close admin connection after creating %s: %v", name, err)
+	}
+
+	database := testDatabase{name: name, shared: shared, dsn: shared.dsnFor(name)}
+	t.Cleanup(func() { cleanupTestDatabase(t, database) })
+	return database
+}
+
+// cleanupTestDatabase drops the test database. t.Cleanup runs after the test
+// body, and so after the pool that body closes with defer.
+func cleanupTestDatabase(t *testing.T, database testDatabase) {
+	t.Helper()
+	admin, err := platformdatabase.Open(context.Background(), database.shared.adminConfig())
+	if err != nil {
+		t.Errorf("connect to the shared PostgreSQL admin database for cleanup: %v", err)
+		return
+	}
+	defer func() {
+		if closeErr := admin.Close(); closeErr != nil {
+			t.Errorf("close admin connection after dropping %s: %v", database.name, closeErr)
+		}
+	}()
+
+	// A pool the test forgot to close must not be able to block the drop.
+	terminate := `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`
+	if _, err := admin.SQL.ExecContext(context.Background(), terminate, database.name); err != nil {
+		t.Errorf("terminate sessions on %s: %v", database.name, err)
+	}
+	if _, err := admin.SQL.ExecContext(context.Background(), `DROP DATABASE IF EXISTS "`+database.name+`"`); err != nil {
+		t.Errorf("drop test database %s: %v", database.name, err)
+	}
+}
+
+func openSharedDatabase(t *testing.T, cfg config.DatabaseConfig, purpose string) *platformdatabase.Database {
+	t.Helper()
+	database, err := platformdatabase.Open(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("%s: %v", purpose, err)
+	}
+	return database
+}
+
+// testDatabaseName derives a database name from the test name. PostgreSQL
+// identifiers stop at 63 bytes, so the name is trimmed before the random suffix
+// that keeps repeated runs and subtests apart.
+func testDatabaseName(t *testing.T) string {
+	name := strings.Map(func(character rune) rune {
+		switch {
+		case character >= 'a' && character <= 'z', character >= '0' && character <= '9':
+			return character
+		case character >= 'A' && character <= 'Z':
+			return character + ('a' - 'A')
+		default:
+			return '_'
+		}
+	}, t.Name())
+	if len(name) > 40 {
+		name = name[:40]
+	}
+	return "integration_" + name + "_" + randomDatabaseSuffix()
+}
+
+func randomDatabaseSuffix() string {
+	suffix := make([]byte, 4)
+	if _, err := rand.Read(suffix); err != nil {
+		return fmt.Sprintf("%08x", uint32(time.Now().UnixNano()))
+	}
+	return hex.EncodeToString(suffix)
+}
+
+func (database testDatabase) assertGooseSchemaVersionTable(t *testing.T) {
+	t.Helper()
+	command := exec.Command("docker", "exec", database.shared.container, "psql", "-U", postgresUser, "-d", database.name, "-tAc", "SELECT 1 FROM goose_schema_db_version LIMIT 1")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("verify Goose schema migration table: %v\n%s", err, output)

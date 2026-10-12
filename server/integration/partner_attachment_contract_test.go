@@ -365,7 +365,7 @@ func assertPartnerAttachmentUpgrade(t *testing.T, dialect string) {
 		migrationRoot = filepath.Join(projectRoot(t), "migrations", "sqlite")
 		gooseDialect = "sqlite3"
 	} else {
-		pg := startPostgres(t)
+		pg := createTestDatabase(t)
 		db = openTemporaryDatabase(t, pg.dsn)
 		migrationRoot = filepath.Join(projectRoot(t), "migrations")
 		gooseDialect = "postgres"
@@ -428,7 +428,7 @@ func assertAttachmentBackupRestore(t *testing.T, dialect string) {
 		runSQLiteMigrations(t, sourcePath)
 		db = openSQLiteDatabase(t, sourcePath)
 	} else {
-		pg := startPostgres(t)
+		pg := createTestDatabase(t)
 		dsn = pg.dsn
 		runMigrations(t, projectRoot(t), dsn)
 		db = openTemporaryDatabase(t, dsn)
@@ -493,7 +493,7 @@ func assertAttachmentBackupRestore(t *testing.T, dialect string) {
 		if output, err := exec.Command("pg_dump", "--no-owner", "--no-privileges", "--dbname", dsn, "--file", dump).CombinedOutput(); err != nil {
 			t.Fatalf("pg_dump: %v %s", err, output)
 		}
-		target := startPostgres(t)
+		target := createTestDatabase(t)
 		if output, err := exec.Command("psql", "--dbname", target.dsn, "--set", "ON_ERROR_STOP=1", "--file", dump).CombinedOutput(); err != nil {
 			t.Fatalf("restore: %v %s", err, output)
 		}

@@ -44,7 +44,7 @@ func TestPostgresPrintProfileContract(t *testing.T) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	db := openTemporaryDatabase(t, temporary.dsn)
 	defer db.Close()
 	runMigrations(t, projectRoot(t), temporary.dsn)

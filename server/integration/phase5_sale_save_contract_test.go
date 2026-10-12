@@ -28,7 +28,7 @@ func TestSQLitePhase5SaleSaveHTTPContract(t *testing.T) {
 	assertSaleSave(t, r, db, "sqlite", func() *platformdatabase.Database { return openSQLiteDatabase(t, path) })
 }
 func TestPostgresPhase5SaleSaveHTTPContract(t *testing.T) {
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()

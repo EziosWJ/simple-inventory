@@ -32,7 +32,7 @@ func TestSQLiteEffectiveTimePostgresSQLiteHTTPContract(t *testing.T) {
 }
 
 func TestPostgresEffectiveTimePostgresSQLiteHTTPContract(t *testing.T) {
-	pg := startPostgres(t)
+	pg := createTestDatabase(t)
 	runMigrations(t, projectRoot(t), pg.dsn)
 	db := openTemporaryDatabase(t, pg.dsn)
 	defer db.Close()

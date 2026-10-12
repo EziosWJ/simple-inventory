@@ -122,7 +122,7 @@ func TestPostgresInventoryDraftContract(t *testing.T) {
 	if _, e := exec.LookPath("docker"); e != nil {
 		t.Skip("Docker is required for PostgreSQL integration tests")
 	}
-	temporary := startPostgres(t)
+	temporary := createTestDatabase(t)
 	db := openTemporaryDatabase(t, temporary.dsn)
 	prepareInventoryPhase2(t, db, "postgres", filepath.Join(projectRoot(t), "migrations"))
 	if e := db.Close(); e != nil {
