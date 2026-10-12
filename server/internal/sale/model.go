@@ -162,6 +162,7 @@ type DeliveryNoteLine struct {
 type Query struct {
 	Page, PageSize                 int
 	DocumentNo, Status             string
+	DirectDelivery                 string
 	PartnerID, ProductID           int64
 	PartnerKeyword, ProductKeyword string
 	BusinessFrom, BusinessTo       string

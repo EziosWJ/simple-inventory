@@ -28,6 +28,7 @@ type Store interface {
 	Post(context.Context, int64, int64, audit.Event) (Draft, error)
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
+	ItemPage(context.Context, ItemQuery) (ItemPage, error)
 	SaveResult(context.Context, int64, string, string) (SaveResult, error)
 	ResolveSave(context.Context, audit.Metadata, string, string) (SaveResult, error)
 }
@@ -109,6 +110,53 @@ func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 		return Page{}, ErrInvalid
 	}
 	return s.store.Page(ctx, q)
+}
+
+func (s *Service) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 {
+		q.PageSize = 10
+	}
+	if q.PageSize > 500 {
+		q.PageSize = 500
+	}
+	if q.Page > math.MaxInt/q.PageSize {
+		return ItemPage{}, ErrInvalid
+	}
+	if q.SortBy == "" {
+		q.SortBy = "businessDate"
+	}
+	if q.SortBy != "businessDate" && q.SortBy != "unitPrice" && q.SortBy != "amount" && q.SortBy != "netAmount" {
+		return ItemPage{}, ErrInvalid
+	}
+	if q.SortDir == "" {
+		q.SortDir = "desc"
+	}
+	if q.SortDir != "asc" && q.SortDir != "desc" {
+		return ItemPage{}, ErrInvalid
+	}
+	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {
+		return ItemPage{}, ErrInvalid
+	}
+	if (q.DirectDelivery != "" && q.DirectDelivery != "true" && q.DirectDelivery != "false") || q.ProductID < 0 || q.PartnerID < 0 || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
+		return ItemPage{}, ErrInvalid
+	}
+	for _, date := range []string{q.BusinessFrom, q.BusinessTo} {
+		if date != "" {
+			if _, e := time.Parse("2006-01-02", date); e != nil {
+				return ItemPage{}, ErrInvalid
+			}
+		}
+	}
+	if q.BusinessFrom != "" && q.BusinessTo != "" && q.BusinessFrom > q.BusinessTo {
+		return ItemPage{}, ErrInvalid
+	}
+	if strings.TrimSpace(q.DocumentNo) != "" && len(q.DocumentNo) > 100 || len(q.PartnerKeyword) > 100 || len(q.ProductKeyword) > 100 {
+		return ItemPage{}, ErrInvalid
+	}
+	return s.store.ItemPage(ctx, q)
 }
 
 func validate(in Input) (Draft, []Line, error) {

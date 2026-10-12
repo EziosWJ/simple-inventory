@@ -21,6 +21,8 @@ import {
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
+import { Field } from "@/components/common/field";
+import { ProductSelect } from "@/components/business/master-data-select";
 import { FormDialog } from "@/components/common/form-dialog";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
@@ -52,8 +54,8 @@ const reasonFallback: DictSelectOption<AdjustmentReason>[] = [
 const statusFallback: DictSelectOption<AdjustmentStatus>[] = [
   { value: "DRAFT", label: "草稿" }, { value: "POSTED", label: "已过账" }, { value: "CANCELLED", label: "已取消" },
 ];
-type Filters = { documentNo: string; status: string; productId: string; createdFrom: string; createdTo: string };
-const blankFilters: Filters = { documentNo: "", status: "", productId: "", createdFrom: "", createdTo: "" };
+type Filters = { documentNo: string; status: string; productId: string; productKeyword: string; createdFrom: string; createdTo: string };
+const blankFilters: Filters = { documentNo: "", status: "", productId: "", productKeyword: "", createdFrom: "", createdTo: "" };
 type DraftLine = { key: number; product: ProductRecord | null; savedSnapshot: boolean; quantity: string; reason: AdjustmentReason | ""; remark: string };
 let nextLineKey = 1;
 
@@ -69,7 +71,6 @@ export function InventoryAdjustmentsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [draftFilters, setDraftFilters] = useState<Filters>(blankFilters);
-  const [productFilter, setProductFilter] = useState<ProductRecord | null>(null);
   const [filterError, setFilterError] = useState("");
   const [filters, setFilters] = useState<Filters>(blankFilters);
   const [reload, setReload] = useState(0);
@@ -89,7 +90,7 @@ export function InventoryAdjustmentsPage() {
     setLoading(true);
     void inventoryAdjustmentPage({
       page, pageSize: PAGE_SIZE, documentNo: filters.documentNo, status: filters.status,
-      productId: filters.productId, createdFrom: filters.createdFrom, createdTo: filters.createdTo,
+      productId: filters.productId, productKeyword: filters.productKeyword, createdFrom: filters.createdFrom, createdTo: filters.createdTo,
     }).then((result) => {
       if (!active) return;
       setRecords(result.records);
@@ -104,6 +105,7 @@ export function InventoryAdjustmentsPage() {
 
   const columns: DataTableColumn<InventoryAdjustment>[] = [
     { title: "调整单号", dataIndex: "documentNo", render: (value, record) => <button className="text-primary hover:underline" onClick={() => void openDetail(record.id)}>{String(value ?? "")}</button> },
+    { title: "商品 / 调整量", key: "items", render: (_, record) => <div className="max-w-[24rem] space-y-1">{record.items?.map((item) => <div key={item.id} className={item.matchesProduct ? "font-medium text-primary" : "text-sm"}>{item.productCode} · {item.productName} · {item.quantity} {item.unit}{item.reason ? ` · ${item.reason}` : ""}</div>) ?? "—"}</div> },
     { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(statusDict.options, value as AdjustmentStatus) },
     { title: "创建人", key: "creator", render: (_, record) => record.createdByName || `用户 ${record.createdBy}` },
     { title: "创建时间", dataIndex: "createTime", render: (value) => formatDateTime(String(value ?? "")) },
@@ -193,12 +195,12 @@ export function InventoryAdjustmentsPage() {
   return <>
     <PageHeader title="库存调整" description="查询库存调整单，登记期初、盘盈、盘亏或报损。草稿保存不改变库存。" actions={<Button onClick={() => { setActionError(""); setCreateOpen(true); }}>新建调整单</Button>} />
     <BusinessFeedback feedback={feedback} />
-    <SearchFilterBar actions={<><Button variant="secondary" onClick={() => { setProductFilter(null); applyFilters(blankFilters); }}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
-      <Input placeholder="调整单号" value={draftFilters.documentNo} onChange={(event) => setDraftFilters({ ...draftFilters, documentNo: event.target.value })} />
-      <Select value={draftFilters.status} onChange={(event) => setDraftFilters({ ...draftFilters, status: event.target.value })}><option value="">全部状态</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
-      <ProductFilter selected={productFilter} onChoose={(product) => { setProductFilter(product); setDraftFilters({ ...draftFilters, productId: String(product.id) }); }} onClear={() => { setProductFilter(null); setDraftFilters({ ...draftFilters, productId: "" }); }} />
-      <label className="grid gap-1 text-xs text-text-secondary">创建时间起（含）<Input type="date" value={draftFilters.createdFrom} onChange={(event) => setDraftFilters({ ...draftFilters, createdFrom: event.target.value })} /></label>
-      <label className="grid gap-1 text-xs text-text-secondary">创建时间止（含当日）<Input type="date" value={draftFilters.createdTo} onChange={(event) => setDraftFilters({ ...draftFilters, createdTo: event.target.value })} /></label>
+    <SearchFilterBar onSubmit={() => applyFilters(draftFilters)} actions={<><Button variant="secondary" onClick={() => applyFilters(blankFilters)}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
+      <Field label="调整单号"><Input placeholder="调整单号" value={draftFilters.documentNo} onChange={(event) => setDraftFilters({ ...draftFilters, documentNo: event.target.value })} /></Field>
+      <Field label="商品"><ProductSelect inlineBrowse label="筛选商品" placeholder="搜索商品编码、名称、型号或规格" historical value={Number(draftFilters.productId)} keyword={draftFilters.productKeyword} onDraftKeywordChange={(productKeyword) => setDraftFilters((current) => ({ ...current, productKeyword, productId: "" }))} onKeywordChange={(productKeyword) => applyFilters({ ...draftFilters, productKeyword, productId: "" })} onChange={(product) => setDraftFilters((current) => ({ ...current, productId: product ? String(product.id) : "", productKeyword: "" }))} /></Field>
+      <Field label="状态"><Select value={draftFilters.status} onChange={(event) => setDraftFilters({ ...draftFilters, status: event.target.value })}><option value="">全部状态</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+      <Field label="创建时间起（含）"><Input type="date" value={draftFilters.createdFrom} onChange={(event) => setDraftFilters({ ...draftFilters, createdFrom: event.target.value })} /></Field>
+      <Field label="创建时间止（含当日）"><Input type="date" value={draftFilters.createdTo} onChange={(event) => setDraftFilters({ ...draftFilters, createdTo: event.target.value })} /></Field>
     </SearchFilterBar>
     {filterError && <p role="alert" className="mb-3 text-sm text-danger">{filterError}</p>}
     {dictIssues.length > 0 && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm text-text-secondary"><span>{dictIssues.join(" ")}</span><Button size="sm" variant="secondary" onClick={() => { statusDict.reload(); reasonDict.reload(); }}>重试</Button></div>}
@@ -222,28 +224,6 @@ function toApiFilters(filters: Filters) {
 }
 const localMidnightToUtc = businessMidnightToUtc;
 const localNextMidnightToUtc = (date: string) => businessMidnightToUtc(date, true);
-
-function ProductFilter({ selected, onChoose, onClear }: { selected: ProductRecord | null; onChoose: (product: ProductRecord) => void; onClear: () => void }) {
-  const [keyword, setKeyword] = useState("");
-  const [activeKeyword, setActiveKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const [run, setRun] = useState(0);
-  const [products, setProducts] = useState<ProductRecord[]>([]);
-  const [total, setTotal] = useState(0);
-  useEffect(() => {
-    let active = true;
-    void productPage({ page, pageSize: 10, keyword: activeKeyword }).then((result) => {
-      if (!active) return;
-      setProducts(result.records); setTotal(result.total);
-    }).catch(() => { if (active) { setProducts([]); setTotal(0); } });
-    return () => { active = false; };
-  }, [activeKeyword, page, run]);
-  return <div className="grid min-w-[240px] gap-1">
-    <div className="flex gap-1"><Input placeholder={selected ? `${selected.code} · ${selected.name}` : "搜索商品编码或名称"} value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setActiveKeyword(keyword.trim()); setPage(1); setRun((value) => value + 1); } }} /><Button type="button" size="sm" variant="secondary" onClick={() => { setActiveKeyword(keyword.trim()); setPage(1); setRun((value) => value + 1); }}>搜索</Button></div>
-    <Select aria-label="按商品筛选" value={selected ? String(selected.id) : ""} onChange={(event) => { if (!event.target.value) { onClear(); return; } const product = products.find((item) => item.id === Number(event.target.value)); if (product) onChoose(product); }}><option value="">全部商品</option>{selected && !products.some((item) => item.id === selected.id) && <option value={selected.id}>{selected.code} · {selected.name} · {selected.unit}</option>}{products.map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name} · {product.unit}</option>)}</Select>
-    <div className="flex items-center gap-2 text-xs text-text-tertiary"><span>第 {page}/{Math.max(1, Math.ceil(total / 10))} 页</span><button type="button" className="text-primary disabled:text-text-tertiary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><button type="button" className="text-primary disabled:text-text-tertiary" disabled={page >= Math.max(1, Math.ceil(total / 10))} onClick={() => setPage((value) => value + 1)}>下一页</button>{selected && <button type="button" className="text-primary" onClick={onClear}>清除</button>}</div>
-  </div>;
-}
 
 function ProductPicker({ selected, savedSnapshot, onChoose }: { selected: ProductRecord | null; savedSnapshot: boolean; onChoose: (product: ProductRecord) => void }) {
   const [keyword, setKeyword] = useState("");

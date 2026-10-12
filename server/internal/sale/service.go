@@ -114,7 +114,7 @@ func pageBounds(page, size int) (int, int) {
 }
 
 func validateQueryFilters(q Query) error {
-	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
+	if q.Page > math.MaxInt/q.PageSize || q.ProductID < 0 || q.PartnerID < 0 || (q.DirectDelivery != "" && q.DirectDelivery != "true" && q.DirectDelivery != "false") || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
 		return ErrInvalid
 	}
 	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {

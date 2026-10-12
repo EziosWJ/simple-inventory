@@ -7,6 +7,7 @@ import { ContentCard } from "@/components/common/content-card";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { EmptyState } from "@/components/common/empty-state";
+import { Field } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
@@ -47,6 +48,16 @@ export function PartnerBalancesPage() {
   const direction = params.get("direction") ?? "";
   // Old direction/partner links keep their all-direction lookup semantics.
   const category = params.get("category") ?? (partnerId || direction ? "ALL" : "RECEIVABLE");
+  const [draftPartnerId, setDraftPartnerId] = useState(partnerId);
+  const [draftPartnerKeyword, setDraftPartnerKeyword] = useState(partnerKeyword);
+  const [draftCategory, setDraftCategory] = useState(category);
+  const [draftDirection, setDraftDirection] = useState(direction);
+  useEffect(() => {
+    setDraftPartnerId(partnerId);
+    setDraftPartnerKeyword(partnerKeyword);
+    setDraftCategory(category);
+    setDraftDirection(direction);
+  }, [partnerId, partnerKeyword, category, direction]);
   const rawPage = Number(params.get("page"));
   const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const [rows, setRows] = useState<PartnerBalance[]>([]);
@@ -65,6 +76,15 @@ export function PartnerBalancesPage() {
     if (value) p.set(key, value); else p.delete(key);
     if (key === "category") p.delete("direction");
     p.delete("page");
+    setParams(p);
+  }
+  function applySearch(next = { partnerId: draftPartnerId, partnerKeyword: draftPartnerKeyword, category: draftCategory, direction: draftDirection }) {
+    const p = new URLSearchParams(params);
+    p.set("category", next.category);
+    p.delete("partnerId"); p.delete("partnerKeyword"); p.delete("direction"); p.delete("page");
+    if (next.partnerKeyword.trim()) p.set("partnerKeyword", next.partnerKeyword.trim());
+    else if (next.partnerId) p.set("partnerId", next.partnerId);
+    if (next.direction) p.set("direction", next.direction);
     setParams(p);
   }
   function setPage(next: number) {
@@ -147,10 +167,10 @@ export function PartnerBalancesPage() {
           </ol>}
       </div>
     </ContentCard>
-    <SearchFilterBar actions={<Button onClick={() => { const p = new URLSearchParams(params); p.delete("partnerId"); p.delete("partnerKeyword"); p.delete("direction"); p.delete("page"); p.set("category", category); setParams(p); }}>清除筛选</Button>}>
-      <PartnerSelect label="筛选往来单位" historical value={Number(partnerId)} keyword={partnerKeyword} onKeywordChange={k=>{const p=new URLSearchParams(params);p.delete("partnerId");if(k)p.set("partnerKeyword",k);else p.delete("partnerKeyword");p.delete("page");setParams(p)}} onChange={r=>{const p=new URLSearchParams(params);p.delete("partnerKeyword");if(r)p.set("partnerId",String(r.id));else p.delete("partnerId");p.delete("page");setParams(p)}} />
-      <Select aria-label="筛选款项分类" value={category} onChange={e => change("category", e.target.value)}>{categories.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}<option value="ALL">全部（含结清及无记录）</option></Select>
-      {category === "ALL" && <Select aria-label="筛选往来方向" value={direction} onChange={e => change("direction", e.target.value)}><option value="">客户及供应商</option><option value="CUSTOMER">客户</option><option value="SUPPLIER">供应商</option></Select>}
+    <SearchFilterBar actions={<><Button onClick={() => applySearch()}>查询</Button><Button variant="secondary" onClick={() => applySearch({ partnerId: "", partnerKeyword: "", category, direction: "" })}>清除筛选</Button></>}>
+      <Field label="往来单位"><PartnerSelect inlineBrowse label="筛选往来单位" historical value={Number(draftPartnerId)} keyword={draftPartnerKeyword} onDraftKeywordChange={setDraftPartnerKeyword} onKeywordChange={keyword => applySearch({ partnerId: "", partnerKeyword: keyword, category: draftCategory, direction: draftDirection })} onChange={record => { setDraftPartnerId(record ? String(record.id) : ""); setDraftPartnerKeyword(""); }} /></Field>
+      <Field label="款项分类"><Select aria-label="筛选款项分类" value={draftCategory} onChange={e => setDraftCategory(e.target.value)}>{categories.map(c => <option key={c.key} value={c.key}>{c.title}</option>)}<option value="ALL">全部（含结清及无记录）</option></Select></Field>
+      {draftCategory === "ALL" && <Field label="往来方向"><Select aria-label="筛选往来方向" value={draftDirection} onChange={e => setDraftDirection(e.target.value)}><option value="">客户及供应商</option><option value="CUSTOMER">客户</option><option value="SUPPLIER">供应商</option></Select></Field>}
     </SearchFilterBar>
     <DataTableCard toolbar={<div className="p-3 text-sm"><strong>{selectedTitle}</strong> · {loading ? "查询中…" : `${total} ${category === "ALL" ? "条往来余额" : "个单位"}`}{category !== "ALL" && " · 按金额从大到小"}{partnerId && " · 已筛选单位"}</div>} pagination={<Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}>
       <DataTable columns={columns} dataSource={rows} rowKey={row => `${row.partnerId}-${row.direction}`} loading={loading} error={error ? <div role="alert" className="space-y-3"><p className="text-error">{error}</p><Button onClick={() => setVersion(v => v + 1)}>重试列表</Button></div> : undefined} empty={<EmptyState title="当前筛选下没有往来款项" description="可切换款项分类、清除单位筛选，或选择全部查看结清及无记录方向。" />} minWidth={850} />

@@ -42,6 +42,9 @@ func (s purchaseErrorStore) Find(_ context.Context, _ int64) (*purchase.Draft, e
 func (s purchaseErrorStore) Page(_ context.Context, _ purchase.Query) (purchase.Page, error) {
 	return purchase.Page{}, s.err
 }
+func (s purchaseErrorStore) ItemPage(_ context.Context, _ purchase.ItemQuery) (purchase.ItemPage, error) {
+	return purchase.ItemPage{}, s.err
+}
 
 type saleErrorStore struct{ err error }
 
@@ -183,7 +186,7 @@ func TestPhase4HandlersTemporaryUnavailable(t *testing.T) {
 	}{
 		{name: "purchase", register: func(r *gin.Engine, e error) {
 			purchase.RegisterRoutes(r, purchase.NewHandler(purchase.NewService(purchaseErrorStore{e})))
-		}, requests: []request{{"POST", "/purchases", draft}, {"PUT", "/purchases/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/purchases/1/post", `{"version":1}`}, {"POST", "/purchases/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/purchases", ""}, {"GET", "/purchases/1", ""}}, invalid: purchase.ErrInvalid, missing: purchase.ErrNotFound, conflict: purchase.ErrConflict},
+		}, requests: []request{{"POST", "/purchases", draft}, {"PUT", "/purchases/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/purchases/1/post", `{"version":1}`}, {"POST", "/purchases/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/purchases", ""}, {"GET", "/purchases/items", ""}, {"GET", "/purchases/1", ""}}, invalid: purchase.ErrInvalid, missing: purchase.ErrNotFound, conflict: purchase.ErrConflict},
 		{name: "sale", register: func(r *gin.Engine, e error) {
 			sale.RegisterRoutes(r, sale.NewHandler(sale.NewService(saleErrorStore{e})))
 		}, requests: []request{{"POST", "/sales", draft}, {"PUT", "/sales/1", `{"version":1,` + strings.TrimPrefix(draft, "{")}, {"POST", "/sales/1/post", `{"version":1}`}, {"POST", "/sales/1/cancel", `{"version":1,"reason":"测试"}`}, {"GET", "/sales", ""}, {"GET", "/sales/items", ""}, {"GET", "/sales/1", ""}, {"GET", "/sales/1/delivery-note", ""}}, invalid: sale.ErrInvalid, missing: sale.ErrNotFound, conflict: sale.ErrConflict},

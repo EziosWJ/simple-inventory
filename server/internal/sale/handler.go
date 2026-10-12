@@ -153,6 +153,7 @@ func (h *Handler) resolveSave(c *gin.Context) {
 // @Param partnerKeyword query string false "往来单位多词字面检索，与partnerId互斥；销售含已保存客户名称"
 // @Param productKeyword query string false "商品多词字面检索，与productId互斥；含当前档案及该明细快照"
 // @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
+// @Param directDelivery query string false "交付方式：true直送，false普通"
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
 // @Description 返回整单及逐明细 matchesProduct 标识；无商品条件不标记，历史描述保持原快照。
@@ -160,7 +161,7 @@ func (h *Handler) resolveSave(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales [get]
 func (h *Handler) page(c *gin.Context) {
-	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
+	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
 	var e error
 	if q.Page, e = intQuery(c, "page", 1); e != nil {
 		fail(c, e)
@@ -201,6 +202,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Param partnerKeyword query string false "往来单位多词字面检索，与partnerId互斥；含已保存客户名称"
 // @Param productKeyword query string false "商品多词字面检索，与productId互斥；逐明细匹配当前档案或该明细快照"
 // @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
+// @Param directDelivery query string false "交付方式：true直送，false普通"
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
 // @Success 200 {object} ApiEnvelope{data=ItemPage}
@@ -208,7 +210,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/items [get]
 func (h *Handler) itemPage(c *gin.Context) {
-	q := ItemQuery{Query: Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
+	q := ItemQuery{Query: Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
 	var e error
 	if q.Page, e = intQuery(c, "page", 1); e != nil {
 		fail(c, e)

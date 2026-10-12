@@ -136,6 +136,10 @@ func metadata(ctx context.Context) audit.Metadata {
 // @Param direction query string false "方向" Enums(CUSTOMER,SUPPLIER)
 // @Param partnerId query int false "往来单位ID"
 // @Param partnerKeyword query string false "单位多词字面检索，仅当前档案；与partnerId互斥"
+// @Param documentNo query string false "单号多词检索"
+// @Param reversalStatus query string false "冲销状态" Enums(EFFECTIVE,REVERSED,REVERSAL)
+// @Param businessFrom query string false "业务日期起（含），YYYY-MM-DD"
+// @Param businessTo query string false "业务日期止（含），YYYY-MM-DD"
 // @Param category query string false "余额分类，省略时保留原单位方向排序；待处理分类按金额降序" Enums(ALL,RECEIVABLE,PAYABLE,CUSTOMER_REFUND,SUPPLIER_REFUND)
 // @Success 200 {object} ApiEnvelope{data=BalancePage}
 // @Failure 400 {object} ApiEnvelope
@@ -231,7 +235,7 @@ func (h *Handler) page(c *gin.Context) {
 			return
 		}
 	}
-	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, PartnerKeyword: c.Query("partnerKeyword"), Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
+	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, PartnerKeyword: c.Query("partnerKeyword"), DocumentNo: c.Query("documentNo"), ReversalStatus: c.Query("reversalStatus"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo"), Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
 	if e != nil {
 		if platform.IsTemporaryUnavailable(e) {
 			platform.TemporaryUnavailable(c)

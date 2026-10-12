@@ -9,6 +9,7 @@ export type InventoryAdjustmentItem = {
   id: number; productId: number; productCode: string; productName: string;
   productModel?: string | null; productSpecification?: string | null;
   productType: "GOODS" | "SERVICE"; unit: string; quantity: string; reason: AdjustmentReason; remark?: string | null;
+  matchesProduct?: boolean;
   balanceBefore?: string | null; balanceAfter?: string | null;
 };
 export type InventoryAdjustment = {
@@ -64,6 +65,9 @@ export type PurchaseSaveResult = {state:"COMMITTED"|"UNCONFIRMED"|"NOT_COMMITTED
 export const purchaseSaveResult=(operation:"CREATE"|"EDIT",key:string)=>http.get<PurchaseSaveResult>(`/api/v1/purchases/save-requests/${operation}/${encodeURIComponent(key)}`);
 export const resolvePurchaseSave=(operation:"CREATE"|"EDIT",key:string)=>http.post<PurchaseSaveResult>(`/api/v1/purchases/save-requests/${operation}/${encodeURIComponent(key)}/resolve`,{});
 export const purchasePage=(query:Record<string,string|number>)=>http.get<BusinessPage<PurchaseDraft>>("/api/v1/purchases",{query});
+export type PurchaseItemRecord = {id:number;purchaseId:number;documentNo:string;partnerId:number;partnerName:string;businessDate:string;status:"DRAFT"|"POSTED"|"CANCELLED";productId:number;productCode:string;productName:string;productModel?:string|null;productSpecification?:string|null;unit:string;quantity:string;unitPrice:string;amount:string;returnedQuantity?:string|null;returnedAmount?:string|null;netQuantity?:string|null;netAmount?:string|null;matchesHistory?:boolean};
+export type PurchaseItemPage = BusinessPage<PurchaseItemRecord> & {summary:{amounts:{status:"DRAFT"|"POSTED"|"CANCELLED";itemCount:number;originalAmount:string;returnedAmount?:string|null;netAmount?:string|null}[];quantities:{productId:number;productCode:string;productName:string;unit:string;status:"DRAFT"|"POSTED"|"CANCELLED";quantity:string;returnedQuantity?:string|null;netQuantity?:string|null}[]}};
+export const purchaseItemPage=(query:Record<string,string|number>)=>http.get<PurchaseItemPage>("/api/v1/purchases/items",{query});
 export const getPurchase=(id:number)=>http.get<PurchaseDraft>(`/api/v1/purchases/${id}`);
 export const createPurchase=(data:PurchaseInput)=>http.post<PurchaseDraft>("/api/v1/purchases",data);
 export const updatePurchase=(id:number,data:PurchaseInput&{version:number})=>http.put<PurchaseDraft>(`/api/v1/purchases/${id}`,data);

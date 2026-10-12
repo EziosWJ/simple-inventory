@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { partnerPage, partnerStatus, savePartner, type PartnerRecord } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
+import { Field } from "@/components/common/field";
 import { FormDialog } from "@/components/common/form-dialog";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
@@ -123,10 +124,10 @@ export function PartnersPage() {
   return <>
     <PageHeader title="往来单位" description="客户与供应商共用一份档案，可同时拥有两种身份。" actions={<Button onClick={() => setEditing(newPartner())}>新建档案</Button>} />
     <SearchFilterBar actions={<><Button variant="secondary" onClick={reset}>重置</Button><Button onClick={query}>查询</Button></>}>
-      <Input placeholder="编码、名称、联系人或电话" value={draftFilters.keyword} onChange={(event) => { setDraftFilters({ ...draftFilters, keyword: event.target.value }); setPage(1); }} />
-      <Select value={draftFilters.type} onChange={(event) => { setDraftFilters({ ...draftFilters, type: event.target.value }); setPage(1); }}><option value="">全部分类</option>{partnerTypeDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
-      <Select value={draftFilters.identity} onChange={(event) => { setDraftFilters({ ...draftFilters, identity: event.target.value }); setPage(1); }}><option value="">全部身份</option>{partnerIdentityDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
-      <Select value={draftFilters.status} onChange={(event) => { setDraftFilters({ ...draftFilters, status: event.target.value }); setPage(1); }}><option value="">全部状态</option>{businessStatusDict.options.map((option) => <option key={option.value} value={String(option.value)}>{option.label}</option>)}</Select>
+      <Field label="关键词"><Input placeholder="编码、名称、联系人或电话" value={draftFilters.keyword} onChange={(event) => { setDraftFilters({ ...draftFilters, keyword: event.target.value }); setPage(1); }} /></Field>
+      <Field label="分类"><Select value={draftFilters.type} onChange={(event) => { setDraftFilters({ ...draftFilters, type: event.target.value }); setPage(1); }}><option value="">全部分类</option>{partnerTypeDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+      <Field label="身份"><Select value={draftFilters.identity} onChange={(event) => { setDraftFilters({ ...draftFilters, identity: event.target.value }); setPage(1); }}><option value="">全部身份</option>{partnerIdentityDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+      <Field label="状态"><Select value={draftFilters.status} onChange={(event) => { setDraftFilters({ ...draftFilters, status: event.target.value }); setPage(1); }}><option value="">全部状态</option>{businessStatusDict.options.map((option) => <option key={option.value} value={String(option.value)}>{option.label}</option>)}</Select></Field>
     </SearchFilterBar>
     {(partnerTypeIssue || partnerIdentityIssue || businessStatusIssue) && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
       <span>{[

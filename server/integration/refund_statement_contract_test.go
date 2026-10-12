@@ -239,6 +239,18 @@ func assertRefundHTTPContract(t *testing.T, router http.Handler, db *platformdat
 	if reversed.Amount != "-30.00" || reversed.BalanceAfter != "-30.00" || reversed.ReversesID == nil || *reversed.ReversesID != first.ID {
 		t.Fatalf("refund reversal=%+v", reversed)
 	}
+	filteredReversal := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&category=REFUND&reversalStatus=REVERSAL", f.partner), "", f.token), 200)
+	if filteredReversal.Total != 1 || len(filteredReversal.Records) != 1 || filteredReversal.Records[0].ID != reversed.ID {
+		t.Fatalf("category/reversal filter=%+v", filteredReversal)
+	}
+	byDocument := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&documentNo=%s", f.partner, url.QueryEscape(reversed.DocumentNo)), "", f.token), 200)
+	if byDocument.Total != 1 || byDocument.Records[0].ID != reversed.ID {
+		t.Fatalf("document number filter=%+v, target=%s", byDocument, reversed.DocumentNo)
+	}
+	byBusinessDate := inventoryData[receivable.Page](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/partner-balances/entries?partnerId=%d&businessFrom=%s&businessTo=%s", f.partner, reversed.BusinessDate, reversed.BusinessDate), "", f.token), 200)
+	if byBusinessDate.Total < 1 {
+		t.Fatalf("business date filter=%+v, date=%s", byBusinessDate, reversed.BusinessDate)
+	}
 	inventoryData[any](t, serveJSON(router, http.MethodPost, reversePath, `{"reason":"重复冲销"}`, f.token), 409)
 	detail := inventoryData[receivable.Entry](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/partner-balances/entries/%d", first.ID), "", f.token), 200)
 	if detail.Amount != "30.00" || detail.ReversedByID == nil || *detail.ReversedByID != reversed.ID {

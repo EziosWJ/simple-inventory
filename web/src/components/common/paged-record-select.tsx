@@ -1,3 +1,4 @@
+import { List, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ApiPageResult } from "@/types/api";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Pagination } from "@/components/common/pagination";
 type RecordWithID = { id: number };
 type Props<T extends RecordWithID> = {
   label: string;
+  inlineBrowse?: boolean;
   value: number;
   fallback?: string;
   disabled?: boolean;
@@ -22,7 +24,7 @@ const PAGE_SIZE = 10;
 // Each effect cancels its ownership of responses as soon as input changes,
 // including during debounce, so delayed successes and failures are ignored.
 export function PagedRecordSelect<T extends RecordWithID>({
-  label, value, fallback, disabled, loadPage, loadRecord, describe, warning, onChange,
+  label, inlineBrowse = false, value, fallback, disabled, loadPage, loadRecord, describe, warning, onChange,
 }: Props<T>) {
   const id = useId();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -145,11 +147,13 @@ export function PagedRecordSelect<T extends RecordWithID>({
     triggerRef.current?.focus();
   }
   return <div role="group" aria-label={label} className="min-w-0 space-y-space-2">
-    <div className="flex gap-space-2">
-      <Button ref={triggerRef} disabled={disabled} aria-expanded={open} aria-controls={id} className="!h-auto min-h-[var(--control-height-md)] min-w-0 flex-1 justify-start whitespace-normal break-words py-[calc((var(--control-height-md)_-_1.25rem_-_2px)/2)] text-left" onClick={() => setOpen(!open)}>
+    <div className={inlineBrowse ? "relative min-w-0" : "flex gap-space-2"}>
+      <Button ref={triggerRef} type="button" disabled={disabled} aria-expanded={open} aria-controls={id} className={inlineBrowse ? "h-control-md w-full min-w-0 justify-start truncate rounded-control border border-border bg-surface px-space-3 pr-20 text-left text-sm font-normal text-text-primary hover:border-border" : "!h-auto min-h-[var(--control-height-md)] min-w-0 flex-1 justify-start whitespace-normal break-words py-[calc((var(--control-height-md)_-_1.25rem_-_2px)/2)] text-left"} onClick={() => setOpen(!open)}>
         {value > 0 ? (current ? describe(current) : fallback ?? `已选资料 #${value}`) : `选择${label}`}
       </Button>
-      {value > 0 && <Button disabled={disabled} size="sm" aria-label={`清除${label}`} onClick={() => { onChange(null); setOpen(false); }}>清除</Button>}
+      {inlineBrowse && value > 0 && <Button type="button" variant="ghost" size="sm" className="absolute right-10 top-0 h-control-md px-2" aria-label={`清除${label}`} title={`清除${label}`} disabled={disabled} onClick={() => { onChange(null); setOpen(false); }}><X className="h-4 w-4" aria-hidden /></Button>}
+      {inlineBrowse && <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-control-md px-3" aria-label={`浏览选择${label}`} title={`浏览选择${label}`} disabled={disabled} onClick={() => setOpen(!open)}><List className="h-4 w-4" aria-hidden /></Button>}
+      {!inlineBrowse && value > 0 && <Button disabled={disabled} size="sm" aria-label={`清除${label}`} onClick={() => { onChange(null); setOpen(false); }}>清除</Button>}
     </div>
     {selectionLoading && <p role="status" className="text-sm text-text-tertiary">读取已选资料…</p>}
     {currentWarning && <p className="text-sm text-warning">{currentWarning}</p>}
@@ -161,7 +165,10 @@ export function PagedRecordSelect<T extends RecordWithID>({
     }} onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeSearch(); }
       // Searching inside a draft must not submit its parent form on Enter.
-      if (event.key === "Enter" && event.target === searchRef.current) event.preventDefault();
+      if (event.key === "Enter" && event.target === searchRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     }}>
       <Input ref={searchRef} className="shrink-0" disabled={disabled} value={keyword} aria-label={`搜索${label}`} placeholder="输入关键词搜索" onChange={event => { setKeyword(event.target.value); setPage(1); }} />
       {loading && <p role="status" className="text-sm text-text-tertiary">搜索中…</p>}

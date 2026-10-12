@@ -39,6 +39,7 @@ type adjustmentItemDTO struct {
 	ProductModel         string  `json:"productModel"`
 	ProductSpecification string  `json:"productSpecification"`
 	ProductType          string  `json:"productType"`
+	MatchesProduct       bool    `json:"matchesProduct"`
 	Unit                 string  `json:"unit"`
 	Quantity             string  `json:"quantity"`
 	Reason               string  `json:"reason"`

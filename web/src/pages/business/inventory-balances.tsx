@@ -6,6 +6,8 @@ import {
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
+import { Field } from "@/components/common/field";
+import { ProductSelect } from "@/components/business/master-data-select";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
@@ -28,8 +30,8 @@ const stockScopes: { value: StockScope; label: string }[] = [
   { value: "all", label: "全部商品" },
   { value: "zero", label: "零库存" },
 ];
-type Filters = { keyword: string; category: string; status: string; stock: StockScope };
-const blankFilters: Filters = { keyword: "", category: "", status: "", stock: "nonzero" };
+type Filters = { keyword: string; productId: string; category: string; status: string; stock: StockScope };
+const blankFilters: Filters = { keyword: "", productId: "", category: "", status: "", stock: "nonzero" };
 
 export function InventoryBalancesPage() {
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ export function InventoryBalancesPage() {
     setLoading(true);
     void inventoryBalancePage({
       page, pageSize: PAGE_SIZE, keyword: filters.keyword, category: filters.category,
-      status: filters.status, stock: filters.stock,
+      status: filters.status, stock: filters.stock, productId: filters.productId,
     }).then((result) => {
       if (!active) return;
       setRecords(result.records);
@@ -99,16 +101,17 @@ export function InventoryBalancesPage() {
   return (
     <>
       <PageHeader title="当前库存" description="查看实物商品的实际数量。数量由库存调整单过账产生，停用商品仍会显示。" />
-      <SearchFilterBar actions={<><Button variant="secondary" onClick={() => applyFilters(blankFilters)}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
-        <Input placeholder="编码、名称、型号或规格" value={draftFilters.keyword} onChange={(event) => setDraftFilters({ ...draftFilters, keyword: event.target.value })} />
-        <Input placeholder="分类" value={draftFilters.category} onChange={(event) => setDraftFilters({ ...draftFilters, category: event.target.value })} />
-        <Select aria-label="启用状态" value={draftFilters.status} onChange={(event) => setDraftFilters({ ...draftFilters, status: event.target.value })}>
+      <SearchFilterBar onSubmit={() => applyFilters(draftFilters)} actions={<><Button variant="secondary" onClick={() => applyFilters(blankFilters)}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
+        <Field label="商品关键词"><Input placeholder="编码、名称、型号或规格" value={draftFilters.keyword} onChange={(event) => setDraftFilters({ ...draftFilters, keyword: event.target.value, productId: "" })} /></Field>
+        <Field label="精确选择商品"><ProductSelect inlineBrowse label="精确选择商品" historical value={Number(draftFilters.productId)} onChange={(product) => setDraftFilters({ ...draftFilters, productId: product ? String(product.id) : "", keyword: "" })} /></Field>
+        <Field label="分类"><Input placeholder="分类" value={draftFilters.category} onChange={(event) => setDraftFilters({ ...draftFilters, category: event.target.value })} /></Field>
+        <Field label="启用状态"><Select aria-label="启用状态" value={draftFilters.status} onChange={(event) => setDraftFilters({ ...draftFilters, status: event.target.value })}>
           <option value="">全部状态</option>
           {businessStatusDict.options.map((option) => <option key={option.value} value={String(option.value)}>{option.label}</option>)}
-        </Select>
-        <Select aria-label="库存范围" value={draftFilters.stock} onChange={(event) => setDraftFilters({ ...draftFilters, stock: event.target.value as StockScope })}>
+        </Select></Field>
+        <Field label="库存范围"><Select aria-label="库存范围" value={draftFilters.stock} onChange={(event) => setDraftFilters({ ...draftFilters, stock: event.target.value as StockScope })}>
           {stockScopes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </Select>
+        </Select></Field>
       </SearchFilterBar>
       {statusIssue && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm text-text-secondary"><span>{DICT_CODES.BUSINESS_STATUS}：{statusIssue}</span><Button size="sm" variant="secondary" onClick={businessStatusDict.reload}>重试</Button></div>}
       <DataTableCard

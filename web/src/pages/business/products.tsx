@@ -7,6 +7,7 @@ import {
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
+import { Field } from "@/components/common/field";
 import { FormDialog } from "@/components/common/form-dialog";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
@@ -161,18 +162,18 @@ export function ProductsPage() {
           <Button onClick={query}>查询</Button>
         </>
       }>
-        <Input
+        <Field label="关键词"><Input
           placeholder="编码、名称、品牌、型号或规格"
           value={draft.keyword}
           onChange={(event) => { setDraft({ ...draft, keyword: event.target.value }); setPage(1); }}
-        />
-        <Select value={draft.type} onChange={(event) => { setDraft({ ...draft, type: event.target.value }); setPage(1); }}>
+        /></Field>
+        <Field label="类型"><Select value={draft.type} onChange={(event) => { setDraft({ ...draft, type: event.target.value }); setPage(1); }}>
           <option value="">全部类型</option>{productTypeDict.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </Select>
-        <Input placeholder="分类" value={draft.category} onChange={(event) => { setDraft({ ...draft, category: event.target.value }); setPage(1); }} />
-        <Select value={draft.status} onChange={(event) => { setDraft({ ...draft, status: event.target.value }); setPage(1); }}>
+        </Select></Field>
+        <Field label="分类"><Input placeholder="分类" value={draft.category} onChange={(event) => { setDraft({ ...draft, category: event.target.value }); setPage(1); }} /></Field>
+        <Field label="状态"><Select value={draft.status} onChange={(event) => { setDraft({ ...draft, status: event.target.value }); setPage(1); }}>
           <option value="">全部状态</option>{businessStatusDict.options.map((option) => <option key={option.value} value={String(option.value)}>{option.label}</option>)}
-        </Select>
+        </Select></Field>
       </SearchFilterBar>
       {(productTypeIssue || businessStatusIssue) && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
         <span>{[productTypeIssue && `${DICT_CODES.PRODUCT_TYPE}：${productTypeIssue}`, businessStatusIssue && `${DICT_CODES.BUSINESS_STATUS}：${businessStatusIssue}`].filter(Boolean).join("；")}</span>

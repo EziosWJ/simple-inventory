@@ -112,6 +112,9 @@ func itemQuery(tx *gorm.DB, q ItemQuery) (*gorm.DB, string, []any) {
 	if q.Status != "" {
 		d = d.Where("d.status=?", q.Status)
 	}
+	if q.DirectDelivery != "" {
+		d = d.Where("d.direct_delivery=?", q.DirectDelivery == "true")
+	}
 	if q.PartnerID > 0 {
 		d = d.Where("d.partner_id=?", q.PartnerID)
 	}

@@ -661,6 +661,9 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	if q.Status != "" {
 		d = d.Where("status=?", q.Status)
 	}
+	if q.DirectDelivery != "" {
+		d = d.Where("direct_delivery=?", q.DirectDelivery == "true")
+	}
 	if q.PartnerID > 0 {
 		d = d.Where("partner_id=?", q.PartnerID)
 	}

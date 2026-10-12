@@ -324,10 +324,10 @@ export function SaleFormPage() {
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <fieldset disabled={locked} className="min-w-0 space-y-space-4">
         <FormSection title="客户与业务资料">
-          <Field label="客户" required><PartnerSelect label="客户" identity="CUSTOMER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={selectCustomer} /></Field>
+          <Field label="客户" required><PartnerSelect inlineBrowse label="客户" identity="CUSTOMER" value={form.partnerId} fallback={document?.partnerName} disabled={locked} onChange={selectCustomer} /></Field>
           <Field label="业务日期" required htmlFor="sale-date"><Input id="sale-date" type="date" value={form.businessDate} onChange={e => setForm({ ...form, businessDate: e.target.value })} /></Field>
           <Field label="关联直送采购" help="普通销售可留空；直送采购与销售分别过账，实物按商品汇总数量一致，可添加服务。">
-            <PurchaseSourceSelect label="关联直送采购" value={form.directPurchaseId ?? 0} disabled={locked || Boolean(document?.directPurchaseId)} onChange={p => void chooseSource(p)} />
+            <PurchaseSourceSelect inlineBrowse label="关联直送采购" value={form.directPurchaseId ?? 0} disabled={locked || Boolean(document?.directPurchaseId)} onChange={p => void chooseSource(p)} />
             {source && <p>{source.documentNo} · {source.partnerName} · {source.status === "POSTED" ? "采购已过账" : "采购尚未过账"}</p>}
           </Field>
           <Field label="送货联系人" htmlFor="sale-contact"><Input id="sale-contact" maxLength={100} value={form.deliveryContact} onChange={e => {deliveryEdited.current=true; setForm({ ...form, deliveryContact: e.target.value })}} /></Field>
@@ -340,7 +340,7 @@ export function SaleFormPage() {
             {form.items.map((line, index) => {
               const selected = products.find(p => p.id === line.productId);
               return <div key={index} className="grid gap-space-3 rounded-control border border-border p-space-3 md:grid-cols-[2fr_1fr_1fr_auto]">
-                <Field label={`第 ${index + 1} 行商品`} required><ProductSelect label={`第 ${index + 1} 行商品`} disabled={locked} value={line.productId} fallback={document?.items.find(i => i.productId === line.productId)?.productName} onChange={p=>selectProduct(index,p)} /></Field>
+                <Field label={`第 ${index + 1} 行商品`} required><ProductSelect inlineBrowse label={`第 ${index + 1} 行商品`} disabled={locked} value={line.productId} fallback={document?.items.find(i => i.productId === line.productId)?.productName} onChange={p=>selectProduct(index,p)} /></Field>
                 <Field label="数量" required htmlFor={`quantity-${index}`}><Input id={`quantity-${index}`} inputMode="decimal" value={line.quantity} onChange={e => updateLine(index, { quantity: e.target.value })} /></Field>
                 <Field label="成交单价（元）" required htmlFor={`price-${index}`}><Input id={`price-${index}`} inputMode="decimal" value={line.unitPrice} onChange={e => updateLine(index, { unitPrice: e.target.value, priceEdited:true })} /></Field>
                 <div className="space-y-space-2"><p>金额：¥{lineAmounts[index] === null ? "待核对" : money(lineAmounts[index]!)}</p><Button disabled={form.items.length === 1} onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== index) })}>删除</Button></div>

@@ -3,8 +3,10 @@
 package integration
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -98,6 +100,24 @@ func assertSaleReturnPostingContract(t *testing.T, router http.Handler, db *plat
 	second, _ := newReturn(lineID, "0.333")
 	third, _ := newReturn(lineID, "0.334")
 	different, _ := newReturn(otherLineID, "0.333")
+	for _, query := range []string{
+		fmt.Sprintf("partnerId=%d&productId=%d&directDelivery=false", partner, product),
+		"partnerKeyword=" + url.QueryEscape("销售退货客户") + "&productKeyword=" + url.QueryEscape("尾差退货商品") + "&directDelivery=false",
+	} {
+		response := serveJSON(router, http.MethodGet, "/api/v1/sale-returns?"+query, "", token)
+		var page struct {
+			Data struct {
+				Total   int64             `json:"total"`
+				Records []json.RawMessage `json:"records"`
+			} `json:"data"`
+		}
+		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || page.Data.Total != 4 || len(page.Data.Records) != 4 {
+			t.Fatalf("sale return filters %s: %d %s", query, response.Code, response.Body.String())
+		}
+	}
+	if response := serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/sale-returns?partnerId=%d&partnerKeyword=客户", partner), "", token); response.Code != http.StatusBadRequest {
+		t.Fatalf("conflicting sale return partner filters: %d %s", response.Code, response.Body.String())
+	}
 	// Audit failure rolls back stock, receivable, ledger rows, amount and status.
 	installSaleReturnPostAuditFailure(t, db, dialect)
 	if r := serveJSON(router, http.MethodPost, fmt.Sprintf("/api/v1/sale-returns/%d/post", first), `{"version":1}`, token); r.Code != 500 {

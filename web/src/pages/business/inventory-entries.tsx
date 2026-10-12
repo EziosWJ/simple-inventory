@@ -2,19 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getInventoryAdjustment,
-  getProduct,
   inventoryEntryPage,
-  productPage,
   type AdjustmentReason,
   type InventoryAdjustment,
   type InventoryEntry,
   type InventoryEntryReason,
   type InventoryEntryType,
   type InventorySourceType,
-  type ProductRecord,
 } from "@/api/business";
+import { ProductSelect } from "@/components/business/master-data-select";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
+import { Field } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
@@ -53,8 +52,8 @@ const sourceOptions: { value: InventorySourceType; label: string }[] = [
   { value: "ADJUSTMENT", label: "库存调整" },
 ];
 const sourceLabels = Object.fromEntries(sourceOptions.map((option) => [option.value, option.label])) as Record<InventorySourceType, string>;
-type Filters = { productId: string; sourceType: string; entryType: string; occurredFrom: string; occurredTo: string };
-const blankFilters: Filters = { productId: "", sourceType: "", entryType: "", occurredFrom: "", occurredTo: "" };
+type Filters = { productId: string; productKeyword: string; sourceType: string; entryType: string; occurredFrom: string; occurredTo: string };
+const blankFilters: Filters = { productId: "", productKeyword: "", sourceType: "", entryType: "", occurredFrom: "", occurredTo: "" };
 
 export function InventoryEntriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,7 +66,6 @@ export function InventoryEntriesPage() {
   const [page, setPage] = useState(1);
   const [draftFilters, setDraftFilters] = useState<Filters>(() => ({ ...blankFilters, productId: searchParams.get("productId") ?? "" }));
   const [filters, setFilters] = useState<Filters>(() => ({ ...blankFilters, productId: searchParams.get("productId") ?? "" }));
-  const [productFilter, setProductFilter] = useState<ProductRecord | null>(null);
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,7 +81,7 @@ export function InventoryEntriesPage() {
     let active = true;
     setLoading(true);
     void inventoryEntryPage({
-      page, pageSize: PAGE_SIZE, productId: filters.productId, sourceType: filters.sourceType, entryType: filters.entryType,
+      page, pageSize: PAGE_SIZE, productId: filters.productId, productKeyword: filters.productKeyword, sourceType: filters.sourceType, entryType: filters.entryType,
       // The list takes whole local days; the API compares instants, so the
       // bounds become the local day start and the next day's start in UTC.
       occurredFrom: filters.occurredFrom ? localMidnightToUtc(filters.occurredFrom) : "",
@@ -106,23 +104,10 @@ export function InventoryEntriesPage() {
   const linkedProductId = searchParams.get("productId") ?? "";
   useEffect(() => {
     if (linkedProductId === filters.productId) return;
-    setProductFilter(null);
     setDraftFilters((current) => ({ ...current, productId: linkedProductId }));
     setFilters((current) => ({ ...current, productId: linkedProductId }));
     setPage(1);
   }, [linkedProductId, filters.productId]);
-
-  // Entering from the current-stock page pre-selects the product by its internal
-  // ID, so the linked history keeps working after a rename or a status change.
-  useEffect(() => {
-    const id = filters.productId;
-    if (!id || productFilter) return;
-    let active = true;
-    void getProduct(Number(id)).then((product) => {
-      if (active) setProductFilter(product);
-    }).catch(() => { if (active) setProductFilter(null); });
-    return () => { active = false; };
-  }, [filters.productId, productFilter]);
 
   const columns: DataTableColumn<InventoryEntry>[] = [
     { title: "生效时间", dataIndex: "occurredAt", render: (value) => formatDateTime(String(value ?? "")) },
@@ -179,18 +164,18 @@ export function InventoryEntriesPage() {
   return (
     <>
       <PageHeader title="库存流水" description="追溯实物商品每一次已生效的库存变动。流水不可修改或删除，取消已过账单据会追加反向流水。" />
-      <SearchFilterBar actions={<><Button variant="secondary" onClick={() => { setProductFilter(null); applyFilters(blankFilters); }}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
-        <ProductFilter selected={productFilter} onChoose={(product) => { setProductFilter(product); setDraftFilters({ ...draftFilters, productId: String(product.id) }); }} onClear={() => { setProductFilter(null); setDraftFilters({ ...draftFilters, productId: "" }); }} />
-        <Select aria-label="业务来源" value={draftFilters.sourceType} onChange={(event) => setDraftFilters({ ...draftFilters, sourceType: event.target.value })}>
+  <SearchFilterBar onSubmit={() => applyFilters(draftFilters)} actions={<><Button variant="secondary" onClick={() => applyFilters(blankFilters)}>重置</Button><Button onClick={() => applyFilters(draftFilters)}>查询</Button></>}>
+        <Field label="商品"><ProductSelect inlineBrowse label="筛选商品" placeholder="搜索商品编码、名称、型号或规格" historical value={Number(draftFilters.productId)} keyword={draftFilters.productKeyword} onDraftKeywordChange={(productKeyword) => setDraftFilters((current) => ({ ...current, productKeyword, productId: "" }))} onKeywordChange={(productKeyword) => applyFilters({ ...draftFilters, productKeyword, productId: "" })} onChange={(product) => setDraftFilters((current) => ({ ...current, productId: product ? String(product.id) : "", productKeyword: "" }))} /></Field>
+        <Field label="业务来源"><Select aria-label="业务来源" value={draftFilters.sourceType} onChange={(event) => setDraftFilters({ ...draftFilters, sourceType: event.target.value })}>
           <option value="">全部来源</option>
           {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </Select>
-        <Select aria-label="流水类型" value={draftFilters.entryType} onChange={(event) => setDraftFilters({ ...draftFilters, entryType: event.target.value })}>
+        </Select></Field>
+        <Field label="流水类型"><Select aria-label="流水类型" value={draftFilters.entryType} onChange={(event) => setDraftFilters({ ...draftFilters, entryType: event.target.value })}>
           <option value="">全部类型</option>
           {entryTypeFallback.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </Select>
-        <label className="grid gap-1 text-xs text-text-secondary">生效时间起（含）<Input type="date" value={draftFilters.occurredFrom} onChange={(event) => setDraftFilters({ ...draftFilters, occurredFrom: event.target.value })} /></label>
-        <label className="grid gap-1 text-xs text-text-secondary">生效时间止（含当日）<Input type="date" value={draftFilters.occurredTo} onChange={(event) => setDraftFilters({ ...draftFilters, occurredTo: event.target.value })} /></label>
+        </Select></Field>
+        <Field label="生效时间起（含）"><Input type="date" value={draftFilters.occurredFrom} onChange={(event) => setDraftFilters({ ...draftFilters, occurredFrom: event.target.value })} /></Field>
+        <Field label="生效时间止（含当日）"><Input type="date" value={draftFilters.occurredTo} onChange={(event) => setDraftFilters({ ...draftFilters, occurredTo: event.target.value })} /></Field>
       </SearchFilterBar>
       {(reasonDict.error || missingReasons.length > 0) && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm text-text-secondary"><span>原因选项暂不可用，当前显示默认选项。</span><Button size="sm" variant="secondary" onClick={reasonDict.reload}>重试</Button></div>}
       {filterError && <p role="alert" className="mb-3 text-sm text-danger">{filterError}</p>}
@@ -205,35 +190,6 @@ export function InventoryEntriesPage() {
       {detail && <InventoryAdjustmentDetail adjustment={detail} onClose={() => setDetail(null)} />}
     </>
   );
-}
-
-function ProductFilter({ selected, onChoose, onClear }: { selected: ProductRecord | null; onChoose: (product: ProductRecord) => void; onClear: () => void }) {
-  const [keyword, setKeyword] = useState("");
-  const [activeKeyword, setActiveKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const [run, setRun] = useState(0);
-  const [products, setProducts] = useState<ProductRecord[]>([]);
-  useEffect(() => {
-    let active = true;
-    void productPage({ page, pageSize: 10, keyword: activeKeyword }).then((result) => {
-      if (!active) return;
-      setProducts(result.records);
-    }).catch(() => { if (active) setProducts([]); });
-    return () => { active = false; };
-  }, [activeKeyword, page, run]);
-  let options = products;
-  if (selected && !products.some((product) => product.id === selected.id)) options = [selected, ...products];
-  return <div className="grid min-w-[240px] gap-1">
-    <div className="flex gap-1">
-      <Input placeholder={selected ? `${selected.code} · ${selected.name}` : "搜索商品编码或名称"} value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setActiveKeyword(keyword.trim()); setPage(1); setRun((value) => value + 1); } }} />
-      <Button type="button" size="sm" variant="secondary" onClick={() => { setActiveKeyword(keyword.trim()); setPage(1); setRun((value) => value + 1); }}>搜索</Button>
-    </div>
-    <Select aria-label="按商品筛选" value={selected ? String(selected.id) : ""} onChange={(event) => { if (!event.target.value) { onClear(); return; } const product = options.find((item) => item.id === Number(event.target.value)); if (product) onChoose(product); }}>
-      <option value="">全部商品</option>
-      {options.map((product) => <option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}
-    </Select>
-    {selected && <button type="button" className="justify-self-start text-xs text-primary hover:underline" onClick={onClear}>清除商品筛选</button>}
-  </div>;
 }
 
 const localMidnightToUtc = businessMidnightToUtc;

@@ -7,13 +7,17 @@ import { useDocumentSearch } from "@/hooks/use-document-search";
 import { withBusinessReturn } from "@/lib/business-navigation";
 import { PartnerSelect, ProductSelect } from "@/components/business/master-data-select";
 import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
+import { purchasePostingConfirmation } from "@/pages/business/purchase-posting-impact";
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelPurchase,
   getPurchase,
   postPurchase,
   purchasePage,
+  purchaseItemPage,
   type PurchaseDraft,
+  type PurchaseItemPage,
+  type PurchaseItemRecord,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -40,6 +44,8 @@ export function PurchasesPage() {
   const {params:searchParams,setParams: setSearchParams,query,filters,setFilters,page,setPage,apply}=useDocumentSearch();
   const goTo=(path:string)=>navigate(withBusinessReturn(path,location.pathname+location.search));
   const [records, setRecords] = useState<PurchaseDraft[]>([]);
+  const [itemRecords, setItemRecords] = useState<PurchaseItemRecord[]>([]);
+  const [itemSummary, setItemSummary] = useState<PurchaseItemPage["summary"]>({ amounts: [], quantities: [] });
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,13 +55,15 @@ export function PurchasesPage() {
   const [cancelTarget, setCancelTarget] = useState<PurchaseDraft | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [postTarget, setPostTarget] = useState<PurchaseDraft | null>(null);
+  const itemView = searchParams.get("view") === "items";
 
   const load = useCallback(() => {
     let active=true;
     setLoading(true);
-    void purchasePage({
+    const request = itemView ? purchaseItemPage({ page, pageSize: PAGE_SIZE, ...query }) : purchasePage({
       page,
       pageSize: PAGE_SIZE,
+      directDelivery: query.directDelivery,
       documentNo: query.documentNo,
       partnerId: query.partnerId,
       productId: query.productId,
@@ -63,10 +71,12 @@ export function PurchasesPage() {
       status: query.status,
       businessFrom: query.businessFrom,
       businessTo: query.businessTo,
-    })
+    });
+    void request
       .then((result) => {
         if(!active)return;
-        setRecords(result.records);
+        if ("summary" in result) { setRecords([]); setItemRecords(result.records); setItemSummary(result.summary); }
+        else { setRecords(result.records); setItemRecords([]); }
         setTotal(result.total);
         setError("");
       })
@@ -78,7 +88,7 @@ export function PurchasesPage() {
       })
       .finally(() => {if(active)setLoading(false);});
     return ()=>{active=false;};
-  }, [page, query]);
+  }, [page, query, itemView]);
 
   useEffect(() => load(), [load, reload]);
   useEffect(() => { let active=true; const id=Number(searchParams.get("purchaseId")); if(id>0) void getPurchase(id).then(d=>{if(active)setDetail(d)}).catch((reason:unknown)=>{if(active)setError(reason instanceof Error?reason.message:"读取采购单失败")});else setDetail(null); return()=>{active=false;}; }, [searchParams]);
@@ -108,17 +118,17 @@ export function PurchasesPage() {
   }
   async function confirmPost(){if(!postTarget)return;setSaving(true);try{const posted=await postPurchase(postTarget.id,postTarget.version);notify({type:"success",title:"采购单过账成功",description:postingImpact(posted,"purchase"),documentNo:posted.documentNo,status:"已过账"});setError("");setPostTarget(null);setDetail(null);setReload(v=>v+1);}catch(reason){const message=reason instanceof Error?reason.message:"过账失败，单据仍保留";setError(message);notify({type:"error",title:"过账失败",description:message});}finally{setSaving(false);}}
 
-  function applyFilters() {
-    if (filters.businessFrom && filters.businessTo && filters.businessFrom > filters.businessTo) {
+  function applyFilters(next = filters) {
+    if (next.businessFrom && next.businessTo && next.businessFrom > next.businessTo) {
       setError("业务日期起始不能晚于结束日期。");
       return;
     }
-    apply(filters);
+    apply(next);
     setReload(v=>v+1);
   }
 
   function resetFilters() {
-    apply({documentNo:"",partnerId:"",productId:"",partnerKeyword:"",productKeyword:"",status:"",businessFrom:"",businessTo:""});
+    apply({documentNo:"",partnerId:"",productId:"",partnerKeyword:"",productKeyword:"",status:"",directDelivery:"",businessFrom:"",businessTo:""});
     setReload(v=>v+1);
   }
 
@@ -134,6 +144,8 @@ export function PurchasesPage() {
       ),
     },
     { title: "供应商", dataIndex: "partnerName" },
+    { title: "采购内容", key: "items", render: (_, record) => { const full = record.items.map(item => `${item.productCode} · ${item.productName} ${item.productModel ?? ""} ${item.productSpecification ?? ""} ×${item.quantity} ${item.unit}`).join("、"); return <span className="block max-w-[22rem] truncate text-sm" title={full}>{full || "—"}</span>; } },
+    { title: "交付方式", dataIndex: "directDelivery", render: value => value ? "直送" : "普通" },
     { title: "业务日期", dataIndex: "businessDate", nowrap: true },
     { title: "金额", dataIndex: "totalAmount", align: "right", render: (value) => `¥${String(value ?? "0.00")}` },
     { title: "状态", dataIndex: "status", render: (value) => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[String(value)] ?? String(value)) },
@@ -157,6 +169,25 @@ export function PurchasesPage() {
       ),
     },
   ];
+  const itemColumns: DataTableColumn<PurchaseItemRecord>[] = [
+    { title: "采购单号", dataIndex: "documentNo", render: (value, row) => <button className="text-primary hover:underline" onClick={() => openDetail({ id: row.purchaseId } as PurchaseDraft)}>{String(value)}{row.matchesHistory && <span className="block text-xs">匹配历史资料</span>}</button> },
+    { title: "供应商", dataIndex: "partnerName" },
+    { title: "商品", key: "product", render: (_, row) => <div>{row.productCode} · {row.productName}<div className="text-xs text-text-tertiary">{row.productModel || "-"} / {row.productSpecification || "-"} · {row.unit}</div></div> },
+    { title: "业务日期", dataIndex: "businessDate" },
+    { title: "数量", dataIndex: "quantity", align: "right" },
+    { title: "成交单价", dataIndex: "unitPrice", align: "right", render: value => `¥${value}` },
+    { title: "原金额", dataIndex: "amount", align: "right", render: value => `¥${value}` },
+    { title: "有效退货", dataIndex: "returnedAmount", align: "right", render: value => value == null ? "—" : `¥${value}` },
+    { title: "净采购", dataIndex: "netAmount", align: "right", render: value => value == null ? "—" : `¥${value}` },
+    { title: "状态", dataIndex: "status", render: value => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"} as Record<string,string>)[String(value)] ?? String(value) },
+  ];
+
+  function toggleView(next: "documents" | "items") {
+    const params = new URLSearchParams(searchParams);
+    if (next === "items") params.set("view", "items"); else params.delete("view");
+    params.delete("page");
+    setSearchParams(params);
+  }
 
   return (
     <div className="space-y-space-4">
@@ -166,9 +197,9 @@ export function PurchasesPage() {
         actions={<Button onClick={startNew}>新建采购单</Button>}
       />
       <BusinessFeedback feedback={feedback} />
-<SearchFilterBar actions={(
+<SearchFilterBar onSubmit={applyFilters} actions={(
         <>
-          <Button onClick={applyFilters}>查询</Button>
+          <Button onClick={() => applyFilters()}>查询</Button>
           <Button variant="secondary" onClick={()=>setReload(v=>v+1)}>刷新</Button>
           <Button variant="secondary" onClick={resetFilters}>重置</Button>
         </>
@@ -177,15 +208,16 @@ export function PurchasesPage() {
           <Input value={filters.documentNo} onChange={(event) => setFilters({ ...filters, documentNo: event.target.value })} placeholder="输入单号" />
         </Field>
         <Field label="供应商">
-          <PartnerSelect label="筛选供应商" historical value={Number(filters.partnerId)} keyword={query.partnerKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,partnerKeyword:k}))} onKeywordChange={k=>{const next={...filters,partnerId:"",partnerKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,partnerId:p?String(p.id):"",partnerKeyword:""};setFilters(next);apply(next)}} />
+          <PartnerSelect inlineBrowse label="筛选供应商" historical value={Number(filters.partnerId)} keyword={filters.partnerKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,partnerKeyword:k}))} onKeywordChange={k=>{const next={...filters,partnerId:"",partnerKeyword:k};setFilters(next);applyFilters(next)}} onChange={p=>setFilters(current=>({...current,partnerId:p?String(p.id):"",partnerKeyword:""}))} />
         </Field>
+        <Field label="交付方式"><Select value={filters.directDelivery} onChange={event=>setFilters({...filters,directDelivery:event.target.value})}><option value="">全部</option><option value="false">普通</option><option value="true">直送</option></Select></Field>
         <Field label="状态">
           <Select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
             <option value="">全部状态</option><option value="DRAFT">草稿</option><option value="POSTED">已过账</option><option value="CANCELLED">已取消</option>
           </Select>
         </Field>
         <Field label="商品">
-          <ProductSelect label="筛选商品" historical value={Number(filters.productId)} keyword={query.productKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,productKeyword:k}))} onKeywordChange={k=>{const next={...filters,productId:"",productKeyword:k};setFilters(next);apply(next)}} onChange={p=>{const next={...filters,productId:p?String(p.id):"",productKeyword:""};setFilters(next);apply(next)}} />
+          <ProductSelect inlineBrowse label="筛选商品" historical value={Number(filters.productId)} keyword={filters.productKeyword} onDraftKeywordChange={k=>setFilters(current=>({...current,productKeyword:k}))} onKeywordChange={k=>{const next={...filters,productId:"",productKeyword:k};setFilters(next);applyFilters(next)}} onChange={p=>setFilters(current=>({...current,productId:p?String(p.id):"",productKeyword:""}))} />
         </Field>
         <Field label="业务日期起">
           <Input type="date" value={filters.businessFrom} onChange={(event) => setFilters({ ...filters, businessFrom: event.target.value })} />
@@ -196,11 +228,12 @@ export function PurchasesPage() {
       </SearchFilterBar>
       {error && <p role="alert" className="text-sm text-error">{error}</p>}
       <p className="text-xs text-text-secondary">关键词查当前档案及已保存的商品快照；旧品牌和供应商联系方式仅查当前档案。</p>
-<DataTableCard
-        toolbar={<TableToolbar title="采购入库单" description="支持按单号、供应商、状态、商品与业务日期查询。" />}
+      {itemView && <div className="grid gap-2 rounded-admin border border-border bg-surface p-3 sm:grid-cols-3">{itemSummary.amounts.map(summary => <div key={summary.status} className="text-sm"><div className="text-text-tertiary">{{DRAFT:"草稿原金额",POSTED:"已过账原金额",CANCELLED:"已取消原金额"}[summary.status]}</div><strong>¥{summary.originalAmount}</strong>{summary.netAmount != null && <span className="ml-2 text-text-secondary">退货 ¥{summary.returnedAmount} · 净采购 ¥{summary.netAmount}</span>}</div>)}</div>}
+      <DataTableCard
+        toolbar={<TableToolbar title={itemView ? "采购商品明细" : "采购入库单"} description={itemView ? "跨单查看命中明细；金额与退货合计覆盖所有筛选结果。" : "支持按单号、供应商、状态、商品与业务日期查询。"} actions={<div className="flex gap-2"><Button size="sm" variant={itemView ? "secondary" : "primary"} onClick={() => toggleView("documents")}>按单据</Button><Button size="sm" variant={itemView ? "primary" : "secondary"} onClick={() => toggleView("items")}>按明细</Button></div>} />}
         pagination={<Pagination page={page} pageSize={PAGE_SIZE} total={total} disabled={loading} onPageChange={setPage} />}
       >
-        <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error || undefined} minWidth={960} empty="暂无采购单。" />
+        {itemView ? <DataTable columns={itemColumns} dataSource={itemRecords} rowKey="id" loading={loading} error={error || undefined} minWidth={1200} empty="暂无采购明细。" /> : <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error || undefined} minWidth={960} empty="暂无采购单。" />}
       </DataTableCard>
 
       <DetailDialog footer={<BusinessReturnLink />}
@@ -253,8 +286,8 @@ export function PurchasesPage() {
           <Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={500} placeholder="请说明取消原因" />
         </Field>
       </FormDialog>
-      <FormDialog open={postTarget !== null} title="过账采购入库单" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 合计 ¥${postTarget.totalAmount}。确认后库存与应付同时生效。` : undefined} submitText="确认过账" loading={saving} onCancel={() => setPostTarget(null)} onSubmit={confirmPost}>
-        {postTarget && <p className="text-sm">明细 {postTarget.items.length} 行 · 当前版本 {postTarget.version}</p>}
+      <FormDialog open={postTarget !== null} title="过账采购入库单" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 合计 ¥${postTarget.totalAmount} · 当前版本 ${postTarget.version}` : undefined} submitText="确认过账" loading={saving} onCancel={() => setPostTarget(null)} onSubmit={confirmPost}>
+        {postTarget && <div className="max-h-56 space-y-2 overflow-auto text-sm"><p className="font-medium">本次过账影响</p>{purchasePostingConfirmation(postTarget).map((impact) => <p key={impact}>{impact}</p>)}</div>}
       </FormDialog>
     </div>
   );

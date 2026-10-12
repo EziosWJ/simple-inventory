@@ -110,9 +110,65 @@ type PostInput struct {
 type Query struct {
 	Page, PageSize                 int
 	DocumentNo, Status             string
+	DirectDelivery                 string
 	PartnerID, ProductID           int64
 	PartnerKeyword, ProductKeyword string
 	BusinessFrom, BusinessTo       string
+}
+type ItemQuery struct {
+	Query
+	SortBy, SortDir string
+}
+type ItemRecord struct {
+	ID                   int64   `json:"id"`
+	PurchaseID           int64   `json:"purchaseId"`
+	DocumentNo           string  `json:"documentNo"`
+	PartnerID            int64   `json:"partnerId"`
+	PartnerName          string  `json:"partnerName"`
+	BusinessDate         string  `json:"businessDate"`
+	Status               string  `json:"status"`
+	ProductID            int64   `json:"productId"`
+	ProductCode          string  `json:"productCode"`
+	ProductName          string  `json:"productName"`
+	ProductModel         *string `json:"productModel"`
+	ProductSpecification *string `json:"productSpecification"`
+	Unit                 string  `json:"unit"`
+	Quantity             string  `json:"quantity"`
+	UnitPrice            string  `json:"unitPrice"`
+	Amount               string  `json:"amount"`
+	ReturnedQuantity     *string `json:"returnedQuantity"`
+	ReturnedAmount       *string `json:"returnedAmount"`
+	NetQuantity          *string `json:"netQuantity"`
+	NetAmount            *string `json:"netAmount"`
+	MatchesHistory       bool    `json:"matchesHistory,omitempty"`
+}
+type ItemAmounts struct {
+	Status         string  `json:"status"`
+	ItemCount      int64   `json:"itemCount"`
+	OriginalAmount string  `json:"originalAmount"`
+	ReturnedAmount *string `json:"returnedAmount"`
+	NetAmount      *string `json:"netAmount"`
+}
+type ItemQuantity struct {
+	ProductID        int64   `json:"productId"`
+	ProductCode      string  `json:"productCode"`
+	ProductName      string  `json:"productName"`
+	Unit             string  `json:"unit"`
+	Status           string  `json:"status"`
+	Quantity         string  `json:"quantity"`
+	ReturnedQuantity *string `json:"returnedQuantity"`
+	NetQuantity      *string `json:"netQuantity"`
+}
+type ItemSummary struct {
+	Amounts    []ItemAmounts  `json:"amounts"`
+	Quantities []ItemQuantity `json:"quantities"`
+}
+type ItemPage struct {
+	Records  []ItemRecord `json:"records"`
+	Total    int64        `json:"total"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"pageSize"`
+	Summary  ItemSummary  `json:"summary"`
 }
 type Page struct {
 	Records  []Draft `json:"records"`

@@ -5,9 +5,11 @@ import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { createOpeningBalance, partnerBalances, partnerPage, type PartnerBalance, type PartnerRecord } from "@/api/business";
+import { createOpeningBalance, partnerBalances, type PartnerBalance } from "@/api/business";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { Field } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
+import { PartnerSelect } from "@/components/business/master-data-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -31,7 +33,6 @@ export function OpeningBalancesPage() {
     direction: (params.get("direction") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER") as Direction,
     date: localToday(),
   }));
-  const [partners, setPartners] = useState<PartnerRecord[]>([]);
   const [partnerId, setPartnerId] = useState(initial.partnerId);
   const [direction, setDirection] = useState<Direction>(initial.direction);
   const [balance, setBalance] = useState<PartnerBalance | null>(null);
@@ -49,9 +50,6 @@ export function OpeningBalancesPage() {
   const dirty = attachments.dirty || formSignature({ partnerId, direction, amount, date, description }) !== baseline;
   const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving });
 
-  useEffect(() => {
-    void partnerPage({ page: 1, pageSize: 500 }).then(result => setPartners(result.records)).catch(e => setMessage(String(e)));
-  }, []);
   useEffect(() => {
     if (!partnerId) { setBalance(null); setBalanceReady(false); return; }
     let active = true;
@@ -81,7 +79,7 @@ export function OpeningBalancesPage() {
       setConfirming(false);
       setBalanceReady(false);
       setVersion(value => value + 1);
-      notify({ type: "success", title: direction === "CUSTOMER" ? "期初应收录入成功" : "期初应付录入成功", description: `${saved.partnerName ?? balance?.partnerName ?? partners.find(p => p.id === saved.partnerId)?.name ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
+      notify({ type: "success", title: direction === "CUSTOMER" ? "期初应收录入成功" : "期初应付录入成功", description: `${saved.partnerName ?? balance?.partnerName ?? "往来单位"} · ${saved.direction === "CUSTOMER" ? "客户方向" : "供应商方向"}余额 ${saved.balanceBefore} → ${saved.balanceAfter} 元。`, documentNo: saved.documentNo, status: "已生效" });
     } catch (e) {
       setConfirming(false);
       setBalanceReady(false);
@@ -97,12 +95,12 @@ export function OpeningBalancesPage() {
     <BusinessFeedback feedback={feedback} />
     <section className="rounded-admin border border-border bg-surface p-4" aria-label="录入期初应收应付">
       <h2 className="mb-3 font-medium">录入期初应收 / 应付</h2>
-      <div className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">方向<Select disabled={saving} className="mt-1" aria-label="期初方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">期初应收</option><option value="SUPPLIER">期初应付</option></Select></label>
-        <label className="text-sm">往来单位<Select disabled={saving} className="mt-1" aria-label="期初往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="">选择往来单位</option>{partners.filter(partner => direction === "CUSTOMER" ? partner.isCustomer : partner.isSupplier).map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}</Select></label>
-        <label className="text-sm">金额（元）<Input disabled={saving} className="mt-1" aria-label="期初金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></label>
-        <label className="text-sm">业务日期<Input disabled={saving} className="mt-1" aria-label="期初业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-        <label className="text-sm md:col-span-2">说明（必填）<Textarea disabled={saving} className="mt-1" aria-label="期初说明" value={description} onChange={e => setDescription(e.target.value)} /></label>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="方向"><Select disabled={saving} aria-label="期初方向" value={direction} onChange={e => { setDirection(e.target.value as Direction); setPartnerId(""); setBalance(null); setBalanceReady(false); setAmount(""); }}><option value="CUSTOMER">期初应收</option><option value="SUPPLIER">期初应付</option></Select></Field>
+        <Field label="往来单位"><PartnerSelect inlineBrowse label="期初往来单位" identity={direction} value={Number(partnerId)} disabled={saving} onChange={partner => { setPartnerId(partner ? String(partner.id) : ""); setBalance(null); setBalanceReady(false); setAmount(""); }} /></Field>
+        <Field label="金额（元）"><Input disabled={saving} aria-label="期初金额" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" /></Field>
+        <Field label="业务日期"><Input disabled={saving} aria-label="期初业务日期" type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
+        <div className="md:col-span-2"><Field label="说明（必填）"><Textarea disabled={saving} aria-label="期初说明" value={description} onChange={e => setDescription(e.target.value)} /></Field></div>
       </div>
       <PartnerAttachmentUpload key={requestKey} kind={"OPENING"} disabled={saving} onChange={setAttachments} />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

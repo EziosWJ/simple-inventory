@@ -7,7 +7,7 @@ const api=process.env.PHASE5_API_URL??'http://127.0.0.1:18109',base='http://127.
 const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4194','--strictPort'],{cwd:new URL('..',import.meta.url),env:{...process.env,VITE_API_BASE_URL:api},stdio:'ignore'});
 let browser,token;
 async function call(path,body,method=body===undefined?'GET':'POST'){const r=await fetch(`${api}/api${path}`,{method,headers:{Authorization:token??'','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();assert.equal(r.status,200,`${path}: ${j.message}`);return j.data;}
-async function select(page,label,code,id){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();await page.waitForURL(url=>url.searchParams.get(label.includes('商品')?'productId':'partnerId')===String(id));}
+async function select(page,label,code,id){const group=page.getByRole('group',{name:label,exact:true});await group.getByRole('combobox').fill(code);await page.getByRole('option').filter({has:page.getByText(code,{exact:true})}).click();await delay(50);const key=label.includes('商品')?'productId':'partnerId';assert.notEqual(new URL(page.url()).searchParams.get(key),String(id),'selection only edits draft filters until submit');}
 try{
  for(let n=0;n<60;n++){try{if((await fetch(base)).ok)break;}catch{}await delay(250);}
  token=(await call('/auth/login',{username:'admin',password:process.env.PHASE5_UI_PASSWORD??'admin123'})).tokenValue;
@@ -37,6 +37,13 @@ try{
   await page.getByRole('button',{name:'查询',exact:true}).click();
   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
   assert.equal(await page.getByRole('row').count(),11);
+  if(purchase){
+   await page.getByRole('button',{name:'按明细',exact:true}).click();
+   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
+   assert.equal(await page.getByRole('row').count(),11);
+   await page.getByRole('button',{name:'按单据',exact:true}).click();
+   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
+  }
   await page.getByRole('button',{name:'下一页'}).click();
   await page.getByRole('row').filter({hasText:fixtures[kind][0].documentNo}).waitFor();
   assert.equal(await page.getByRole('row').count(),4);

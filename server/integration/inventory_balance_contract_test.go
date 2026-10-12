@@ -106,7 +106,7 @@ func assertInventoryBalanceContract(t *testing.T, router http.Handler, db *platf
 	if balances() != 0 {
 		t.Fatal("the current-stock view requires no pre-created balance rows")
 	}
-	for _, query := range []string{"?page=0", "?pageSize=0", "?page=abc", "?pageSize=-1", "?status=2", "?status=-1", "?status=x", "?stock=some", fmt.Sprintf("?keyword=%s", strings.Repeat("长", 101))} {
+	for _, query := range []string{"?page=0", "?pageSize=0", "?page=abc", "?pageSize=-1", "?status=2", "?status=-1", "?status=x", "?stock=some", fmt.Sprintf("?keyword=%s", strings.Repeat("长", 101)), "?productId=0", "?productId=bad", "?productId=1&keyword=BAL"} {
 		inventoryData[any](t, serveJSON(router, http.MethodGet, balancePath+query, "", token), 400)
 	}
 
@@ -142,6 +142,9 @@ func assertInventoryBalanceContract(t *testing.T, router http.Handler, db *platf
 	}
 	if !containsCode(defaultView.Records, "BAL-A") || !containsCode(defaultView.Records, "BAL-B") || !containsCode(defaultView.Records, "BAL-C") {
 		t.Fatalf("default view rows=%v", codes(defaultView))
+	}
+	if exact := page("?productId=" + itoa(products["BAL-A"])); exact.Total != 1 || len(exact.Records) != 1 || exact.Records[0].Code != "BAL-A" {
+		t.Fatalf("exact product filter=%+v", exact)
 	}
 	for _, record := range defaultView.Records {
 		switch record.Code {

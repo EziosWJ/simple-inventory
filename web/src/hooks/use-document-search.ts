@@ -8,12 +8,13 @@ export type DocumentFilters = {
   partnerKeyword: string;
   productKeyword: string;
   status: string;
+  directDelivery: string;
   businessFrom: string;
   businessTo: string;
 };
 export const blankDocumentFilters: DocumentFilters = {
   documentNo: "", partnerId: "", productId: "", partnerKeyword: "",
-  productKeyword: "", status: "", businessFrom: "", businessTo: "",
+  productKeyword: "", status: "", directDelivery: "", businessFrom: "", businessTo: "",
 };
 
 export function useDocumentSearch() {

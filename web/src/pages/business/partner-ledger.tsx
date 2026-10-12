@@ -8,6 +8,7 @@ import { getPartnerStatement, partnerBalanceEntries, partnerBalanceEntry, getPar
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { DetailDialog } from "@/components/common/detail-dialog";
+import { Field } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
@@ -100,10 +101,10 @@ export function PartnerLedgerPage() {
   return <div className="space-y-4">
     <PageHeader title="往来明细" description="选择一个往来单位和客户或供应商方向，按实际生效时间核对全部金额变化。" actions={<Button disabled={!partnerId || Boolean(partnerKeyword) || !from || !to} onClick={print}>打印期间对账单</Button>} />
     <SearchFilterBar actions={<><Button onClick={search}>查询</Button><Button variant="secondary" onClick={() => setVersion(value => value + 1)}>刷新</Button></>}>
-      <PartnerSelect label="往来单位" historical value={Number(partnerId)} keyword={query.partnerKeyword} onDraftKeywordChange={setPartnerKeyword} onKeywordChange={k=>{setPartnerKeyword(k);setPartnerId("");const p=new URLSearchParams(params);p.delete("partnerId");if(k)p.set("partnerKeyword",k);else p.delete("partnerKeyword");p.delete("page");setParams(p)}} onChange={r=>{setPartnerKeyword("");setPartnerId(r?String(r.id):"");const p=new URLSearchParams(params);p.delete("partnerKeyword");if(r)p.set("partnerId",String(r.id));else p.delete("partnerId");p.delete("page");p.delete("entryId");setParams(p)}} />
-      <Select aria-label="往来方向" value={direction} onChange={e => setDirection(e.target.value)}><option value="CUSTOMER">客户方向</option><option value="SUPPLIER">供应商方向</option></Select>
-      <label className="text-sm">生效开始日<Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
-      <label className="text-sm">生效结束日（含当日）<Input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+      <Field label="往来单位"><PartnerSelect inlineBrowse label="往来单位" historical value={Number(partnerId)} keyword={partnerKeyword} onDraftKeywordChange={setPartnerKeyword} onKeywordChange={k=>{setPartnerKeyword(k);setPartnerId("");const p=new URLSearchParams(params);p.delete("partnerId");if(k)p.set("partnerKeyword",k);else p.delete("partnerKeyword");p.delete("page");setParams(p)}} onChange={r=>{setPartnerKeyword("");setPartnerId(r?String(r.id):"")}} /></Field>
+      <Field label="往来方向"><Select aria-label="往来方向" value={direction} onChange={e => setDirection(e.target.value)}><option value="CUSTOMER">客户方向</option><option value="SUPPLIER">供应商方向</option></Select></Field>
+      <Field label="生效开始日"><Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></Field>
+      <Field label="生效结束日（含当日）"><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></Field>
     </SearchFilterBar>
     {error && <p role="alert" className="text-sm text-error">{error}</p>}
     {query.partnerKeyword&&<p className="text-sm text-text-secondary">关键词只查当前单位档案。期间余额与对账打印请先指定一个单位和方向。</p>}

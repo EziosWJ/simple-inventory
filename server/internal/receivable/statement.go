@@ -13,6 +13,10 @@ type EntryFilter struct {
 	EntryID        int64
 	PartnerID      int64
 	PartnerKeyword string
+	DocumentNo     string
+	ReversalStatus string
+	BusinessFrom   string
+	BusinessTo     string
 	Direction      string
 	Category       string
 	From, To       string
@@ -37,6 +41,9 @@ func normalizeFilter(q EntryFilter, statement bool) (EntryFilter, error) {
 		(q.Category != "" && q.Category != "OPENING" && q.Category != "SETTLEMENT" && q.Category != "REFUND") {
 		return q, ErrInvalid
 	}
+	if q.ReversalStatus != "" && q.ReversalStatus != "EFFECTIVE" && q.ReversalStatus != "REVERSED" && q.ReversalStatus != "REVERSAL" {
+		return q, ErrInvalid
+	}
 	if !statement && (q.Page < 1 || q.PageSize < 1 || q.PageSize > 500) {
 		return q, ErrInvalid
 	}
@@ -58,6 +65,19 @@ func normalizeFilter(q EntryFilter, statement bool) (EntryFilter, error) {
 			return q, ErrInvalid
 		}
 		q.To = to.UTC().Format(time.RFC3339Nano)
+	}
+	for _, value := range []*string{&q.BusinessFrom, &q.BusinessTo} {
+		if *value == "" {
+			continue
+		}
+		date, parseErr := time.Parse("2006-01-02", *value)
+		if parseErr != nil {
+			return q, ErrInvalid
+		}
+		*value = date.Format("2006-01-02")
+	}
+	if q.BusinessFrom != "" && q.BusinessTo != "" && q.BusinessFrom > q.BusinessTo {
+		return q, ErrInvalid
 	}
 	if !from.IsZero() && !to.IsZero() && !from.Before(to) {
 		return q, ErrInvalid
@@ -92,16 +112,31 @@ func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly b
 		query = query.Where("e.partner_id=?", q.PartnerID)
 	}
 	query = platformdatabase.LiteralWords(query, q.PartnerKeyword, "p.code", "p.name", "p.contact", "p.phone")
+	query = platformdatabase.LiteralWords(query, q.DocumentNo, "e.document_no")
 	if q.Direction != "" {
 		query = query.Where("e.direction=?", q.Direction)
 	}
+	switch q.ReversalStatus {
+	case "EFFECTIVE":
+		query = query.Where("e.reverses_id IS NULL AND e.reversed_by_id IS NULL")
+	case "REVERSED":
+		query = query.Where("e.reversed_by_id IS NOT NULL")
+	case "REVERSAL":
+		query = query.Where("e.reverses_id IS NOT NULL")
+	}
+	if q.BusinessFrom != "" {
+		query = query.Where("e.business_date>=?", q.BusinessFrom)
+	}
+	if q.BusinessTo != "" {
+		query = query.Where("e.business_date<=?", q.BusinessTo)
+	}
 	switch q.Category {
 	case "OPENING":
-		query = query.Where("e.entry_type=?", "OPENING")
+		query = query.Where("e.entry_type=? OR (e.entry_type='REVERSAL' AND original.entry_type=?)", "OPENING", "OPENING")
 	case "SETTLEMENT":
-		query = query.Where("e.entry_type IN ?", []string{"RECEIPT", "PAYMENT"})
+		query = query.Where("e.entry_type IN ? OR (e.entry_type='REVERSAL' AND original.entry_type IN ?)", []string{"RECEIPT", "PAYMENT"}, []string{"RECEIPT", "PAYMENT"})
 	case "REFUND":
-		query = query.Where("e.entry_type IN ?", []string{"CUSTOMER_REFUND", "SUPPLIER_REFUND"})
+		query = query.Where("e.entry_type IN ? OR (e.entry_type='REVERSAL' AND original.entry_type IN ?)", []string{"CUSTOMER_REFUND", "SUPPLIER_REFUND"}, []string{"CUSTOMER_REFUND", "SUPPLIER_REFUND"})
 	}
 	if q.From != "" && !beforeOnly {
 		from, _ := time.Parse(time.RFC3339Nano, q.From)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/directdelivery"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -561,8 +562,23 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	if q.PurchaseID > 0 {
 		d = d.Where("purchase_id=?", q.PurchaseID)
 	}
+	if q.DirectDelivery != "" {
+		d = d.Where("EXISTS(SELECT 1 FROM purchase_document pd WHERE pd.id=purchase_return_document.purchase_id AND pd.direct_delivery=?)", q.DirectDelivery == "true")
+	}
 	if q.PartnerID > 0 {
 		d = d.Where("partner_id=?", q.PartnerID)
+	}
+	if strings.TrimSpace(q.PartnerKeyword) != "" {
+		condition, args := platformdatabase.WordsCondition(d, q.PartnerKeyword, "p.code", "p.name", "p.contact", "p.phone")
+		d = d.Where("EXISTS(SELECT 1 FROM partner p WHERE p.id=purchase_return_document.partner_id AND "+condition+")", args...)
+	}
+	if q.ProductID > 0 {
+		d = d.Where("EXISTS(SELECT 1 FROM purchase_return_document_item ri WHERE ri.document_id=purchase_return_document.id AND ri.product_id=?)", q.ProductID)
+	}
+	if strings.TrimSpace(q.ProductKeyword) != "" {
+		cols := []string{"p.code", "p.name", "p.brand", "p.model", "p.specification", "pi.product_code", "pi.product_name", "pi.product_model", "pi.product_specification"}
+		condition, args := platformdatabase.WordsCondition(d, q.ProductKeyword, cols...)
+		d = d.Where("EXISTS(SELECT 1 FROM purchase_return_document_item ri JOIN purchase_document_item pi ON pi.id=ri.purchase_item_id JOIN product p ON p.id=ri.product_id WHERE ri.document_id=purchase_return_document.id AND "+condition+")", args...)
 	}
 	if q.BusinessFrom != "" {
 		d = d.Where("business_date>=?", q.BusinessFrom)

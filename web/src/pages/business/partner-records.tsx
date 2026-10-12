@@ -8,27 +8,31 @@ import { useSearchParams } from "react-router-dom";
 import {
   partnerBalanceEntries,
   partnerBalanceEntry,
-  partnerPage,
   reversePartnerEntry,
   type PartnerBalanceEntry,
-  type PartnerRecord,
 } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
 import { DetailDialog } from "@/components/common/detail-dialog";
+import { Field } from "@/components/common/field";
 import { FormDialog } from "@/components/common/form-dialog";
 import { Pagination } from "@/components/common/pagination";
 import { SearchFilterBar } from "@/components/common/search-filter-bar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PartnerSelect } from "@/components/business/master-data-select";
 import { Textarea } from "@/components/ui/textarea";
 import { balanceState, entryTypeLabel } from "@/lib/partner-ledger";
 import type { DataTableColumn } from "@/types";
 
 export type RecordCategory = "OPENING" | "SETTLEMENT" | "REFUND";
 const pageSize = 20;
+type Filters = { partnerId: string; partnerKeyword: string; direction: string; documentNo: string; reversalStatus: string; businessFrom: string; businessTo: string };
+const blankFilters: Filters = { partnerId: "", partnerKeyword: "", direction: "", documentNo: "", reversalStatus: "", businessFrom: "", businessTo: "" };
 
 function belongsToCategory(entry: PartnerBalanceEntry, category: RecordCategory) {
+  if (entry.entryType === "REVERSAL" && entry.reversesId) return true;
   if (category === "OPENING") return entry.entryType === "OPENING";
   if (category === "SETTLEMENT") return entry.entryType === "RECEIPT" || entry.entryType === "PAYMENT";
   return entry.entryType === "CUSTOMER_REFUND" || entry.entryType === "SUPPLIER_REFUND";
@@ -37,9 +41,8 @@ function belongsToCategory(entry: PartnerBalanceEntry, category: RecordCategory)
 export function PartnerRecords({ category, version = 0, onChanged }: { category: RecordCategory; version?: number; onChanged?: () => void }) {
   const { feedback, notify } = useBusinessFeedback();
   const [params] = useSearchParams();
-  const [partners, setPartners] = useState<PartnerRecord[]>([]);
-  const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
-  const [direction, setDirection] = useState(params.get("direction") ?? "");
+  const [draftFilters, setDraftFilters] = useState<Filters>(() => ({ ...blankFilters, partnerId: params.get("partnerId") ?? "", direction: params.get("direction") ?? "" }));
+  const [filters, setFilters] = useState<Filters>(() => ({ ...blankFilters, partnerId: params.get("partnerId") ?? "", direction: params.get("direction") ?? "" }));
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<PartnerBalanceEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -53,9 +56,6 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    void partnerPage({ page: 1, pageSize: 500 }).then(result => setPartners(result.records)).catch(e => setError(String(e)));
-  }, []);
-  useEffect(() => {
     const id = Number(params.get("entryId"));
     if (id > 0) void partnerBalanceEntry(id).then(entry => {
       if (belongsToCategory(entry, category)) setDetail(entry);
@@ -66,12 +66,12 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
   const load = useCallback(() => {
     let active = true;
     setLoading(true);
-    void partnerBalanceEntries({ category, partnerId: partnerId || 0, direction, page, pageSize }).then(result => {
+    void partnerBalanceEntries({ category, partnerId: filters.partnerId || 0, partnerKeyword: filters.partnerKeyword, direction: filters.direction, documentNo: filters.documentNo, reversalStatus: filters.reversalStatus, businessFrom: filters.businessFrom, businessTo: filters.businessTo, page, pageSize }).then(result => {
       if (active) { setRows(result.records); setTotal(result.total); setError(""); }
     }).catch(e => { if (active) setError(e instanceof Error ? e.message : "读取记录失败"); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [category, partnerId, direction, page]);
+  }, [category, filters, page]);
   useEffect(load, [load, version, revision]);
 
   async function reverse() {
@@ -103,17 +103,24 @@ export function PartnerRecords({ category, version = 0, onChanged }: { category:
     { title: "状态", key: "status", render: (_, row) => row.reversedById ? "已冲销" : "已生效" },
     { title: "操作", key: "action", render: (_, row) => <Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>查看详情</Button> },
   ];
+  function applyFilters(next: Filters) {
+    if (next.businessFrom && next.businessTo && next.businessFrom > next.businessTo) { setError("业务日期起始不能晚于结束日期。"); return; }
+    setError("");
+    setFilters({ ...next, partnerKeyword: next.partnerKeyword.trim(), documentNo: next.documentNo.trim(), partnerId: next.partnerKeyword.trim() ? "" : next.partnerId });
+    setPage(1);
+  }
 
   return <>
     <BusinessFeedback feedback={feedback} />
-    <SearchFilterBar actions={<Button variant="secondary" onClick={() => setRevision(value => value + 1)}>刷新</Button>}>
-      <Select aria-label="筛选往来单位" value={partnerId} onChange={e => { setPartnerId(e.target.value); setPage(1); }}>
-        <option value="">全部往来单位</option>
-        {partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}（{partner.code}）</option>)}
-      </Select>
-      <Select aria-label="筛选往来方向" value={direction} onChange={e => { setDirection(e.target.value); setPage(1); }}>
+    <SearchFilterBar onSubmit={() => applyFilters(draftFilters)} actions={<><Button onClick={() => applyFilters(draftFilters)}>查询</Button><Button variant="secondary" onClick={() => setRevision(value => value + 1)}>刷新</Button><Button variant="secondary" onClick={() => { setDraftFilters(blankFilters); applyFilters(blankFilters); }}>重置</Button></>}>
+      <Field label="往来单位"><PartnerSelect inlineBrowse label="筛选往来单位" historical value={Number(draftFilters.partnerId)} keyword={draftFilters.partnerKeyword} onDraftKeywordChange={keyword => setDraftFilters(current => ({ ...current, partnerKeyword: keyword, partnerId: "" }))} onKeywordChange={keyword => { const next = { ...draftFilters, partnerKeyword: keyword, partnerId: "" }; setDraftFilters(next); applyFilters(next); }} onChange={partner => setDraftFilters(current => ({ ...current, partnerId: partner ? String(partner.id) : "", partnerKeyword: "" }))} /></Field>
+      <Field label="往来方向"><Select aria-label="筛选往来方向" value={draftFilters.direction} onChange={e => setDraftFilters({ ...draftFilters, direction: e.target.value })}>
         <option value="">客户及供应商</option><option value="CUSTOMER">客户</option><option value="SUPPLIER">供应商</option>
-      </Select>
+      </Select></Field>
+      <Field label="往来单号"><Input placeholder="往来单号" value={draftFilters.documentNo} onChange={e => setDraftFilters({ ...draftFilters, documentNo: e.target.value })} /></Field>
+      <Field label="冲销状态"><Select aria-label="冲销状态" value={draftFilters.reversalStatus} onChange={e => setDraftFilters({ ...draftFilters, reversalStatus: e.target.value })}><option value="">全部冲销状态</option><option value="EFFECTIVE">未冲销</option><option value="REVERSED">原记录已冲销</option><option value="REVERSAL">冲销记录</option></Select></Field>
+      <Field label="业务日期起"><Input type="date" value={draftFilters.businessFrom} onChange={e => setDraftFilters({ ...draftFilters, businessFrom: e.target.value })} /></Field>
+      <Field label="业务日期止"><Input type="date" value={draftFilters.businessTo} onChange={e => setDraftFilters({ ...draftFilters, businessTo: e.target.value })} /></Field>
     </SearchFilterBar>
     {message && <p role="alert" className="mb-3 text-sm text-error">{message}</p>}
     <DataTableCard toolbar={<div className="p-3 text-sm">已生效记录 · 共 {total} 笔</div>} pagination={<Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}>

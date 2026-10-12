@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
@@ -93,6 +94,7 @@ func (h *Handler) detail(c *gin.Context) {
 // @Param documentNo query string false "单号子串"
 // @Param status query string false "单据状态" Enums(DRAFT,POSTED,CANCELLED)
 // @Param productId query int false "商品内部ID"
+// @Param productKeyword query string false "当前商品资料或已保存的商品快照关键词"
 // @Param createdFrom query string false "创建时间下界，包含，RFC3339"
 // @Param createdTo query string false "创建时间上界，不包含，RFC3339"
 // @Success 200 {object} ApiEnvelope{data=Page}
@@ -100,7 +102,7 @@ func (h *Handler) detail(c *gin.Context) {
 // @Failure 401 {object} ApiEnvelope
 // @Router /api/v1/inventory/adjustments [get]
 func (h *Handler) page(c *gin.Context) {
-	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), Status: c.Query("status")}
+	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), Status: c.Query("status"), ProductKeyword: c.Query("productKeyword")}
 	for name, target := range map[string]*int{"page": &q.Page, "pageSize": &q.PageSize} {
 		if x, ok := c.GetQuery(name); ok {
 			n, e := strconv.Atoi(x)
@@ -118,6 +120,10 @@ func (h *Handler) page(c *gin.Context) {
 			return
 		}
 		q.ProductID = n
+	}
+	if q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "" {
+		fail(c, invalid("商品ID和商品关键词不能同时使用"))
+		return
 	}
 	for name, target := range map[string]**time.Time{"createdFrom": &q.CreatedFrom, "createdTo": &q.CreatedTo} {
 		if x, ok := c.GetQuery(name); ok {
@@ -145,6 +151,7 @@ func (h *Handler) page(c *gin.Context) {
 // @Param page query int false "页码，默认1"
 // @Param pageSize query int false "每页条数，默认10，最大500"
 // @Param keyword query string false "商品编码、名称、品牌、型号或规格子串"
+// @Param productId query int false "精确商品内部ID，与keyword互斥"
 // @Param category query string false "商品分类"
 // @Param status query int false "启用状态：1启用，0停用"
 // @Param stock query string false "库存范围，默认nonzero" Enums(nonzero,all,zero)
@@ -172,6 +179,18 @@ func (h *Handler) balancePage(c *gin.Context) {
 		}
 		q.Status = &n
 	}
+	if x, ok := c.GetQuery("productId"); ok {
+		n, e := strconv.ParseInt(x, 10, 64)
+		if e != nil || n <= 0 {
+			fail(c, ErrInvalid)
+			return
+		}
+		q.ProductID = n
+	}
+	if q.ProductID > 0 && strings.TrimSpace(q.Keyword) != "" {
+		fail(c, invalid("商品ID和商品关键词不能同时使用"))
+		return
+	}
 	v, e := h.s.BalancePage(c.Request.Context(), q)
 	if e != nil {
 		fail(c, e)
@@ -187,6 +206,7 @@ func (h *Handler) balancePage(c *gin.Context) {
 // @Param page query int false "页码，默认1"
 // @Param pageSize query int false "每页条数，默认10，最大500"
 // @Param productId query int false "商品内部ID"
+// @Param productKeyword query string false "当前商品资料或历史商品快照关键词"
 // @Param sourceType query string false "来源单据类型" Enums(ADJUSTMENT,PURCHASE,SALE,PURCHASE_RETURN,SALE_RETURN)
 // @Param entryType query string false "流水类型" Enums(ORIGINAL,REVERSAL)
 // @Param occurredFrom query string false "发生时间下界，包含，RFC3339"
@@ -196,7 +216,7 @@ func (h *Handler) balancePage(c *gin.Context) {
 // @Failure 401 {object} ApiEnvelope
 // @Router /api/v1/inventory/entries [get]
 func (h *Handler) entryPage(c *gin.Context) {
-	q := EntryQuery{Page: 1, PageSize: 10, SourceType: c.Query("sourceType"), EntryType: c.Query("entryType")}
+	q := EntryQuery{Page: 1, PageSize: 10, SourceType: c.Query("sourceType"), EntryType: c.Query("entryType"), ProductKeyword: c.Query("productKeyword")}
 	for name, target := range map[string]*int{"page": &q.Page, "pageSize": &q.PageSize} {
 		if x, ok := c.GetQuery(name); ok {
 			n, e := strconv.Atoi(x)
@@ -214,6 +234,10 @@ func (h *Handler) entryPage(c *gin.Context) {
 			return
 		}
 		q.ProductID = n
+	}
+	if q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "" {
+		fail(c, invalid("商品ID和商品关键词不能同时使用"))
+		return
 	}
 	for name, target := range map[string]**time.Time{"occurredFrom": &q.OccurredFrom, "occurredTo": &q.OccurredTo} {
 		if x, ok := c.GetQuery(name); ok {

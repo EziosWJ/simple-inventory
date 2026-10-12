@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -150,6 +151,10 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	if q.ProductID > 0 {
 		d = d.Where("EXISTS (SELECT 1 FROM inventory_adjustment_item i WHERE i.adjustment_id=a.id AND i.product_id=?)", q.ProductID)
 	}
+	if strings.TrimSpace(q.ProductKeyword) != "" {
+		condition, args := platformdatabase.WordsCondition(d, q.ProductKeyword, "p.code", "p.name", "p.brand", "p.model", "p.specification", "i.product_code", "i.product_name", "i.product_model", "i.product_specification")
+		d = d.Where("EXISTS (SELECT 1 FROM inventory_adjustment_item i JOIN product p ON p.id=i.product_id WHERE i.adjustment_id=a.id AND "+condition+")", args...)
+	}
 	if q.CreatedFrom != nil {
 		d = d.Where("a.create_time>=?", *q.CreatedFrom)
 	}
@@ -160,7 +165,45 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 		return p, e
 	}
 	e := adjustmentQuery(d).Order("a.id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
+	if e != nil {
+		return p, e
+	}
+	for i := range p.Records {
+		if e := itemsOn(r.db.WithContext(ctx), &p.Records[i]); e != nil {
+			return p, e
+		}
+		for j := range p.Records[i].Items {
+			p.Records[i].Items[j].MatchesProduct = q.ProductID > 0 && p.Records[i].Items[j].ProductID == q.ProductID || itemMatchesKeyword(p.Records[i].Items[j], q.ProductKeyword)
+		}
+	}
 	return p, e
+}
+
+func itemMatchesKeyword(item Item, keyword string) bool {
+	words := strings.Fields(strings.ToLower(keyword))
+	if len(words) == 0 {
+		return false
+	}
+	fields := []string{item.ProductCode, item.ProductName, item.Unit}
+	if item.ProductModel != nil {
+		fields = append(fields, *item.ProductModel)
+	}
+	if item.ProductSpecification != nil {
+		fields = append(fields, *item.ProductSpecification)
+	}
+	for _, word := range words {
+		matched := false
+		for _, field := range fields {
+			if strings.Contains(strings.ToLower(field), word) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 // balanceQuery joins the live catalog with the stored balance. The LEFT JOIN is
@@ -178,6 +221,9 @@ func balanceQuery(db *gorm.DB) *gorm.DB {
 func (r *Repository) BalancePage(ctx context.Context, q BalanceQuery) (BalancePage, error) {
 	p := BalancePage{Records: []Balance{}, Page: q.Page, PageSize: q.PageSize}
 	d := balanceQuery(r.db.WithContext(ctx))
+	if q.ProductID > 0 {
+		d = d.Where("p.id=?", q.ProductID)
+	}
 	if q.Keyword != "" {
 		like := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.Keyword) + "%"
 		d = d.Where("(p.code LIKE ? ESCAPE '\\' OR p.name LIKE ? ESCAPE '\\' OR p.brand LIKE ? ESCAPE '\\' OR p.model LIKE ? ESCAPE '\\' OR p.specification LIKE ? ESCAPE '\\')", like, like, like, like, like)
@@ -216,7 +262,8 @@ func entryQuery(db *gorm.DB) *gorm.DB {
 		Joins("LEFT JOIN purchase_document pd ON pd.id=e.purchase_id").
 		Joins("LEFT JOIN sale_document sd ON sd.id=e.sale_id").
 		Joins("LEFT JOIN purchase_return_document prd ON prd.id=e.purchase_return_id").
-		Joins("LEFT JOIN sale_return_document srd ON srd.id=e.sale_return_id")
+		Joins("LEFT JOIN sale_return_document srd ON srd.id=e.sale_return_id").
+		Joins("LEFT JOIN product p ON p.id=e.product_id")
 }
 
 // EntryPage reads the ledger. Records and total use the same predicate, and the
@@ -226,6 +273,10 @@ func (r *Repository) EntryPage(ctx context.Context, q EntryQuery) (EntryPage, er
 	d := entryQuery(r.db.WithContext(ctx))
 	if q.ProductID > 0 {
 		d = d.Where("e.product_id=?", q.ProductID)
+	}
+	if strings.TrimSpace(q.ProductKeyword) != "" {
+		condition, args := platformdatabase.WordsCondition(d, q.ProductKeyword, "p.code", "p.name", "p.brand", "p.model", "p.specification", "e.product_code", "e.product_name", "e.product_model", "e.product_specification", "e.unit")
+		d = d.Where(condition, args...)
 	}
 	if q.SourceType != "" {
 		switch q.SourceType {

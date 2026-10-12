@@ -126,11 +126,22 @@ func assertInventoryEntryContract(t *testing.T, router http.Handler, db *platfor
 		t.Fatalf("ledger after posting=%+v", afterIntake)
 	}
 	first := afterIntake.Records[0]
+	if keyword := page("?productKeyword=型号丁"); keyword.Total != 2 {
+		t.Fatalf("snapshot product keyword should match both posted lines, got %+v", keyword)
+	}
+	inventoryData[any](t, serveJSON(router, http.MethodGet, entryPath+"?productId="+itoa(products["ENT-A"])+"&productKeyword=ENT-A", "", token), 400)
 	if first.EntryType != "ORIGINAL" || first.Quantity != "10" || first.BalanceBefore != "0" || first.BalanceAfter != "10" || first.Reason != "OPENING" || first.Remark != nil || first.ProductCode != "ENT-A" || first.ProductName != "ENT-A名称" || first.ProductModel == nil || *first.ProductModel != "型号丁" || first.ProductSpecification == nil || *first.ProductSpecification != "规格丁" || first.Unit != "台" || first.OperatorID != 1 || first.OperatorName != "管理员" || first.DocumentNo != postedIntake.DocumentNo || first.AdjustmentID != intake.ID || first.OccurredAt.IsZero() || first.CreateTime.IsZero() {
 		t.Fatalf("original ledger row=%+v", first)
 	}
 	if remark := page("?productId=" + itoa(products["ENT-B"])).Records[0].Remark; remark == nil || *remark != "同行盘盈" {
 		t.Fatalf("ledger remark=%v", remark)
+	}
+	adjustments := inventoryData[adjustmentPageDTO](t, serveJSON(router, http.MethodGet, adjustmentPath+"?productKeyword=ENT-A", "", token), 200)
+	if adjustments.Total != 1 || len(adjustments.Records) != 1 || len(adjustments.Records[0].Items) != 2 {
+		t.Fatalf("adjustment keyword should return full document lines: %+v", adjustments)
+	}
+	if !adjustments.Records[0].Items[0].MatchesProduct || adjustments.Records[0].Items[1].MatchesProduct {
+		t.Fatalf("adjustment query should identify the matched line: %+v", adjustments.Records[0].Items)
 	}
 
 	// A later decrease and a cancellation reversal are both listed, in stable

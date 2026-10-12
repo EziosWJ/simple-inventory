@@ -75,12 +75,20 @@ func (h *Handler) create(c *gin.Context) {
 // @Param pageSize query int false "每页条数"
 // @Param saleId query int false "原销售单ID"
 // @Param partnerId query int false "客户ID"
+// @Param partnerKeyword query string false "客户多词检索当前档案或历史名称快照"
+// @Param productId query int false "商品ID"
+// @Param productKeyword query string false "商品多词检索当前档案或明细快照"
+// @Param directDelivery query string false "交付方式：true直送，false普通"
 // @Param status query string false "状态"
 // @Success 200 {object} ApiEnvelope{data=Page}
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sale-returns [get]
 func (h *Handler) page(c *gin.Context) {
-	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
+	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
+	if (q.PartnerKeyword != "" && c.Query("partnerId") != "") || (q.ProductKeyword != "" && c.Query("productId") != "") || (q.DirectDelivery != "" && q.DirectDelivery != "true" && q.DirectDelivery != "false") {
+		fail(c, ErrInvalid)
+		return
+	}
 	var e error
 	if q.Page, e = intQ(c, "page", 1); e != nil {
 		fail(c, e)
@@ -95,6 +103,10 @@ func (h *Handler) page(c *gin.Context) {
 		return
 	}
 	if q.PartnerID, e = int64Q(c, "partnerId"); e != nil {
+		fail(c, e)
+		return
+	}
+	if q.ProductID, e = int64Q(c, "productId"); e != nil {
 		fail(c, e)
 		return
 	}

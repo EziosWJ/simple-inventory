@@ -34,6 +34,7 @@ type Item struct {
 	ProductModel         *string `json:"productModel,omitempty"`
 	ProductSpecification *string `json:"productSpecification,omitempty"`
 	ProductType          string  `json:"productType"`
+	MatchesProduct       bool    `json:"matchesProduct,omitempty" gorm:"-"`
 	Unit                 string  `json:"unit"`
 	QuantityMilli        int64   `json:"-"`
 	Quantity             string  `json:"quantity" gorm:"-"`
@@ -123,6 +124,7 @@ type ItemInput struct {
 type Query struct {
 	Page, PageSize         int
 	DocumentNo, Status     string
+	ProductKeyword         string
 	ProductID              int64
 	CreatedFrom, CreatedTo *time.Time
 }
@@ -155,6 +157,7 @@ type Balance struct {
 type EntryQuery struct {
 	Page, PageSize           int
 	ProductID                int64
+	ProductKeyword           string
 	SourceType               string
 	EntryType                string
 	OccurredFrom, OccurredTo *time.Time
@@ -171,6 +174,7 @@ type EntryPage struct {
 // exactly the products whose stock is zero or absent.
 type BalanceQuery struct {
 	Page, PageSize           int
+	ProductID                int64
 	Keyword, Category, Stock string
 	Status                   *int
 }

@@ -87,6 +87,10 @@ type Query struct {
 	Page, PageSize           int
 	DocumentNo, Status       string
 	SaleID, PartnerID        int64
+	ProductID                int64
+	PartnerKeyword           string
+	ProductKeyword           string
+	DirectDelivery           string
 	BusinessFrom, BusinessTo string
 }
 type Page struct {

@@ -3,8 +3,10 @@
 package integration
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -51,8 +53,9 @@ func assertPurchaseReturnPostingContract(t *testing.T, router http.Handler, db *
 		ID int64 `json:"id"`
 	}](t, serveJSON(router, http.MethodPost, "/api/v1/products", fmt.Sprintf(`{"code":"RPG-%s","name":"尾差商品","type":"GOODS","unit":"台"}`, dialect), token), 200).ID
 	purchase := inventoryData[struct {
-		ID      int64 `json:"id"`
-		Version int64 `json:"version"`
+		ID         int64  `json:"id"`
+		Version    int64  `json:"version"`
+		DocumentNo string `json:"documentNo"`
 	}](t, serveJSON(router, http.MethodPost, "/api/v1/purchases", fmt.Sprintf(`{"partnerId":%d,"businessDate":"2026-10-01","items":[{"productId":%d,"productType":"GOODS","unit":"台","quantity":"1","unitPrice":"0.01"},{"productId":%d,"productType":"GOODS","unit":"台","quantity":"1","unitPrice":"0.02"}]}`, partner, product, product), token), 200)
 	if r := serveJSON(router, http.MethodPost, fmt.Sprintf("/api/v1/purchases/%d/post", purchase.ID), `{"version":1}`, token); r.Code != 200 {
 		t.Fatalf("post purchase: %d %s", r.Code, r.Body.String())
@@ -80,6 +83,24 @@ func assertPurchaseReturnPostingContract(t *testing.T, router http.Handler, db *
 	second, _ := newReturn(lineID, "0.333")
 	third, _ := newReturn(lineID, "0.334")
 	different, _ := newReturn(otherLineID, "0.333")
+	for _, query := range []string{
+		fmt.Sprintf("partnerId=%d&productId=%d&directDelivery=false", partner, product),
+		"partnerKeyword=" + url.QueryEscape("采购退货供应商") + "&productKeyword=" + url.QueryEscape("尾差商品") + "&directDelivery=false",
+	} {
+		response := serveJSON(router, http.MethodGet, "/api/v1/purchase-returns?"+query, "", token)
+		var page struct {
+			Data struct {
+				Total   int64             `json:"total"`
+				Records []json.RawMessage `json:"records"`
+			} `json:"data"`
+		}
+		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || page.Data.Total != 4 || len(page.Data.Records) != 4 {
+			t.Fatalf("purchase return filters %s: %d %s", query, response.Code, response.Body.String())
+		}
+	}
+	if response := serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/purchase-returns?partnerId=%d&partnerKeyword=供应商", partner), "", token); response.Code != http.StatusBadRequest {
+		t.Fatalf("conflicting purchase return partner filters: %d %s", response.Code, response.Body.String())
+	}
 	// A draft from another purchase cannot claim a stable item ID from this source.
 	other := inventoryData[struct {
 		ID int64 `json:"id"`
@@ -120,15 +141,77 @@ func assertPurchaseReturnPostingContract(t *testing.T, router http.Handler, db *
 		}
 	}
 	post(first, "0.00")
-	ledger:=inventoryData[struct{Records []struct{PurchaseReturnID *int64 `json:"purchaseReturnId"`;PurchaseReturnItemID *int64 `json:"purchaseReturnItemId"`;SourceType string `json:"sourceType"`;Reason string `json:"reason"`} `json:"records"`}](t,serveJSON(router,http.MethodGet,fmt.Sprintf("/api/v1/inventory/entries?page=1&pageSize=100&productId=%d",product),"",token),200)
-	foundReturnSource:=false;for _,entry:=range ledger.Records{if entry.PurchaseReturnID!=nil&&*entry.PurchaseReturnID==first{foundReturnSource=entry.SourceType=="PURCHASE_RETURN"&&entry.Reason=="PURCHASE_RETURN"&&entry.PurchaseReturnItemID!=nil}}
-	if !foundReturnSource{t.Fatalf("inventory ledger did not expose purchase-return source: %+v",ledger.Records)}
+	ledger := inventoryData[struct {
+		Records []struct {
+			PurchaseReturnID     *int64 `json:"purchaseReturnId"`
+			PurchaseReturnItemID *int64 `json:"purchaseReturnItemId"`
+			SourceType           string `json:"sourceType"`
+			Reason               string `json:"reason"`
+		} `json:"records"`
+	}](t, serveJSON(router, http.MethodGet, fmt.Sprintf("/api/v1/inventory/entries?page=1&pageSize=100&productId=%d", product), "", token), 200)
+	foundReturnSource := false
+	for _, entry := range ledger.Records {
+		if entry.PurchaseReturnID != nil && *entry.PurchaseReturnID == first {
+			foundReturnSource = entry.SourceType == "PURCHASE_RETURN" && entry.Reason == "PURCHASE_RETURN" && entry.PurchaseReturnItemID != nil
+		}
+	}
+	if !foundReturnSource {
+		t.Fatalf("inventory ledger did not expose purchase-return source: %+v", ledger.Records)
+	}
 	if r := serveJSON(router, http.MethodPost, fmt.Sprintf("/api/v1/purchases/%d/cancel", purchase.ID), `{"version":2,"reason":"原采购录错"}`, token); r.Code != 409 {
 		t.Fatalf("posted return must block origin cancel: %d %s", r.Code, r.Body.String())
 	}
 	post(second, "0.01")
 	post(third, "0.00")
 	post(different, "0.01")
+	itemPage := inventoryData[struct {
+		Total   int64 `json:"total"`
+		Records []struct {
+			Amount    string  `json:"amount"`
+			UnitPrice string  `json:"unitPrice"`
+			NetAmount *string `json:"netAmount"`
+		} `json:"records"`
+		Summary struct {
+			Amounts []struct {
+				Status         string  `json:"status"`
+				OriginalAmount string  `json:"originalAmount"`
+				ReturnedAmount *string `json:"returnedAmount"`
+				NetAmount      *string `json:"netAmount"`
+			} `json:"amounts"`
+		} `json:"summary"`
+	}](t, serveJSON(router, http.MethodGet, "/api/v1/purchases/items?documentNo="+url.QueryEscape(purchase.DocumentNo)+"&directDelivery=false", "", token), 200)
+	if itemPage.Total != 2 || len(itemPage.Records) != 2 || itemPage.Records[0].UnitPrice == itemPage.Records[1].UnitPrice {
+		t.Fatalf("purchase cross-document lines should preserve each price: %+v", itemPage)
+	}
+	var postedSummary *struct {
+		Status         string  `json:"status"`
+		OriginalAmount string  `json:"originalAmount"`
+		ReturnedAmount *string `json:"returnedAmount"`
+		NetAmount      *string `json:"netAmount"`
+	}
+	for i := range itemPage.Summary.Amounts {
+		if itemPage.Summary.Amounts[i].Status == "POSTED" {
+			postedSummary = &itemPage.Summary.Amounts[i]
+		}
+	}
+	if postedSummary == nil || postedSummary.OriginalAmount != "0.03" || postedSummary.ReturnedAmount == nil || *postedSummary.ReturnedAmount != "0.02" || postedSummary.NetAmount == nil || *postedSummary.NetAmount != "0.01" {
+		t.Fatalf("posted purchase item totals mismatch: %+v", itemPage.Summary.Amounts)
+	}
+	updatedProduct := inventoryData[struct {
+		Name string `json:"name"`
+	}](t, serveJSON(router, http.MethodPut, fmt.Sprintf("/api/v1/products/%d", product), `{"name":"商品改名","type":"GOODS","unit":"台"}`, token), 200)
+	if updatedProduct.Name != "商品改名" {
+		t.Fatalf("product rename failed: %+v", updatedProduct)
+	}
+	historical := inventoryData[struct {
+		Total   int64 `json:"total"`
+		Records []struct {
+			MatchesHistory bool `json:"matchesHistory"`
+		} `json:"records"`
+	}](t, serveJSON(router, http.MethodGet, "/api/v1/purchases/items?productKeyword="+url.QueryEscape("尾差商品"), "", token), 200)
+	if historical.Total != 3 || len(historical.Records) != 3 || !historical.Records[0].MatchesHistory || !historical.Records[1].MatchesHistory || !historical.Records[2].MatchesHistory {
+		t.Fatalf("renamed product snapshot search=%+v", historical)
+	}
 	if r := serveJSON(router, http.MethodPost, fmt.Sprintf("/api/v1/purchase-returns/%d/cancel", first), `{"version":2,"reason":"逆序验证"}`, token); r.Code != 409 {
 		t.Fatalf("older return cancel status=%d %s", r.Code, r.Body.String())
 	}

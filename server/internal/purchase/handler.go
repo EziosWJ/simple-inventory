@@ -23,6 +23,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g := r.Group("/purchases")
 	g.POST("", h.create)
 	g.GET("", h.page)
+	g.GET("/items", h.itemPage)
 	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
 	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
@@ -150,6 +151,7 @@ func (h *Handler) resolveSave(c *gin.Context) {
 // @Param productId query int false "商品ID"
 // @Param partnerKeyword query string false "往来单位多词字面检索，与partnerId互斥；仅查询当前档案"
 // @Param productKeyword query string false "商品多词字面检索，与productId互斥；含当前档案及该明细快照"
+// @Param directDelivery query string false "交付方式：true直送，false普通"
 // @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
 // @Param businessFrom query string false "业务日期起"
 // @Param businessTo query string false "业务日期止"
@@ -157,7 +159,11 @@ func (h *Handler) resolveSave(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/purchases [get]
 func (h *Handler) page(c *gin.Context) {
-	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
+	q := Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}
+	if (q.PartnerKeyword != "" && c.Query("partnerId") != "") || (q.ProductKeyword != "" && c.Query("productId") != "") || (q.DirectDelivery != "" && q.DirectDelivery != "true" && q.DirectDelivery != "false") {
+		fail(c, ErrInvalid)
+		return
+	}
 	var e error
 	if q.Page, e = intQuery(c, "page", 1); e != nil {
 		fail(c, e)
@@ -178,6 +184,54 @@ func (h *Handler) page(c *gin.Context) {
 	v, e := h.s.Page(c.Request.Context(), q)
 	if e != nil {
 		fail(c, e)
+		return
+	}
+	platform.OK(c, v)
+}
+
+// @Summary 跨采购单查询商品明细
+// @Tags 采购入库
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页条数"
+// @Param documentNo query string false "采购单号"
+// @Param partnerId query int false "供应商ID"
+// @Param partnerKeyword query string false "供应商关键词"
+// @Param productId query int false "商品ID"
+// @Param productKeyword query string false "当前商品及历史快照关键词"
+// @Param status query string false "状态" Enums(DRAFT,POSTED,CANCELLED)
+// @Param directDelivery query string false "交付方式" Enums(true,false)
+// @Param businessFrom query string false "业务日期起"
+// @Param businessTo query string false "业务日期止"
+// @Param sortBy query string false "排序字段" Enums(businessDate,unitPrice,amount,netAmount)
+// @Param sortDir query string false "排序方向" Enums(asc,desc)
+// @Success 200 {object} ApiEnvelope{data=ItemPage}
+// @Failure 400 {object} ApiEnvelope
+// @Failure 503 {object} ApiEnvelope
+// @Router /api/v1/purchases/items [get]
+func (h *Handler) itemPage(c *gin.Context) {
+	q := ItemQuery{Query: Query{DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
+	var err error
+	if q.Page, err = intQuery(c, "page", 1); err != nil {
+		fail(c, err)
+		return
+	}
+	if q.PageSize, err = intQuery(c, "pageSize", 10); err != nil {
+		fail(c, err)
+		return
+	}
+	if q.PartnerID, err = int64Query(c, "partnerId"); err != nil {
+		fail(c, err)
+		return
+	}
+	if q.ProductID, err = int64Query(c, "productId"); err != nil {
+		fail(c, err)
+		return
+	}
+	v, err := h.s.ItemPage(c.Request.Context(), q)
+	if err != nil {
+		fail(c, err)
 		return
 	}
 	platform.OK(c, v)
