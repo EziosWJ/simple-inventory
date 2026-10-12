@@ -32,6 +32,7 @@ type Store interface {
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
 	ItemPage(context.Context, ItemQuery) (ItemPage, error)
+	ItemExport(context.Context, ItemQuery, int64) (ItemExport, error)
 	DeliveryNote(context.Context, int64) (*DeliveryNote, error)
 }
 type Service struct{ store Store }

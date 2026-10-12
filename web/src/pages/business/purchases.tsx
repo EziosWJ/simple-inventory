@@ -1,3 +1,5 @@
+import { useExcelExport } from "@/hooks/use-excel-export";
+import { exportPurchaseItems } from "@/api/business";
 import { formatDateTime } from "@/lib/datetime";
 import { postingImpact, cancellationImpact } from "@/lib/document-feedback";
 import { BusinessFeedback } from "@/components/business/business-feedback";
@@ -39,6 +41,7 @@ const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
   const { feedback, notify } = useBusinessFeedback();
+  const excelExport = useExcelExport(notify);
   const navigate=useNavigate();
   const location=useLocation();
   const {params:searchParams,setParams: setSearchParams,query,filters,setFilters,page,setPage,apply}=useDocumentSearch();
@@ -197,6 +200,7 @@ export function PurchasesPage() {
         actions={<Button onClick={startNew}>新建采购单</Button>}
       />
       <BusinessFeedback feedback={feedback} />
+ {excelExport.confirmation}
 <SearchFilterBar onSubmit={applyFilters} actions={(
         <>
           <Button onClick={() => applyFilters()}>查询</Button>
@@ -230,7 +234,7 @@ export function PurchasesPage() {
       <p className="text-xs text-text-secondary">关键词查当前档案及已保存的商品快照；旧品牌和供应商联系方式仅查当前档案。</p>
       {itemView && <div className="grid gap-2 rounded-admin border border-border bg-surface p-3 sm:grid-cols-3">{itemSummary.amounts.map(summary => <div key={summary.status} className="text-sm"><div className="text-text-tertiary">{{DRAFT:"草稿原金额",POSTED:"已过账原金额",CANCELLED:"已取消原金额"}[summary.status]}</div><strong>¥{summary.originalAmount}</strong>{summary.netAmount != null && <span className="ml-2 text-text-secondary">退货 ¥{summary.returnedAmount} · 净采购 ¥{summary.netAmount}</span>}</div>)}</div>}
       <DataTableCard
-        toolbar={<TableToolbar title={itemView ? "采购商品明细" : "采购入库单"} description={itemView ? "跨单查看命中明细；金额与退货合计覆盖所有筛选结果。" : "支持按单号、供应商、状态、商品与业务日期查询。"} actions={<div className="flex gap-2"><Button size="sm" variant={itemView ? "secondary" : "primary"} onClick={() => toggleView("documents")}>按单据</Button><Button size="sm" variant={itemView ? "primary" : "secondary"} onClick={() => toggleView("items")}>按明细</Button></div>} />}
+        toolbar={<TableToolbar title={itemView ? "采购商品明细" : "采购入库单"} description={itemView ? "跨单查看命中明细；金额与退货合计覆盖所有筛选结果。" : "支持按单号、供应商、状态、商品与业务日期查询。"} actions={<div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={excelExport.exporting} onClick={() => { const args = { ...filters, partnerId: filters.partnerKeyword.trim() ? "" : filters.partnerId, productId: filters.productKeyword.trim() ? "" : filters.productId }; void excelExport.start({ count: () => purchaseItemPage({ ...args, page: 1, pageSize: 1 }), download: () => exportPurchaseItems(args) }); }}>{excelExport.exporting ? "导出中" : "导出明细 Excel"}</Button><Button size="sm" variant={itemView ? "secondary" : "primary"} onClick={() => toggleView("documents")}>按单据</Button><Button size="sm" variant={itemView ? "primary" : "secondary"} onClick={() => toggleView("items")}>按明细</Button></div>} />}
         pagination={<Pagination page={page} pageSize={PAGE_SIZE} total={total} disabled={loading} onPageChange={setPage} />}
       >
         {itemView ? <DataTable columns={itemColumns} dataSource={itemRecords} rowKey="id" loading={loading} error={error || undefined} minWidth={1200} empty="暂无采购明细。" /> : <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error || undefined} minWidth={960} empty="暂无采购单。" />}

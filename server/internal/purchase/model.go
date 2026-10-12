@@ -121,6 +121,7 @@ type ItemQuery struct {
 	SortBy, SortDir string
 }
 type ItemRecord struct {
+	DirectDelivery       bool    `json:"-"`
 	ID                   int64   `json:"id"`
 	PurchaseID           int64   `json:"purchaseId"`
 	DocumentNo           string  `json:"documentNo"`
@@ -176,4 +177,10 @@ type Page struct {
 	Total    int64   `json:"total"`
 	Page     int     `json:"page"`
 	PageSize int     `json:"pageSize"`
+}
+
+// ItemExport contains all matching lines and their totals from one snapshot.
+type ItemExport struct {
+	ItemPage
+	ExportedBy string
 }

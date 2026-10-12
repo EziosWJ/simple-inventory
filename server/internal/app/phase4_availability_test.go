@@ -257,3 +257,15 @@ func (s receivableErrorStore) AddAttachments(context.Context, audit.Metadata, in
 func (s receivableErrorStore) RemoveAttachment(context.Context, audit.Metadata, int64, int64) error {
 	return s.err
 }
+
+func (s purchaseErrorStore) ItemExport(_ context.Context, _ purchase.ItemQuery, _ int64) (purchase.ItemExport, error) {
+	return purchase.ItemExport{}, s.err
+}
+
+func (s saleErrorStore) ItemExport(_ context.Context, _ sale.ItemQuery, _ int64) (sale.ItemExport, error) {
+	return sale.ItemExport{}, s.err
+}
+
+func (s receivableErrorStore) LedgerExport(_ context.Context, _ receivable.EntryFilter, _ int64) (receivable.LedgerExport, error) {
+	return receivable.LedgerExport{}, s.err
+}

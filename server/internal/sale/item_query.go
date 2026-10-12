@@ -15,6 +15,7 @@ type ItemQuery struct {
 // sale keeps its original quantity and amount for querying, but it is not an
 // effective sale, and a service line cannot be returned at all.
 type ItemRecord struct {
+	DirectDelivery       bool    `json:"-"`
 	NetQuantity          *string `json:"netQuantity"`
 	NetAmount            *string `json:"netAmount"`
 	ProductModel         *string `json:"productModel"`
@@ -83,15 +84,23 @@ type ItemPage struct {
 }
 
 func (s *Service) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
+	q, err := normalizeItemQuery(q)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	return s.store.ItemPage(ctx, q)
+}
+
+func normalizeItemQuery(q ItemQuery) (ItemQuery, error) {
 	q.Page, q.PageSize = pageBounds(q.Page, q.PageSize)
 	if e := validateQueryFilters(q.Query); e != nil {
-		return ItemPage{}, e
+		return q, e
 	}
 	var e error
 	if q.SortBy, q.SortDir, e = itemSort(q.SortBy, q.SortDir); e != nil {
-		return ItemPage{}, e
+		return q, e
 	}
-	return s.store.ItemPage(ctx, q)
+	return q, nil
 }
 
 func itemSort(field, direction string) (string, string, error) {
@@ -122,4 +131,10 @@ func statusRank(status string) int {
 		return 2
 	}
 	return 3
+}
+
+// ItemExport contains all matching lines and their totals from one snapshot.
+type ItemExport struct {
+	ItemPage
+	ExportedBy string
 }

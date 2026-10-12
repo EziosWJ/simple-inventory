@@ -29,6 +29,7 @@ type Store interface {
 	Find(context.Context, int64) (*Draft, error)
 	Page(context.Context, Query) (Page, error)
 	ItemPage(context.Context, ItemQuery) (ItemPage, error)
+	ItemExport(context.Context, ItemQuery, int64) (ItemExport, error)
 	SaveResult(context.Context, int64, string, string) (SaveResult, error)
 	ResolveSave(context.Context, audit.Metadata, string, string) (SaveResult, error)
 }
@@ -113,6 +114,14 @@ func (s *Service) Page(ctx context.Context, q Query) (Page, error) {
 }
 
 func (s *Service) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
+	q, err := normalizeItemQuery(q)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	return s.store.ItemPage(ctx, q)
+}
+
+func normalizeItemQuery(q ItemQuery) (ItemQuery, error) {
 	if q.Page < 1 {
 		q.Page = 1
 	}
@@ -123,40 +132,40 @@ func (s *Service) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
 		q.PageSize = 500
 	}
 	if q.Page > math.MaxInt/q.PageSize {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	if q.SortBy == "" {
 		q.SortBy = "businessDate"
 	}
 	if q.SortBy != "businessDate" && q.SortBy != "unitPrice" && q.SortBy != "amount" && q.SortBy != "netAmount" {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	if q.SortDir == "" {
 		q.SortDir = "desc"
 	}
 	if q.SortDir != "asc" && q.SortDir != "desc" {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	if q.Status != "" && q.Status != "DRAFT" && q.Status != "POSTED" && q.Status != "CANCELLED" {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	if (q.DirectDelivery != "" && q.DirectDelivery != "true" && q.DirectDelivery != "false") || q.ProductID < 0 || q.PartnerID < 0 || (q.ProductID > 0 && strings.TrimSpace(q.ProductKeyword) != "") || (q.PartnerID > 0 && strings.TrimSpace(q.PartnerKeyword) != "") {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	for _, date := range []string{q.BusinessFrom, q.BusinessTo} {
 		if date != "" {
 			if _, e := time.Parse("2006-01-02", date); e != nil {
-				return ItemPage{}, ErrInvalid
+				return q, ErrInvalid
 			}
 		}
 	}
 	if q.BusinessFrom != "" && q.BusinessTo != "" && q.BusinessFrom > q.BusinessTo {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
 	if strings.TrimSpace(q.DocumentNo) != "" && len(q.DocumentNo) > 100 || len(q.PartnerKeyword) > 100 || len(q.ProductKeyword) > 100 {
-		return ItemPage{}, ErrInvalid
+		return q, ErrInvalid
 	}
-	return s.store.ItemPage(ctx, q)
+	return q, nil
 }
 
 func validate(in Input) (Draft, []Line, error) {

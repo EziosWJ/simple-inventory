@@ -39,10 +39,10 @@ try{
   assert.equal(await page.getByRole('row').count(),11);
   if(purchase){
    await page.getByRole('button',{name:'按明细',exact:true}).click();
-   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
+   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).first().waitFor();
    assert.equal(await page.getByRole('row').count(),11);
    await page.getByRole('button',{name:'按单据',exact:true}).click();
-   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).waitFor();
+   await page.getByRole('row').filter({hasText:fixtures[kind][12].documentNo}).filter({has:page.getByRole('button',{name:'查看',exact:true})}).waitFor();
   }
   await page.getByRole('button',{name:'下一页'}).click();
   await page.getByRole('row').filter({hasText:fixtures[kind][0].documentNo}).waitFor();
@@ -62,7 +62,7 @@ try{
   await page.route(`**/api/v1/${kind}?*`,async route=>{const u=new URL(route.request().url());if(u.searchParams.get('page')==='2'&&!u.searchParams.get('status')){const response=await route.fetch();delayed=true;await delay(1800);try{await route.fulfill({response});}catch{}}else await route.continue();});
   await page.getByRole('button',{name:'刷新',exact:true}).click();
   for(let n=0;n<50&&!delayed;n++)await delay(50);assert.ok(delayed);
-  await page.locator('select').first().selectOption('CANCELLED');await page.getByRole('button',{name:'查询',exact:true}).click();
+  await page.locator('select').filter({has:page.locator('option[value="CANCELLED"]')}).selectOption('CANCELLED');await page.getByRole('button',{name:'查询',exact:true}).click();
   await page.getByRole('row').filter({hasText:fixtures[kind][1].documentNo}).waitFor();await delay(2000);
   assert.equal(await page.getByRole('row').count(),2);assert.equal(new URL(page.url()).searchParams.get('page'),null);
   await page.unroute(`**/api/v1/${kind}?*`);

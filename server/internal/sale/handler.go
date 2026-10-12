@@ -7,6 +7,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	"github.com/EziosWJ/simple-inventory/server/internal/platform/exportfile"
 	platform "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +25,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("", h.create)
 	g.GET("", h.page)
 	g.GET("/items", h.itemPage)
+	g.GET("/items/export", h.itemExport)
 	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
 	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
@@ -212,22 +214,9 @@ func (h *Handler) page(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/sales/items [get]
 func (h *Handler) itemPage(c *gin.Context) {
-	q := ItemQuery{Query: Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
-	var e error
-	if q.Page, e = intQuery(c, "page", 1); e != nil {
-		fail(c, e)
-		return
-	}
-	if q.PageSize, e = intQuery(c, "pageSize", 10); e != nil {
-		fail(c, e)
-		return
-	}
-	if q.PartnerID, e = int64Query(c, "partnerId"); e != nil {
-		fail(c, e)
-		return
-	}
-	if q.ProductID, e = int64Query(c, "productId"); e != nil {
-		fail(c, e)
+	q, err := parseItemQuery(c)
+	if err != nil {
+		fail(c, err)
 		return
 	}
 	v, e := h.s.ItemPage(c.Request.Context(), q)
@@ -369,7 +358,7 @@ func fail(c *gin.Context, e error) {
 	status, code, msg := http.StatusInternalServerError, 500, "服务暂不可用"
 	if errors.Is(e, ErrForbidden) {
 		status, code, msg = 403, 403, e.Error()
-	} else if errors.Is(e, ErrInvalid) {
+	} else if errors.Is(e, ErrInvalid) || errors.Is(e, exportfile.ErrLimit) {
 		status, code, msg = 400, 400, e.Error()
 	} else if errors.Is(e, ErrNotFound) {
 		status, code, msg = 404, 404, "销售单不存在"
@@ -426,4 +415,22 @@ func (h *Handler) sourceHistory(c *gin.Context) {
 		return
 	}
 	platform.OK(c, v)
+}
+
+func parseItemQuery(c *gin.Context) (ItemQuery, error) {
+	q := ItemQuery{Query: Query{Page: 1, PageSize: 10, DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
+	var e error
+	if q.Page, e = intQuery(c, "page", 1); e != nil {
+		return q, e
+	}
+	if q.PageSize, e = intQuery(c, "pageSize", 10); e != nil {
+		return q, e
+	}
+	if q.PartnerID, e = int64Query(c, "partnerId"); e != nil {
+		return q, e
+	}
+	if q.ProductID, e = int64Query(c, "productId"); e != nil {
+		return q, e
+	}
+	return q, nil
 }

@@ -1,3 +1,5 @@
+import { useExcelExport } from "@/hooks/use-excel-export";
+import { exportSaleItems } from "@/api/business";
 import { SaleDocumentView, SaleItemView } from "./sale-results";
 import { statusText, statusTone } from "./sale-query-status";
 import { SaleDetail } from "./sale-detail";
@@ -26,6 +28,7 @@ const sortFields = ["businessDate", "unitPrice", "amount", "netAmount"] as const
 type SortField = (typeof sortFields)[number];
 export function SalesPage() {
     const { feedback, notify } = useBusinessFeedback();
+  const excelExport = useExcelExport(notify);
     const navigate = useNavigate();
     const location = useLocation();
     const { params, setParams, query, filters, setFilters, page, setPage, apply } = useDocumentSearch();
@@ -228,10 +231,12 @@ export function SalesPage() {
             } }}>{r.documentNo}</a> },
         { title: "状态", key: "status", nowrap: true, width: "90px", render: (_, r) => <span className="whitespace-nowrap"><StatusTag tone={statusTone(r.status)}>{statusText(r.status)}</StatusTag></span> },
     ];
+    const exportAction = <Button size="sm" variant="secondary" disabled={excelExport.exporting} onClick={() => { const args = { ...filters, partnerId: filters.partnerKeyword.trim() ? "" : filters.partnerId, productId: filters.productKeyword.trim() ? "" : filters.productId, ...(sort ? { sortBy: sort, sortDir: dir } : {}) }; void excelExport.start({ count: () => saleItemPage({ ...args, page: 1, pageSize: 1 }), download: () => exportSaleItems(args) }); }}>{excelExport.exporting ? "导出中" : "导出明细 Excel"}</Button>;
     const activeError = validationError || (view === "item" ? itemError : error);
     return <div className="space-y-4"><PageHeader title="销售出库" description="维护客户交付草稿；草稿不改变库存或应收。" actions={<Button onClick={newDraft}>新建销售草稿</Button>}/>
   {activeError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded border border-red-300 p-3 text-red-700"><span>{activeError}</span><Button size="sm" variant="secondary" onClick={() => setReload(v => v + 1)}>重试查询</Button></div>}
   <BusinessFeedback feedback={feedback}/>
+ {excelExport.confirmation}
     <SearchFilterBar stacked onSubmit={search} leadingActions={<>
       <Button variant="secondary" onClick={() => { const month = businessMonthRange(); applyConditions({ ...filters, businessFrom: month.from, businessTo: month.to }); }}>本月</Button>
       <Button variant="secondary" aria-pressed={filters.status === "POSTED"} onClick={() => applyConditions({ ...filters, status: "POSTED" })}>已过账</Button>
@@ -246,8 +251,8 @@ export function SalesPage() {
   </SearchFilterBar>
   <p className="text-xs text-text-secondary">默认查询全部日期与状态。关键词查当前档案及已保存的商品快照；旧品牌和供应商联系方式仅查当前档案。销售还可匹配已保存的客户名称。按明细的合计覆盖全部筛选结果，并扣除截至当前仍已过账的销售退货。</p>
   {view === "document" ?
-            <SaleDocumentView page={page} pageSize={pageSize} total={total} records={records} loading={loading} error={error} columns={columns} expanded={expanded} setPage={setPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize} renderExpandedRow={row => <ul className="space-y-1" aria-label={`${row.documentNo} 全部明细`}>{row.items.map(item => <li key={item.id} className="flex flex-wrap items-baseline gap-x-space-4 gap-y-1 text-sm"><span data-matched={matchedLine(item) ? "true" : undefined} className={cn("min-w-[12rem] flex-1", matchedLine(item) && "font-medium text-primary")}>{[item.productCode, item.productName].filter(Boolean).join(" · ")}<span className="ml-2 text-xs text-text-tertiary">{[item.productModel, item.productSpecification].filter(Boolean).join(" · ")}</span><span className="ml-2 text-xs text-text-tertiary">{item.productType === "SERVICE" ? "服务" : "实物"}</span></span><span className="tabular-nums">¥{item.unitPrice}</span><span className="tabular-nums font-medium">¥{item.amount}</span><span className="whitespace-nowrap tabular-nums">{item.quantity} {item.unit}</span></li>)}</ul>}/> :
-            <SaleItemView itemPage={itemPage} pageSize={pageSize} itemResult={itemResult} itemLoading={itemLoading} itemError={itemError} columns={itemColumns} setItemPage={setItemPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize}/>}
+            <SaleDocumentView exportAction={exportAction} page={page} pageSize={pageSize} total={total} records={records} loading={loading} error={error} columns={columns} expanded={expanded} setPage={setPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize} renderExpandedRow={row => <ul className="space-y-1" aria-label={`${row.documentNo} 全部明细`}>{row.items.map(item => <li key={item.id} className="flex flex-wrap items-baseline gap-x-space-4 gap-y-1 text-sm"><span data-matched={matchedLine(item) ? "true" : undefined} className={cn("min-w-[12rem] flex-1", matchedLine(item) && "font-medium text-primary")}>{[item.productCode, item.productName].filter(Boolean).join(" · ")}<span className="ml-2 text-xs text-text-tertiary">{[item.productModel, item.productSpecification].filter(Boolean).join(" · ")}</span><span className="ml-2 text-xs text-text-tertiary">{item.productType === "SERVICE" ? "服务" : "实物"}</span></span><span className="tabular-nums">¥{item.unitPrice}</span><span className="tabular-nums font-medium">¥{item.amount}</span><span className="whitespace-nowrap tabular-nums">{item.quantity} {item.unit}</span></li>)}</ul>}/> :
+            <SaleItemView exportAction={exportAction} itemPage={itemPage} pageSize={pageSize} itemResult={itemResult} itemLoading={itemLoading} itemError={itemError} columns={itemColumns} setItemPage={setItemPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize}/>}
   <SaleDetail detail={detail} saleId={saleId} loading={detailLoading} error={detailError} onRetry={() => setDetailReload(value => value + 1)} onClose={closeDetail} goTo={goTo} onEdit={editDraft} onChange={setDetail}/>
 
  </div>;

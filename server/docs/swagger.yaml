@@ -5790,6 +5790,88 @@ paths:
       summary: 冲销期初、收付款或退款记录
       tags:
       - 往来余额
+  /api/v1/partner-balances/entries/export:
+    get:
+      parameters:
+      - description: 往来单位ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 单位关键词，与partnerId互斥
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 方向
+        enum:
+        - CUSTOMER
+        - SUPPLIER
+        in: query
+        name: direction
+        type: string
+      - description: 原始记录分类
+        enum:
+        - OPENING
+        - SETTLEMENT
+        - REFUND
+        in: query
+        name: category
+        type: string
+      - description: RFC3339生效起点（包含）
+        in: query
+        name: from
+        type: string
+      - description: RFC3339生效终点（不包含）
+        in: query
+        name: to
+        type: string
+      - description: 来源单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 冲销状态
+        enum:
+        - EFFECTIVE
+        - REVERSED
+        - REVERSAL
+        in: query
+        name: reversalStatus
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      - description: 页码（导出忽略分页）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（导出忽略分页）
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: 往来明细及合计工作簿
+          schema:
+            type: file
+        "400":
+          description: 参数错误或超过100000行上限
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/receivable.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 导出往来明细 Excel
+      tags:
+      - 往来余额
   /api/v1/partner-balances/opening:
     post:
       consumes:
@@ -6906,6 +6988,96 @@ paths:
       summary: 跨采购单查询商品明细
       tags:
       - 采购入库
+  /api/v1/purchases/items/export:
+    get:
+      parameters:
+      - description: 页码（导出忽略分页）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（导出忽略分页）
+        in: query
+        name: pageSize
+        type: integer
+      - description: 单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 供应商ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 供应商关键词
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 商品及历史快照关键词
+        in: query
+        name: productKeyword
+        type: string
+      - description: 状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 交付方式
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: directDelivery
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      - description: 排序字段
+        enum:
+        - businessDate
+        - unitPrice
+        - amount
+        - netAmount
+        in: query
+        name: sortBy
+        type: string
+      - description: 排序方向
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sortDir
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: 明细及合计工作簿
+          schema:
+            type: file
+        "400":
+          description: 参数错误或超过100000行上限
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/purchase.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 导出采购明细 Excel
+      tags:
+      - 采购入库
   /api/v1/purchases/save-requests/{operation}/{requestKey}:
     get:
       description: COMMITTED 表示原保存成功；回执版本与单据最新状态分别展示。UNCONFIRMED 不证明失败，可能仍在执行；明确未提交由保存接口的校验/冲突错误表示。
@@ -7705,6 +7877,96 @@ paths:
       security:
       - BearerAuth: []
       summary: 销售出库明细分页与净销售合计
+      tags:
+      - 销售出库
+  /api/v1/sales/items/export:
+    get:
+      parameters:
+      - description: 页码（导出忽略分页）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（导出忽略分页）
+        in: query
+        name: pageSize
+        type: integer
+      - description: 单号
+        in: query
+        name: documentNo
+        type: string
+      - description: 客户ID
+        in: query
+        name: partnerId
+        type: integer
+      - description: 客户关键词
+        in: query
+        name: partnerKeyword
+        type: string
+      - description: 商品ID
+        in: query
+        name: productId
+        type: integer
+      - description: 商品及历史快照关键词
+        in: query
+        name: productKeyword
+        type: string
+      - description: 状态
+        enum:
+        - DRAFT
+        - POSTED
+        - CANCELLED
+        in: query
+        name: status
+        type: string
+      - description: 交付方式
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: directDelivery
+        type: string
+      - description: 业务日期起
+        in: query
+        name: businessFrom
+        type: string
+      - description: 业务日期止
+        in: query
+        name: businessTo
+        type: string
+      - description: 排序字段
+        enum:
+        - businessDate
+        - unitPrice
+        - amount
+        - netAmount
+        in: query
+        name: sortBy
+        type: string
+      - description: 排序方向
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sortDir
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: 明细及合计工作簿
+          schema:
+            type: file
+        "400":
+          description: 参数错误或超过100000行上限
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/sale.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 导出销售明细 Excel
       tags:
       - 销售出库
   /api/v1/sales/save-requests/{operation}/{requestKey}:

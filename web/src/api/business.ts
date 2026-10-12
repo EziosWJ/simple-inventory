@@ -154,3 +154,7 @@ export type PurchaseSourceInput = {purchaseItemId:number;quantity:string;confirm
 export type PurchaseSourceHistory = {id:number;saleId:number;saleItemId:number;beforeData:string;afterData:string;operatorId:number;operatorName:string;createTime:string};
 export const updateSaleSources=(id:number,data:{version:number;items:{saleItemId:number;sources:PurchaseSourceInput[]}[]})=>http.put<SaleDraft>(`/api/v1/sales/${id}/purchase-sources`,data);
 export const saleSourceHistory=(id:number)=>http.get<PurchaseSourceHistory[]>(`/api/v1/sales/${id}/purchase-sources/history`);
+
+export const exportPurchaseItems = (query: Record<string, string | number>) => http.file("/api/v1/purchases/items/export", { query });
+export const exportSaleItems = (query: Record<string, string | number>) => http.file("/api/v1/sales/items/export", { query });
+export const exportPartnerEntries = (query: Record<string, string | number>) => http.file("/api/v1/partner-balances/entries/export", { query });

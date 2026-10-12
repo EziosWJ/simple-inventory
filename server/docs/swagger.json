@@ -5128,6 +5128,130 @@
                 }
             }
         },
+        "/api/v1/partner-balances/entries/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ],
+                "tags": [
+                    "往来余额"
+                ],
+                "summary": "导出往来明细 Excel",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "往来单位ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单位关键词，与partnerId互斥",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "CUSTOMER",
+                            "SUPPLIER"
+                        ],
+                        "type": "string",
+                        "description": "方向",
+                        "name": "direction",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "OPENING",
+                            "SETTLEMENT",
+                            "REFUND"
+                        ],
+                        "type": "string",
+                        "description": "原始记录分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效起点（包含）",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339生效终点（不包含）",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "EFFECTIVE",
+                            "REVERSED",
+                            "REVERSAL"
+                        ],
+                        "type": "string",
+                        "description": "冲销状态",
+                        "name": "reversalStatus",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码（导出忽略分页）",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数（导出忽略分页）",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "往来明细及合计工作簿",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或超过100000行上限",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/receivable.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/partner-balances/entries/{id}": {
             "get": {
                 "security": [
@@ -7003,6 +7127,141 @@
                 }
             }
         },
+        "/api/v1/purchases/items/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ],
+                "tags": [
+                    "采购入库"
+                ],
+                "summary": "导出采购明细 Excel",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码（导出忽略分页）",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数（导出忽略分页）",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "供应商ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "供应商关键词",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品及历史快照关键词",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "POSTED",
+                            "CANCELLED"
+                        ],
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "交付方式",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "businessDate",
+                            "unitPrice",
+                            "amount",
+                            "netAmount"
+                        ],
+                        "type": "string",
+                        "description": "排序字段",
+                        "name": "sortBy",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "排序方向",
+                        "name": "sortDir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "明细及合计工作簿",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或超过100000行上限",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/purchase.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/purchases/save-requests/{operation}/{requestKey}": {
             "get": {
                 "security": [
@@ -8149,6 +8408,141 @@
                     },
                     "503": {
                         "description": "数据库暂时不可用，可稍后重试",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/sales/items/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ],
+                "tags": [
+                    "销售出库"
+                ],
+                "summary": "导出销售明细 Excel",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码（导出忽略分页）",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数（导出忽略分页）",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "单号",
+                        "name": "documentNo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "客户ID",
+                        "name": "partnerId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "客户关键词",
+                        "name": "partnerKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "商品ID",
+                        "name": "productId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "商品及历史快照关键词",
+                        "name": "productKeyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "DRAFT",
+                            "POSTED",
+                            "CANCELLED"
+                        ],
+                        "type": "string",
+                        "description": "状态",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "交付方式",
+                        "name": "directDelivery",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期起",
+                        "name": "businessFrom",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "业务日期止",
+                        "name": "businessTo",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "businessDate",
+                            "unitPrice",
+                            "amount",
+                            "netAmount"
+                        ],
+                        "type": "string",
+                        "description": "排序字段",
+                        "name": "sortBy",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "排序方向",
+                        "name": "sortDir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "明细及合计工作簿",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或超过100000行上限",
+                        "schema": {
+                            "$ref": "#/definitions/sale.ApiEnvelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/sale.ApiEnvelope"
                         }

@@ -9,7 +9,7 @@ import type {
 type AuthTokenGetter = () => string | null | undefined;
 type UnauthorizedHandler = (error: ApiError) => void | Promise<void>;
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type ResponseType = "json" | "blob";
+type ResponseType = "json" | "blob" | "file";
 type ViteImportMeta = ImportMeta & {
   env?: {
     VITE_API_BASE_URL?: string;
@@ -196,7 +196,7 @@ async function request<T>(
     throw await parseHttpError(response);
   }
 
-  if (responseType === "blob") {
+  if (responseType === "blob" || responseType === "file") {
     const contentType = response.headers.get("Content-Type") ?? "";
     if (contentType.includes("application/json")) {
       const payload = await readJson<unknown>(response.clone());
@@ -228,6 +228,13 @@ async function request<T>(
       }
     }
 
+    if (responseType === "file") {
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      let filename = "明细.xlsx";
+      if (encoded) { try { filename = decodeURIComponent(encoded); } catch { /* Keep the fallback for malformed server headers. */ } }
+      return { blob: await response.blob(), filename } as T;
+    }
     return response.blob() as Promise<T>;
   }
 
@@ -275,6 +282,9 @@ export const http = {
   },
   blob(path: string, options?: HttpRequestOptions) {
     return request<Blob>("GET", path, { ...options, responseType: "blob" });
+  },
+  file(path: string, options?: HttpRequestOptions) {
+    return request<{ blob: Blob; filename: string }>("GET", path, { ...options, responseType: "file" });
   },
   request,
 };

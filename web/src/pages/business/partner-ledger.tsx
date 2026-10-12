@@ -1,3 +1,9 @@
+import { useExcelExport } from "@/hooks/use-excel-export";
+import { useBusinessFeedback } from "@/hooks/use-business-feedback";
+import { BusinessFeedback } from "@/components/business/business-feedback";
+import { TableToolbar } from "@/components/common/table-toolbar";
+import { exportPartnerEntries } from "@/api/business";
+import { businessMidnightToUtc } from "@/lib/datetime";
 import { formatDateTime } from "@/lib/datetime";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { PartnerSelect } from "@/components/business/master-data-select";
@@ -20,6 +26,8 @@ import type { DataTableColumn } from "@/types";
 
 const pageSize = 20;
 export function PartnerLedgerPage() {
+  const { feedback, notify } = useBusinessFeedback();
+  const excelExport = useExcelExport(notify);
   const navigate = useNavigate();
   const [params,setParams] = useSearchParams();
   const location=useLocation();
@@ -86,6 +94,13 @@ export function PartnerLedgerPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "打开来源失败"); }
   }
 
+  function exportEntries() {
+    if (!partnerId && !partnerKeyword.trim()) { notify({ type: "error", title: "导出失败", description: "请输入关键词或选择往来单位" }); return; }
+    const args = { partnerId: partnerKeyword.trim() ? "" : partnerId, partnerKeyword: partnerKeyword.trim(), direction,
+      from: from ? businessMidnightToUtc(from) : "", to: to ? businessMidnightToUtc(to, true) : "" };
+    void excelExport.start({ count: () => partnerBalanceEntries({ ...args, page: 1, pageSize: 1 }), download: () => exportPartnerEntries(args) });
+  }
+
   const columns: DataTableColumn<PartnerBalanceEntry>[] = [
     {title:"往来单位／方向",key:"partner",render:(_,r)=><>{r.partnerName}<span className="block text-xs text-text-secondary">{r.direction==="CUSTOMER"?"客户":"供应商"}</span></>},
     { title: "类型 / 来源号", key: "source", render: (_, row) => <><span className="block text-xs text-text-secondary">{entryTypeLabel[row.entryType] ?? row.entryType}</span><Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>{row.documentNo}</Button></> },
@@ -106,6 +121,8 @@ export function PartnerLedgerPage() {
       <Field label="生效开始日"><Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></Field>
       <Field label="生效结束日（含当日）"><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></Field>
     </SearchFilterBar>
+    <BusinessFeedback feedback={feedback} />
+    {excelExport.confirmation}
     {error && <p role="alert" className="text-sm text-error">{error}</p>}
     {query.partnerKeyword&&<p className="text-sm text-text-secondary">关键词只查当前单位档案。期间余额与对账打印请先指定一个单位和方向。</p>}
     {summary && <section className="grid gap-3 rounded-admin border border-border bg-surface p-4 text-sm sm:grid-cols-3" aria-label="期间余额">
@@ -113,7 +130,7 @@ export function PartnerLedgerPage() {
       <p>期间变动<br /><strong className="text-lg tabular-nums">{summary.netChange} 元</strong></p>
       <p>期间期末<br /><strong className="text-lg tabular-nums">{summary.closingAmount} 元</strong></p>
     </section>}
-    <DataTableCard toolbar={<div className="p-3 text-sm">{(query.partnerId||query.partnerKeyword) ? `${query.partnerKeyword?`关键词：${query.partnerKeyword}，各单位余额分别保留`:selectedPartner?.id === Number(query.partnerId) ? selectedPartner.name : "往来单位"} · ${query.direction === "CUSTOMER" ? "客户" : "供应商"}方向 · 共 ${total} 笔` : "请选择往来单位和方向"}</div>} pagination={query.partnerId||query.partnerKeyword ? <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} /> : undefined}>
+    <DataTableCard toolbar={<TableToolbar title="往来明细" description={(query.partnerId||query.partnerKeyword) ? `${query.partnerKeyword?`关键词：${query.partnerKeyword}，各单位余额分别保留`:selectedPartner?.id === Number(query.partnerId) ? selectedPartner.name : "往来单位"} · ${query.direction === "CUSTOMER" ? "客户" : "供应商"}方向 · 共 ${total} 笔` : "请选择往来单位和方向"} actions={<Button size="sm" variant="secondary" disabled={excelExport.exporting} onClick={exportEntries}>{excelExport.exporting ? "导出中" : "导出明细 Excel"}</Button>} />} pagination={query.partnerId||query.partnerKeyword ? <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} /> : undefined}>
       <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">{query.partnerId||query.partnerKeyword ? "当前条件下没有生效记录。" : "选择往来单位后查看明细。"}</p>} />
     </DataTableCard>
     <DetailDialog footer={<BusinessReturnLink />} open={detail !== null} title={detail ? `往来记录 · ${detail.documentNo}` : "往来记录"} onCancel={closeDetail}>

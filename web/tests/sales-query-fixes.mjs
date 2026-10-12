@@ -73,6 +73,7 @@ try {
   async function quick(label, code, wait = true) {
     await group(label).getByRole('combobox').fill(code);
     await page.getByRole('option').filter({ hasText: code }).click();
+    if (wait) await query.click();
     if (wait) await page.waitForURL(url => url.searchParams.get(label === '客户筛选' ? 'partnerId' : 'productId') === String(label === '客户筛选' ? customer.id : goods.id));
   }
   async function ready() {
@@ -139,9 +140,11 @@ try {
   const picker = page.getByRole('dialog', { name: '选择商品或服务筛选' });
   await picker.getByRole('combobox').fill(twin.code);
   await picker.getByRole('row').filter({ hasText: twin.code }).getByRole('button').click();
+  await query.click();
   await page.waitForURL(url => url.searchParams.get('productId') === String(twin.id)); await ready();
   assert.equal(await group('商品或服务筛选').getByRole('combobox').inputValue(), twin.name);
   await group('商品或服务筛选').getByRole('button', { name: '清除商品或服务筛选' }).click();
+  await query.click();
   await page.waitForURL(url => !url.searchParams.has('productId')); await ready();
   await group('商品或服务筛选').getByRole('combobox').fill(`brand%_x-${prefix.toLowerCase()}`);
   await group('商品或服务筛选').getByRole('combobox').press('Enter');

@@ -9,7 +9,7 @@ let browser;
 async function call(path,body,method=body===undefined?'GET':'POST'){const r=await fetch(`${api}/api${path}`,{method,headers:{Authorization:token??'','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();assert.equal(r.status,200,`${path}: ${j.message}`);return j.data;}
 async function waitRows(page,count){for(let n=0;n<100;n++){if(await page.getByRole('row').count()===count)return;await delay(50);}assert.equal(await page.getByRole('row').count(),count);}
 async function waitValue(locator,value){for(let n=0;n<60;n++){if(await locator.inputValue()===value)return;await delay(50);}assert.equal(await locator.inputValue(),value);}
-async function select(page,label,code){const g=page.getByRole('group',{name:label,exact:true});await g.getByRole('combobox').fill(code);await page.locator('button[role="option"]').filter({hasText:code}).last().click();}
+async function select(page,label,code){const g=page.getByRole('group',{name:label,exact:true});await g.getByRole('combobox').fill(code);await page.locator('button[role="option"]').filter({hasText:code}).last().click();await page.getByRole('button',{name:'查询',exact:true}).click();}
 let token;
 try{
  for(let n=0;n<60;n++){try{if((await fetch(base)).ok)break;}catch{}await delay(250);}

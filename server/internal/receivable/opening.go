@@ -104,6 +104,7 @@ type Page struct {
 type Store interface {
 	attachmentStore
 	FilterPage(context.Context, EntryFilter) (Page, error)
+	LedgerExport(context.Context, EntryFilter, int64) (LedgerExport, error)
 	Statement(context.Context, EntryFilter) (Statement, error)
 	Create(context.Context, audit.Metadata, Input) (Entry, error)
 	Find(context.Context, int64) (Entry, error)

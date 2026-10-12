@@ -3,6 +3,7 @@ package receivable
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
@@ -25,6 +26,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.GET("", h.balances)
 	g.GET("/overview", h.overview)
 	g.GET("/entries", h.page)
+	g.GET("/entries/export", h.export)
 	g.GET("/entries/:id", h.detail)
 	g.GET("/statement", h.statement)
 	g.POST("/opening", h.create)
@@ -217,25 +219,12 @@ func (h *Handler) overview(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope "数据库暂时不可用，可稍后重试"
 // @Router /api/v1/partner-balances/entries [get]
 func (h *Handler) page(c *gin.Context) {
-	p, e := paramInt(c, "page", 1)
+	q, e := parseEntryFilter(c)
 	if e != nil {
-		platform.WriteError(c, 400, 400, "页码无效", nil)
+		platform.WriteError(c, 400, 400, e.Error(), nil)
 		return
 	}
-	size, e := paramInt(c, "pageSize", 20)
-	if e != nil {
-		platform.WriteError(c, 400, 400, "分页大小无效", nil)
-		return
-	}
-	partner := int64(0)
-	if x := c.Query("partnerId"); x != "" {
-		partner, e = strconv.ParseInt(x, 10, 64)
-		if e != nil {
-			platform.WriteError(c, 400, 400, "往来单位无效", nil)
-			return
-		}
-	}
-	v, e := h.s.FilterPage(c.Request.Context(), EntryFilter{PartnerID: partner, PartnerKeyword: c.Query("partnerKeyword"), DocumentNo: c.Query("documentNo"), ReversalStatus: c.Query("reversalStatus"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo"), Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size})
+	v, e := h.s.FilterPage(c.Request.Context(), q)
 	if e != nil {
 		if platform.IsTemporaryUnavailable(e) {
 			platform.TemporaryUnavailable(c)
@@ -401,4 +390,23 @@ func (h *Handler) statement(c *gin.Context) {
 		return
 	}
 	platform.OK(c, v)
+}
+
+func parseEntryFilter(c *gin.Context) (EntryFilter, error) {
+	p, e := paramInt(c, "page", 1)
+	if e != nil {
+		return EntryFilter{}, fmt.Errorf("页码无效: %w", ErrInvalid)
+	}
+	size, e := paramInt(c, "pageSize", 20)
+	if e != nil {
+		return EntryFilter{}, fmt.Errorf("分页大小无效: %w", ErrInvalid)
+	}
+	partner := int64(0)
+	if x := c.Query("partnerId"); x != "" {
+		partner, e = strconv.ParseInt(x, 10, 64)
+		if e != nil {
+			return EntryFilter{}, fmt.Errorf("往来单位无效: %w", ErrInvalid)
+		}
+	}
+	return EntryFilter{PartnerID: partner, PartnerKeyword: c.Query("partnerKeyword"), DocumentNo: c.Query("documentNo"), ReversalStatus: c.Query("reversalStatus"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo"), Direction: c.Query("direction"), Category: c.Query("category"), From: c.Query("from"), To: c.Query("to"), Page: p, PageSize: size}, nil
 }

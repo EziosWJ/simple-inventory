@@ -7,6 +7,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	"github.com/EziosWJ/simple-inventory/server/internal/platform/exportfile"
 	platform "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +25,7 @@ func RegisterRoutes(r gin.IRouter, h *Handler) {
 	g.POST("", h.create)
 	g.GET("", h.page)
 	g.GET("/items", h.itemPage)
+	g.GET("/items/export", h.itemExport)
 	g.GET("/save-requests/:operation/:requestKey", h.saveResult)
 	g.POST("/save-requests/:operation/:requestKey/resolve", h.resolveSave)
 	g.GET("/:id", h.detail)
@@ -211,21 +213,8 @@ func (h *Handler) page(c *gin.Context) {
 // @Failure 503 {object} ApiEnvelope
 // @Router /api/v1/purchases/items [get]
 func (h *Handler) itemPage(c *gin.Context) {
-	q := ItemQuery{Query: Query{DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
-	var err error
-	if q.Page, err = intQuery(c, "page", 1); err != nil {
-		fail(c, err)
-		return
-	}
-	if q.PageSize, err = intQuery(c, "pageSize", 10); err != nil {
-		fail(c, err)
-		return
-	}
-	if q.PartnerID, err = int64Query(c, "partnerId"); err != nil {
-		fail(c, err)
-		return
-	}
-	if q.ProductID, err = int64Query(c, "productId"); err != nil {
+	q, err := parseItemQuery(c)
+	if err != nil {
 		fail(c, err)
 		return
 	}
@@ -344,7 +333,7 @@ func fail(c *gin.Context, e error) {
 		return
 	}
 	status, code, msg := http.StatusInternalServerError, 500, "服务暂不可用"
-	if errors.Is(e, ErrInvalid) {
+	if errors.Is(e, ErrInvalid) || errors.Is(e, exportfile.ErrLimit) {
 		status, code, msg = 400, 400, e.Error()
 	} else if errors.Is(e, ErrNotFound) {
 		status, code, msg = 404, 404, "采购单不存在"
@@ -352,4 +341,22 @@ func fail(c *gin.Context, e error) {
 		status, code, msg = 409, 409, e.Error()
 	}
 	platform.WriteError(c, status, code, msg, nil)
+}
+
+func parseItemQuery(c *gin.Context) (ItemQuery, error) {
+	q := ItemQuery{Query: Query{DocumentNo: c.Query("documentNo"), PartnerKeyword: c.Query("partnerKeyword"), ProductKeyword: c.Query("productKeyword"), DirectDelivery: c.Query("directDelivery"), Status: c.Query("status"), BusinessFrom: c.Query("businessFrom"), BusinessTo: c.Query("businessTo")}, SortBy: c.Query("sortBy"), SortDir: c.Query("sortDir")}
+	var err error
+	if q.Page, err = intQuery(c, "page", 1); err != nil {
+		return q, err
+	}
+	if q.PageSize, err = intQuery(c, "pageSize", 10); err != nil {
+		return q, err
+	}
+	if q.PartnerID, err = int64Query(c, "partnerId"); err != nil {
+		return q, err
+	}
+	if q.ProductID, err = int64Query(c, "productId"); err != nil {
+		return q, err
+	}
+	return q, nil
 }

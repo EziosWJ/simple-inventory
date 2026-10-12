@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/platform/exportfile"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +17,7 @@ import (
 const saleReturnTotals = "(SELECT ri.sale_item_id AS sale_item_id,SUM(ri.quantity_milli) AS returned_quantity,SUM(ri.amount_cents) AS returned_amount FROM sale_return_document_item ri JOIN sale_return_document rd ON rd.id=ri.document_id WHERE rd.status='POSTED' GROUP BY ri.sale_item_id)"
 
 const itemColumns = "i.id AS id,d.id AS sale_id,d.document_no AS document_no,d.partner_id AS partner_id," +
-	"COALESCE(NULLIF(d.partner_name,''),p.name) AS partner_name,d.business_date AS business_date,d.status AS status," +
+	"COALESCE(NULLIF(d.partner_name,''),p.name) AS partner_name,d.business_date AS business_date,d.status AS status,d.direct_delivery AS direct_delivery," +
 	"i.product_id AS product_id,i.product_code AS product_code,i.product_name AS product_name," +
 	"i.product_model AS product_model,i.product_specification AS product_specification,i.product_type AS product_type," +
 	"i.unit AS unit,i.quantity_milli AS quantity_milli,i.unit_price_cents AS unit_price_cents,i.amount_cents AS amount_cents," +
@@ -24,6 +25,7 @@ const itemColumns = "i.id AS id,d.id AS sale_id,d.document_no AS document_no,d.p
 	"CAST(COALESCE(r.returned_amount,0) AS BIGINT) AS returned_amount_cents"
 
 type itemRow struct {
+	DirectDelivery        bool         `gorm:"column:direct_delivery"`
 	BusinessDate          BusinessDate `gorm:"column:business_date"`
 	ProductModel          *string      `gorm:"column:product_model"`
 	ProductSpecification  *string      `gorm:"column:product_specification"`
@@ -68,15 +70,31 @@ type itemQuantityRow struct {
 // matching line in one repeatable read-only transaction, so a concurrent
 // posting, return or cancellation cannot make the three disagree.
 func (r *Repository) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
-	out := ItemPage{Records: []ItemRecord{}, Page: q.Page, PageSize: q.PageSize, Summary: ItemSummary{Amounts: []ItemAmounts{}, Quantities: []ItemQuantity{}}}
+	out, err := r.readItems(ctx, q, false, 0)
+	return out.ItemPage, err
+}
+
+func (r *Repository) ItemExport(ctx context.Context, q ItemQuery, actorID int64) (ItemExport, error) {
+	return r.readItems(ctx, q, true, actorID)
+}
+
+func (r *Repository) readItems(ctx context.Context, q ItemQuery, export bool, actorID int64) (ItemExport, error) {
+	out := ItemExport{ItemPage: ItemPage{Records: []ItemRecord{}, Page: q.Page, PageSize: q.PageSize, Summary: ItemSummary{Amounts: []ItemAmounts{}, Quantities: []ItemQuantity{}}}}
+
 	e := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		count, _, _ := itemQuery(tx, q)
 		if e := count.Count(&out.Total).Error; e != nil {
 			return e
 		}
+		if export && out.Total > exportfile.RowLimit {
+			return exportfile.ErrLimit
+		}
 		rows, history, historyArgs := itemQuery(tx, q)
 		var items []itemRow
-		if e := rows.Select(itemColumns+","+history+" AS matches_history", historyArgs...).Order(itemOrder(q)).Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&items).Error; e != nil {
+		if !export {
+			rows = rows.Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize)
+		}
+		if e := rows.Select(itemColumns+","+history+" AS matches_history", historyArgs...).Order(itemOrder(q)).Scan(&items).Error; e != nil {
 			return e
 		}
 		for i := range items {
@@ -91,6 +109,10 @@ func (r *Repository) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error
 			return e
 		}
 		out.Summary = ItemSummary{Amounts: amounts, Quantities: quantities}
+		if export {
+			return tx.Table("sys_user").Select("COALESCE(NULLIF(nickname,''),username)").Where("id=?", actorID).Scan(&out.ExportedBy).Error
+		}
+
 		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if e != nil {
@@ -176,6 +198,7 @@ func itemRecord(r *itemRow) ItemRecord {
 		PartnerName:          r.PartnerName,
 		BusinessDate:         string(r.BusinessDate),
 		Status:               r.Status,
+		DirectDelivery:       r.DirectDelivery,
 		ProductID:            r.ProductID,
 		ProductCode:          r.ProductCode,
 		ProductName:          r.ProductName,

@@ -103,7 +103,7 @@ const ledgerSelect = "e.id,e.partner_id,e.direction,e.entry_type,e.amount_cents,
 
 // The complete result is read by one SQL statement, including partner and source
 // identities. Pagination, counts and statement totals share this same snapshot.
-func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly bool) ([]entryRow, error) {
+func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly bool, limit ...int) ([]entryRow, error) {
 	query := r.db.WithContext(ctx).Table("partner_balance_entry AS e").Select(r.ledgerSelect(ctx)).Joins("JOIN partner p ON p.id=e.partner_id").Joins("LEFT JOIN sys_user u ON u.id=e.operator_id").Joins("LEFT JOIN partner_balance_entry original ON original.id=e.reverses_id")
 	if q.EntryID > 0 {
 		query = query.Where("e.id=?", q.EntryID)
@@ -145,6 +145,9 @@ func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, beforeOnly b
 	if q.To != "" {
 		to, _ := time.Parse(time.RFC3339Nano, q.To)
 		query = query.Where("e.effective_at<?", to)
+	}
+	if len(limit) > 0 {
+		query = query.Limit(limit[0])
 	}
 	rows := []entryRow{}
 	err := query.Order("e.effective_at ASC,e.id ASC").Scan(&rows).Error

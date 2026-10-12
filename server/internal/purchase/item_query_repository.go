@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
+	"github.com/EziosWJ/simple-inventory/server/internal/platform/exportfile"
 	"gorm.io/gorm"
 )
 
@@ -20,6 +21,7 @@ type purchaseItemRow struct {
 	DocumentNo           string       `gorm:"column:document_no"`
 	PartnerName          string       `gorm:"column:partner_name"`
 	BusinessDate         BusinessDate `gorm:"column:business_date"`
+	DirectDelivery       bool         `gorm:"column:direct_delivery"`
 	Status               string       `gorm:"column:status"`
 	ProductCode          string       `gorm:"column:product_code"`
 	ProductName          string       `gorm:"column:product_name"`
@@ -44,16 +46,32 @@ type purchaseQuantityRow struct {
 }
 
 func (r *Repository) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error) {
-	out := ItemPage{Records: []ItemRecord{}, Page: q.Page, PageSize: q.PageSize, Summary: ItemSummary{Amounts: []ItemAmounts{}, Quantities: []ItemQuantity{}}}
+	out, err := r.readItems(ctx, q, false, 0)
+	return out.ItemPage, err
+}
+
+func (r *Repository) ItemExport(ctx context.Context, q ItemQuery, actorID int64) (ItemExport, error) {
+	return r.readItems(ctx, q, true, actorID)
+}
+
+func (r *Repository) readItems(ctx context.Context, q ItemQuery, export bool, actorID int64) (ItemExport, error) {
+	out := ItemExport{ItemPage: ItemPage{Records: []ItemRecord{}, Page: q.Page, PageSize: q.PageSize, Summary: ItemSummary{Amounts: []ItemAmounts{}, Quantities: []ItemQuantity{}}}}
+
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		count, _, _ := purchaseItemQuery(tx, q)
 		if err := count.Count(&out.Total).Error; err != nil {
 			return err
 		}
+		if export && out.Total > exportfile.RowLimit {
+			return exportfile.ErrLimit
+		}
 		rows, historySQL, historyArgs := purchaseItemQuery(tx, q)
 		var found []purchaseItemRow
-		selectSQL := "i.id,i.document_id AS purchase_id,d.partner_id,d.document_no,COALESCE(p.name,'') AS partner_name,d.business_date,d.status,i.product_id,i.product_code,i.product_name,i.product_model,i.product_specification,i.unit,i.quantity_milli,i.unit_price_cents,i.amount_cents,CAST(COALESCE(r.returned_quantity,0) AS BIGINT) AS returned_quantity,CAST(COALESCE(r.returned_amount,0) AS BIGINT) AS returned_amount," + historySQL + " AS matches_history"
-		if err := rows.Select(selectSQL, historyArgs...).Order(purchaseItemOrder(q)).Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&found).Error; err != nil {
+		selectSQL := "i.id,i.document_id AS purchase_id,d.partner_id,d.document_no,COALESCE(p.name,'') AS partner_name,d.business_date,d.status,d.direct_delivery,i.product_id,i.product_code,i.product_name,i.product_model,i.product_specification,i.unit,i.quantity_milli,i.unit_price_cents,i.amount_cents,CAST(COALESCE(r.returned_quantity,0) AS BIGINT) AS returned_quantity,CAST(COALESCE(r.returned_amount,0) AS BIGINT) AS returned_amount," + historySQL + " AS matches_history"
+		if !export {
+			rows = rows.Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize)
+		}
+		if err := rows.Select(selectSQL, historyArgs...).Order(purchaseItemOrder(q)).Scan(&found).Error; err != nil {
 			return err
 		}
 		for _, row := range found {
@@ -68,6 +86,10 @@ func (r *Repository) ItemPage(ctx context.Context, q ItemQuery) (ItemPage, error
 			return err
 		}
 		out.Summary = ItemSummary{Amounts: amounts, Quantities: quantities}
+		if export {
+			return tx.Table("sys_user").Select("COALESCE(NULLIF(nickname,''),username)").Where("id=?", actorID).Scan(&out.ExportedBy).Error
+		}
+
 		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	return out, err
@@ -132,7 +154,7 @@ func purchaseItemOrder(q ItemQuery) string {
 	}
 }
 func purchaseItemRecord(r purchaseItemRow) ItemRecord {
-	v := ItemRecord{ID: r.ID, PurchaseID: r.PurchaseID, DocumentNo: r.DocumentNo, PartnerID: r.PartnerID, PartnerName: r.PartnerName, BusinessDate: string(r.BusinessDate), Status: r.Status, ProductID: r.ProductID, ProductCode: r.ProductCode, ProductName: r.ProductName, ProductModel: r.ProductModel, ProductSpecification: r.ProductSpecification, Unit: r.Unit, Quantity: milliText(r.Quantity), UnitPrice: moneyText(r.UnitPrice), Amount: moneyText(r.Amount), MatchesHistory: r.MatchesHistory}
+	v := ItemRecord{ID: r.ID, PurchaseID: r.PurchaseID, DocumentNo: r.DocumentNo, PartnerID: r.PartnerID, PartnerName: r.PartnerName, BusinessDate: string(r.BusinessDate), Status: r.Status, DirectDelivery: r.DirectDelivery, ProductID: r.ProductID, ProductCode: r.ProductCode, ProductName: r.ProductName, ProductModel: r.ProductModel, ProductSpecification: r.ProductSpecification, Unit: r.Unit, Quantity: milliText(r.Quantity), UnitPrice: moneyText(r.UnitPrice), Amount: moneyText(r.Amount), MatchesHistory: r.MatchesHistory}
 	if r.Status == "POSTED" {
 		returnedQ, returnedA, netQ, netA := milliText(r.ReturnedQuantity), moneyText(r.ReturnedAmount), milliText(r.Quantity-r.ReturnedQuantity), moneyText(r.Amount-r.ReturnedAmount)
 		v.ReturnedQuantity = &returnedQ
