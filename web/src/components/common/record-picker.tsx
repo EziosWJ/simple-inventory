@@ -43,7 +43,7 @@ function Highlight({ text, keyword }: {
 }
 export function RecordPicker<T extends {
     id: number;
-}>({ label, inlineBrowse = false, placeholder = "输入名称、型号或联系方式", value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
+}>({ label, inlineBrowse = true, placeholder = "输入名称、型号或联系方式", value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
     const id = useId(), input = useRef<HTMLInputElement>(null), panel = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false), [modal, setModal] = useState(false), [text, setText] = useState(applied), [page, setPage] = useState(1);
     const [records, setRecords] = useState<T[]>([]), [selected, setSelected] = useState<T | null>(null), [total, setTotal] = useState(0), [active, setActive] = useState(-1);

@@ -46,6 +46,12 @@ try {
   assert.equal(saved.purchaseTotal, "12.53"); assert.equal(saved.saleTotal, "29.54");
   await page.getByRole("button", { name: "返回列表", exact: true }).click();
   await page.waitForURL(`${base}/business/direct-orders`);
+  for (const label of ["供应商筛选", "客户筛选"]) {
+    const filter = page.getByRole("group", { name: label, exact: true });
+    await filter.getByRole("button", { name: `浏览选择${label}`, exact: true }).waitFor({ state: "visible" });
+    assert.equal(await filter.getByRole("button", { name: `浏览选择${label}`, exact: true }).count(), 1);
+    assert.equal(await filter.getByRole("button", { name: "浏览选择", exact: true }).count(), 0);
+  }
   await page.getByRole("button", { name: saved.documentNo, exact: true }).click();
   await page.getByRole("heading", { name: `直送详情 · ${saved.documentNo}` }).waitFor();
   assert.equal(await page.getByRole("button", { name: "保存草稿", exact: true }).count(), 0);

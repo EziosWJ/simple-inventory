@@ -47,8 +47,8 @@ export function DirectOrdersPage() {
     <PageHeader title="直送单" description="供应商直接送货给客户；草稿保存不改变库存或往来。" actions={<Button variant="primary" onClick={() => navigate("/business/direct-orders/new")}>新建直送单</Button>} />
     <SearchFilterBar onSubmit={search} actions={<><Button variant="primary" onClick={search}>查询</Button><Button onClick={() => { setFilters(empty); setQuery(empty); setPage(1); }}>重置</Button></>}>
       <Field label="直送单号" htmlFor="direct-query-no"><Input id="direct-query-no" value={filters.documentNo} onChange={e => setFilters({ ...filters, documentNo: e.target.value })} /></Field>
-      <Field label="供应商"><PartnerSelect historical identity="SUPPLIER" label="供应商筛选" value={filters.supplierId} onChange={p => setFilters({ ...filters, supplierId: p?.id ?? 0 })} /></Field>
-      <Field label="客户"><PartnerSelect historical identity="CUSTOMER" label="客户筛选" value={filters.customerId} onChange={p => setFilters({ ...filters, customerId: p?.id ?? 0 })} /></Field>
+      <Field label="供应商"><PartnerSelect inlineBrowse historical identity="SUPPLIER" label="供应商筛选" value={filters.supplierId} onChange={p => setFilters({ ...filters, supplierId: p?.id ?? 0 })} /></Field>
+      <Field label="客户"><PartnerSelect inlineBrowse historical identity="CUSTOMER" label="客户筛选" value={filters.customerId} onChange={p => setFilters({ ...filters, customerId: p?.id ?? 0 })} /></Field>
       <Field label="状态" htmlFor="direct-query-status"><Select id="direct-query-status" value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}><option value="">全部</option><option value="DRAFT">草稿</option><option value="POSTED">已确认</option><option value="CANCELLED">已取消</option></Select></Field>
       <Field label="业务日期起" htmlFor="direct-query-from"><Input id="direct-query-from" type="date" value={filters.businessFrom} onChange={e => setFilters({ ...filters, businessFrom: e.target.value })} /></Field>
       <Field label="业务日期止" htmlFor="direct-query-to"><Input id="direct-query-to" type="date" value={filters.businessTo} onChange={e => setFilters({ ...filters, businessTo: e.target.value })} /></Field>
