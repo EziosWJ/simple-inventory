@@ -43,6 +43,7 @@ const dicts = {
 const routes = ['dashboard', 'business/products', 'business/partners', 'business/warehouse', 'business/inventory-adjustments', 'business/inventory-balances', 'business/inventory-entries', 'business/print-profile', 'business/purchases', 'business/purchases/new', 'business/purchases/1/edit', 'business/purchase-returns', 'business/sale-returns', 'business/sales', 'business/sales/new', 'business/sales/1/edit', 'business/sales/1/delivery-note', 'business/partner-balances', 'business/settlements', 'business/refunds', 'business/opening-balances', 'business/partner-ledger', 'business/partner-statements?partnerId=1&direction=CUSTOMER&from=2026-10-01&to=2026-10-03'];
 let browser, writeMode = 'fail', releaseWrite, searchMode = 'normal', balanceAmount = '100.00';
 const errors = [], writes = [];
+const saleDetailOnly = process.env.SALE_DETAIL_ONLY === '1';
 async function visit(page, route) {
   await page.goto(`${base}/${route}${route.includes('?') ? '&' : '?'}returnTo=${encodeURIComponent('/business/purchases?status=DRAFT')}`);
   await page.locator('main h1').first().waitFor();
@@ -102,7 +103,7 @@ try {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ code: 200, message: 'OK', data }) });
   });
   let selectorCount = 0;
-  for (const width of [1440, 1024]) {
+  for (const width of saleDetailOnly ? [] : [1440, 1024]) {
     const page = await context.newPage(); await page.setViewportSize({ width, height: 1000 });
     for (const route of routes) {
       await visit(page, route);
@@ -126,7 +127,7 @@ try {
     } await page.close();
   }
   const page = await context.newPage();
-  for (const width of [1440, 750]) for (const status of ['DRAFT', 'POSTED', 'CANCELLED']) {
+  for (const width of [1440, 750, 390]) for (const status of ['DRAFT', 'POSTED', 'CANCELLED']) {
     const populated = status === 'POSTED';
     saleDetailRecord = {
       ...saleDetailRecord,
@@ -148,12 +149,19 @@ try {
     const detail = page.getByRole('dialog'); await detail.waitFor();
     await detail.getByText('整单备注内容', { exact: true }).waitFor();
     assert.equal(await detail.getByRole('row').count(), 3, `${width} ${status}: two item rows plus header`);
-    assert.equal(await detail.getByRole('columnheader').count(), 5, `${width} ${status}: item table columns`);
+    assert.equal(await detail.getByRole('columnheader').count(), 4, `${width} ${status}: quantity includes unit`);
     await detail.getByText(/明细备注内容/).waitFor();
-    await detail.getByText('¥152.50', { exact: true }).waitFor();
+    await detail.getByRole('region', { name: '销售单概览' }).getByText('¥152.50', { exact: true }).waitFor();
+    const disclosures = detail.locator('details');
+    assert.equal(await disclosures.locator(':scope[open]').count(), 0, 'supplementary sections start collapsed');
+    const footerBefore = await detail.locator('footer').boundingBox();
+    await detail.locator('div.overflow-y-auto').evaluate(node => { node.scrollTop = node.scrollHeight; });
+    const footerAfter = await detail.locator('footer').boundingBox();
+    assert.equal(footerBefore.y, footerAfter.y, 'actions stay fixed while body scrolls');
+    if (populated) await detail.locator('summary').filter({ hasText: '送货及经营者资料' }).click();
     assert.equal(await detail.getByText('签收联系人', { exact: true }).count(), populated ? 1 : 0);
     assert.equal(await detail.getByText('回归经营者', { exact: true }).count(), populated ? 1 : 0);
-    assert.equal(await detail.getByText('直送销售：采购与销售单据分别过账。', { exact: true }).count(), populated ? 1 : 0);
+    assert.equal(await detail.getByText('旧版直送销售：采购与销售单据分别过账。', { exact: true }).count(), populated ? 1 : 0);
     const geometry = await detail.evaluate(node => {
       const rect = node.getBoundingClientRect();
       const table = [...node.querySelectorAll('div.overflow-x-auto')].find(element => element.querySelector('table'));
@@ -163,7 +171,7 @@ try {
       };
     });
     assert.ok(geometry.insideViewport, `${width} ${status}: dialog must remain in viewport`);
-    if (width === 750) assert.ok(geometry.tableOverflow > 0, 'narrow view should scroll the item table horizontally');
+    if (width < 800) assert.ok(geometry.tableOverflow > 0, 'narrow view should scroll the item table horizontally');
 
     const edit = detail.getByRole('button', { name: '编辑草稿', exact: true });
     const print = detail.getByRole('button', { name: '打印送货单', exact: true });
@@ -172,8 +180,14 @@ try {
     assert.equal(await print.count(), status === 'CANCELLED' ? 0 : 1);
     assert.equal(await saleReturn.count(), status === 'POSTED' ? 1 : 0);
     assert.equal(await detail.getByRole('region', { name: '送货及经营者资料' }).count(), populated ? 1 : 0);
+    if (width === 1440 && status === 'POSTED' && process.env.SALE_DETAIL_SCREENSHOT) {
+      await detail.locator('summary').filter({ hasText: '送货及经营者资料' }).click();
+      await detail.locator('div.overflow-y-auto').evaluate(node => { node.scrollTop = 0; });
+      await detail.screenshot({ path: process.env.SALE_DETAIL_SCREENSHOT });
+    }
 
     if (width === 1440 && status === 'POSTED') {
+      await detail.locator('summary').filter({ hasText: '关联单据与直送追溯' }).click();
       await detail.getByRole('button', { name: 'PI-UI-001', exact: true }).click();
       await page.waitForURL(url => url.pathname === '/business/purchases');
       await visit(page, 'business/sales?saleId=1');
@@ -198,7 +212,34 @@ try {
       assert.equal(new URL(page.url()).searchParams.has('saleId'), false);
     }
   }
-  console.log('PASS sales detail dialog: draft/posted/cancelled actions, item and optional fields, navigation, and 1440/750px layout');
+  console.log('PASS sales detail dialog: draft/posted/cancelled actions, item and optional fields, navigation, and 1440/750/390px layout');
+  saleDetailRecord = {
+    ...draft, status: 'POSTED', totalAmount: '0.00',
+    items: [{ ...line, productType: 'SERVICE', unitPrice: '0.00', amount: '0.00' }],
+  };
+  await visit(page, 'business/sales?saleId=1');
+  await page.getByRole('dialog').getByText('仅含服务，不产生库存变动；零金额，客户往来余额未变化。', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('dialog').getByRole('button', { name: '办理退货', exact: true }).count(), 0);
+  saleDetailRecord = {
+    ...draft, status: 'POSTED', items: Array.from({ length: 24 }, (_, i) => ({
+      ...line, id: i + 1, purchaseSources: i === 0 ? [{ purchaseItemId: 9, quantity: '1', status: 'CANCELLED' }] : [],
+    })),
+  };
+  await page.setViewportSize({ width: 1024, height: 600 });
+  await visit(page, 'business/sales?saleId=1');
+  const longDetail = page.getByRole('dialog'); await longDetail.waitFor();
+  const body = longDetail.locator('div.overflow-y-auto');
+  assert.ok(await body.evaluate(node => node.scrollHeight > node.clientHeight), 'long document scrolls within body');
+  const longFooter = await longDetail.locator('footer').boundingBox();
+  assert.ok(longFooter.y >= 0 && longFooter.y + longFooter.height <= 600, 'long document actions fit short viewport');
+  await body.evaluate(node => { node.scrollTop = node.scrollHeight; });
+  await longDetail.getByRole('status').filter({ hasText: '来源采购已取消或发生退货' }).waitFor();
+  assert.equal(await longDetail.locator('footer').evaluate(node => Math.round(node.getBoundingClientRect().y)), Math.round(longFooter.y));
+  await longDetail.locator('summary').filter({ hasText: '销售采购来源' }).click();
+  await longDetail.getByRole('button', { name: '补填或更正采购来源', exact: true }).waitFor();
+  console.log('PASS sales detail: service-only zero amount, long document fixed actions, collapsed source warning and source editor entry');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  if (!saleDetailOnly) {
   saleDetailRecord = { ...draft };
   purchaseDetailRecord = {
     ...purchaseDetailRecord,
@@ -376,6 +417,7 @@ try {
   for (let i = 0; !releaseWrite && i < 300; i++) await delay(10);
       assert.ok(releaseWrite, 'save request must reach fixture handler');
   writeMode = 'success'; releaseWrite(); await busyPrompt.getByRole('button', { name: '继续编辑', exact: true }).click(); await directReturn(page);
-  await page.close(); assert.deepEqual(errors, []);
   console.log(`PASS business UI: ${routes.length} route states at 1440/1024, ${selectorCount} selectors, 5 page guards, 10 new/edit modal guards, all close paths, failed/busy saves and success baseline (${writes.length} fixture writes)`);
+  }
+  await page.close(); assert.deepEqual(errors, []);
 } finally { if (releaseWrite) releaseWrite(); await browser?.close(); vite.kill('SIGTERM'); }

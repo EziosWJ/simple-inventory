@@ -26,6 +26,7 @@ type DetailDialogProps = {
   onCancel: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  fixedFooter?: boolean;
 };
 
 export function DetailDialog({
@@ -42,6 +43,7 @@ export function DetailDialog({
   onCancel,
   children,
   footer,
+  fixedFooter = false,
 }: DetailDialogProps) {
   return (
     <Dialog
@@ -57,11 +59,12 @@ export function DetailDialog({
       <DialogContent
         className={cn(
           "max-h-[calc(100vh-48px)] max-w-[860px]",
+          fixedFooter && "flex flex-col",
           contentClassName,
         )}
         aria-busy={loading || undefined}
       >
-        <DialogHeader className={headerClassName}>
+        <DialogHeader className={cn(fixedFooter && "shrink-0", headerClassName)}>
           <div className="min-w-0">
             <DialogTitle>{title}</DialogTitle>
             {description !== undefined && description !== null && (
@@ -76,12 +79,16 @@ export function DetailDialog({
         <DialogBody
           className={cn(
             "max-h-[calc(100vh-150px)] px-card py-space-5",
+            fixedFooter && "max-h-none flex-1",
             bodyClassName,
           )}
         >
           {children}
-          {footer && <div className="mt-space-4">{footer}</div>}
+          {!fixedFooter && footer && <div className="mt-space-4">{footer}</div>}
         </DialogBody>
+        {fixedFooter && footer && (
+          <footer className="shrink-0 border-t border-border bg-surface px-card py-space-4">{footer}</footer>
+        )}
       </DialogContent>
     </Dialog>
   );
