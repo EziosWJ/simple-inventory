@@ -27,6 +27,7 @@ type DetailDialogProps = {
   children: ReactNode;
   footer?: ReactNode;
   fixedFooter?: boolean;
+  documentLayout?: boolean;
 };
 
 export function DetailDialog({
@@ -39,11 +40,12 @@ export function DetailDialog({
   bodyClassName,
   closeOnEscape = true,
   closeOnOverlayClick = true,
-  trapFocus = false,
+  trapFocus,
   onCancel,
   children,
   footer,
-  fixedFooter = false,
+  documentLayout = false,
+  fixedFooter = documentLayout,
 }: DetailDialogProps) {
   return (
     <Dialog
@@ -53,13 +55,15 @@ export function DetailDialog({
       }}
       closeOnEscape={closeOnEscape}
       closeOnOverlayClick={closeOnOverlayClick}
-      trapFocus={trapFocus}
+      trapFocus={trapFocus ?? documentLayout}
+      restoreFocus={documentLayout}
     >
       <DialogOverlay />
       <DialogContent
         className={cn(
           "max-h-[calc(100vh-48px)] max-w-[860px]",
           fixedFooter && "flex flex-col",
+          documentLayout && "max-h-[90dvh] max-w-[1100px] max-sm:h-dvh max-sm:max-h-dvh max-sm:w-full max-sm:rounded-none",
           contentClassName,
         )}
         aria-busy={loading || undefined}

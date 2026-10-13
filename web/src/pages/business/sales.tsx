@@ -3,7 +3,9 @@ import { exportSaleItems } from "@/api/business";
 import { SaleDocumentView, SaleItemView } from "./sale-results";
 import { statusText, statusTone } from "./sale-query-status";
 import { SaleDetail } from "./sale-detail";
-import { salePostingConfirmation } from "./sale-posting-impact";
+import { saleInventoryImpact } from "./sale-posting-impact";
+import { DocumentItems, DocumentSummary } from "@/components/business/document-presentation";
+import { FormDialog } from "@/components/common/form-dialog";
 import { businessMonthRange } from "@/lib/datetime";
 import { postingImpact, cancellationImpact } from "@/lib/document-feedback";
 import { BusinessFeedback } from "@/components/business/business-feedback";
@@ -50,6 +52,10 @@ export function SalesPage() {
     const [detailError, setDetailError] = useState("");
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailReload, setDetailReload] = useState(0);
+    const [postTarget, setPostTarget] = useState<SaleDraft | null>(null);
+    const [postBusy, setPostBusy] = useState(false);
+    const [postError, setPostError] = useState("");
+    const postBusyRef = useRef(false);
     const patch = useCallback((changes: Record<string, string | null>) => {
         setParams(current => {
             const updated = new URLSearchParams(current);
@@ -193,19 +199,30 @@ export function SalesPage() {
             notify({ type: "error", title: "取消失败", description: cause instanceof Error ? cause.message : "取消失败" });
         }
     }
-    async function post(document: SaleDraft) {
-        if (!window.confirm(salePostingConfirmation(document)))
-            return;
+    function post(document: SaleDraft) {
+        setPostError("");
+        setPostTarget(document);
+    }
+    async function confirmPost() {
+        const document = postTarget;
+        if (!document || postBusyRef.current || postError) return;
+        postBusyRef.current = true;
+        setPostBusy(true);
+        setPostError("");
         try {
             const posted = await postSale(document.id, document.version);
             notify({ type: "success", title: "销售单过账成功", description: postingImpact(posted, "sale"), documentNo: posted.documentNo, status: "已过账" });
+            setPostTarget(null);
             if (saleId === posted.id)
                 setDetailReload(value => value + 1);
             setReload(value => value + 1);
         }
         catch (cause) {
-            const message = cause instanceof Error ? cause.message : "过账失败，单据内容已保留";
-            notify({ type: "error", title: "过账失败", description: message });
+            const message = cause instanceof Error ? cause.message : "过账请求结果尚未确认";
+            setPostError(`过账请求未能确认：${message}。请打开单据详情核实当前状态。`);
+        } finally {
+            postBusyRef.current = false;
+            setPostBusy(false);
         }
     }
     const goTo = (path: string) => navigate(withBusinessReturn(path, location.pathname + location.search));
@@ -233,6 +250,8 @@ export function SalesPage() {
     ];
     const exportAction = <Button size="sm" variant="secondary" disabled={excelExport.exporting} onClick={() => { const args = { ...filters, partnerId: filters.partnerKeyword.trim() ? "" : filters.partnerId, productId: filters.productKeyword.trim() ? "" : filters.productId, ...(sort ? { sortBy: sort, sortDir: dir } : {}) }; void excelExport.start({ count: () => saleItemPage({ ...args, page: 1, pageSize: 1 }), download: () => exportSaleItems(args) }); }}>{excelExport.exporting ? "导出中" : "导出明细 Excel"}</Button>;
     const activeError = validationError || (view === "item" ? itemError : error);
+    const postItems = postTarget?.items.map(item => ({ productCode: item.productCode, productName: item.productName, productModel: item.productModel, productSpecification: item.productSpecification, productType: item.productType, quantity: item.quantity, unit: item.unit, unitPrice: item.unitPrice, amount: item.amount, remark: item.remark })) ?? [];
+    const postInventory = postTarget ? saleInventoryImpact(postTarget.items, postTarget.directDelivery) : "";
     return <div className="space-y-4"><PageHeader title="销售出库" description="维护客户交付草稿；草稿不改变库存或应收。" actions={<Button onClick={newDraft}>新建销售草稿</Button>}/>
   {activeError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded border border-red-300 p-3 text-red-700"><span>{activeError}</span><Button size="sm" variant="secondary" onClick={() => setReload(v => v + 1)}>重试查询</Button></div>}
   <BusinessFeedback feedback={feedback}/>
@@ -254,6 +273,17 @@ export function SalesPage() {
             <SaleDocumentView exportAction={exportAction} page={page} pageSize={pageSize} total={total} records={records} loading={loading} error={error} columns={columns} expanded={expanded} setPage={setPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize} renderExpandedRow={row => <ul className="space-y-1" aria-label={`${row.documentNo} 全部明细`}>{row.items.map(item => <li key={item.id} className="flex flex-wrap items-baseline gap-x-space-4 gap-y-1 text-sm"><span data-matched={matchedLine(item) ? "true" : undefined} className={cn("min-w-[12rem] flex-1", matchedLine(item) && "font-medium text-primary")}>{[item.productCode, item.productName].filter(Boolean).join(" · ")}<span className="ml-2 text-xs text-text-tertiary">{[item.productModel, item.productSpecification].filter(Boolean).join(" · ")}</span><span className="ml-2 text-xs text-text-tertiary">{item.productType === "SERVICE" ? "服务" : "实物"}</span></span><span className="tabular-nums">¥{item.unitPrice}</span><span className="tabular-nums font-medium">¥{item.amount}</span><span className="whitespace-nowrap tabular-nums">{item.quantity} {item.unit}</span></li>)}</ul>}/> :
             <SaleItemView exportAction={exportAction} itemPage={itemPage} pageSize={pageSize} itemResult={itemResult} itemLoading={itemLoading} itemError={itemError} columns={itemColumns} setItemPage={setItemPage} switchView={switchView} onRefresh={() => setReload(value => value + 1)} changePageSize={changePageSize}/>}
   <SaleDetail detail={detail} saleId={saleId} loading={detailLoading} error={detailError} onRetry={() => setDetailReload(value => value + 1)} onClose={closeDetail} goTo={goTo} onEdit={editDraft} onChange={setDetail}/>
+ <FormDialog documentLayout open={postTarget !== null} title="确认销售单过账" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 业务日期 ${postTarget.businessDate}` : undefined} cancelText="返回核对" submitText="确认过账" submitDisabled={Boolean(postError)} loadingText="正在过账…" loading={postBusy} onCancel={() => { setPostTarget(null); setPostError(""); }} onSubmit={confirmPost}>
+   {postTarget && <div className="space-y-space-5">
+     {postError && <div role="alert" className="space-y-space-2 rounded-control border border-error-border bg-error-background px-space-4 py-space-3 text-sm text-error"><p>{postError}</p><Button onClick={() => { const id = postTarget.id; setPostTarget(null); setPostError(""); openDetail(id); }}>打开单据详情核实</Button></div>}
+     <DocumentSummary totals={[{ label: "销售金额", value: `¥${postTarget.totalAmount}` }]} hint={`共 ${postTarget.items.length} 行 · 实物 ${postTarget.items.filter(item => item.productType === "GOODS").length} 行 · 服务 ${postTarget.items.filter(item => item.productType === "SERVICE").length} 行`}>
+       <p>{postTarget.items.some(item => item.productType === "GOODS") ? "确认后实物商品将减少库存；" : "仅含服务，不产生库存变动；"}{/^0(?:\.0+)?$/.test(postTarget.totalAmount) ? "零金额，客户往来余额无变化。" : `客户方向往来余额增加 ¥${postTarget.totalAmount}。`}</p>
+       {postTarget.directDelivery && <p>旧版直送销售：扣减此前采购增加的账面库存，沿用采购与销售分别过账规则。</p>}
+     </DocumentSummary>
+     <DocumentItems title="即将过账的销售明细" items={postItems}/>
+     <section aria-label="库存影响" className="space-y-space-2"><h3 className="text-base font-semibold">确认后库存影响</h3><ul className="list-inside list-disc whitespace-pre-wrap text-sm">{postInventory.split("\n").map((line, index) => <li key={index}>{line}</li>)}</ul></section>
+   </div>}
+ </FormDialog>
 
  </div>;
 }

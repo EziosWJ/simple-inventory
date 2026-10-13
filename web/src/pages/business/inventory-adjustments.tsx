@@ -44,6 +44,7 @@ import { BusinessLeaveConfirm } from "@/components/business/business-leave-confi
 import { businessDictLabel, missingBusinessDictValues } from "@/lib/business-dict-label";
 import { isApiError } from "@/lib/api-error";
 import { InventoryAdjustmentDetail } from "@/pages/business/inventory-adjustment-detail";
+import { DocumentSummary } from "@/components/business/document-presentation";
 import type { DataTableColumn } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -425,7 +426,9 @@ function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onS
   const [reloading, setReloading] = useState(false);
   const increases = items.filter((item) => !item.quantity.startsWith("-"));
   const decreases = items.filter((item) => item.quantity.startsWith("-"));
+  const [resultUnknown, setResultUnknown] = useState(false);
   async function submit() {
+    if (loading || reloading || versionConflict || resultUnknown || items.length === 0) return;
     if (!confirmed) { setError("请先确认整单影响。"); return; }
     setError(""); setLoading(true);
     try { onSaved(await onSave()); }
@@ -434,7 +437,10 @@ function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onS
       if (isVersionConflict(submitError)) {
         setVersionConflict(true); setConfirmReload(false);
         setError("单据状态或版本已变化，本次过账没有生效。请查看最新版本后再处理。");
-      } else setError(submitError instanceof Error ? submitError.message : "过账失败，本次过账没有生效，请检查后重试。");
+      } else if (!isApiError(submitError) || !submitError.status || submitError.status >= 500) {
+        setResultUnknown(true);
+        setError("过账结果尚待核实，请重新加载最新单据核对实际状态，不要直接重复提交。");
+      } else setError(submitError instanceof Error ? submitError.message : "过账被拒绝，请核对原因后处理。");
     } finally { setLoading(false); }
   }
   async function reloadLatest() {
@@ -445,28 +451,28 @@ function PostAdjustmentDialog({ adjustment, reasonOptions, onCancel, onSave, onS
   }
   return <FormDialog
     open title="过账库存调整单"
-    description={`单号 ${adjustment.documentNo} · 确认版本 ${adjustment.version}。过账会在同一事务内写入库存余额和不可变库存流水，成功后单据不可编辑；需要纠错时，可按库存约束整单取消并生成冲销流水。`}
+    description={`单号 ${adjustment.documentNo}`}
     loading={loading || reloading}
     submitText="确认并过账"
-    submitDisabled={!confirmed || versionConflict || items.length === 0}
+    submitDisabled={!confirmed || versionConflict || resultUnknown || items.length === 0}
     onCancel={onCancel} onSubmit={submit}
-    contentClassName="w-[min(900px,96vw)]" bodyClassName="overflow-auto"
+    documentLayout bodyClassName="space-y-space-6"
+    cancelText="返回核对"
   >
-    <ul className="mb-3 grid gap-1 text-sm">
-      <li>增加明细 {increases.length} 条</li>
-      <li>减少明细 {decreases.length} 条</li>
-    </ul>
+    <DocumentSummary totals={[{ label: "本次调整", value: `共 ${items.length} 项` }]} hint={`增加 ${increases.length} 项 · 减少 ${decreases.length} 项`}>
+      <p>确认后按以下商品和单位调整库存；本单不产生往来金额。过账成功后内容锁定，纠错需按库存约束整单冲销。</p>
+    </DocumentSummary>
     {items.length === 0 ? <p role="alert" className="text-sm text-danger">该单据没有明细，无法过账。请返回编辑草稿后重试。</p> : (
       <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-sm">
-        <thead><tr className="border-b border-border bg-background text-left"><th className="p-2">商品</th><th className="p-2">型号 / 规格</th><th className="p-2">单位</th><th className="p-2">调整数量</th><th className="p-2">原因</th><th className="p-2">说明</th></tr></thead>
-        <tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} impact={false} />)}</tbody>
+        <thead><tr className="border-b border-border bg-neutral-background text-left"><th className="px-space-5 py-space-3">商品</th><th className="px-space-5 py-space-3 text-right">调整数量</th><th className="px-space-5 py-space-3">原因</th><th className="px-space-5 py-space-3">说明</th></tr></thead>
+        <tbody>{items.map((item) => <AdjustmentItemRow key={item.id} item={item} reasonOptions={reasonOptions} />)}</tbody>
       </table></div>
     )}
     <label className="mt-3 flex items-start gap-2 text-sm">
       <Checkbox className="mt-1" checked={confirmed} onChange={(event) => { setConfirmed(event.target.checked); setError(""); }} />
       <span>我已核对整单明细：正数增加库存、负数减少库存，任一商品减少后小于 0 或超出可表示范围时整单不会过账。</span>
     </label>
-    {versionConflict && (confirmReload ? <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm"><span>重新加载会放弃本次确认。是否继续？</span><span className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(false)}>继续查看</Button><Button type="button" size="sm" variant="danger" disabled={reloading} onClick={() => void reloadLatest()}>{reloading ? "正在加载…" : "放弃确认并重新加载"}</Button></span></div> : <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => setConfirmReload(true)}>重新加载最新单据</Button>)}
+    {(versionConflict || resultUnknown) && (confirmReload ? <div role="alert" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-admin border border-warning/30 bg-warning/5 p-3 text-sm"><span>重新加载会放弃本次确认。是否继续？</span><span className="flex gap-2"><Button type="button" size="sm" variant="secondary" onClick={() => setConfirmReload(false)}>继续查看</Button><Button type="button" size="sm" variant="danger" disabled={reloading} onClick={() => void reloadLatest()}>{reloading ? "正在加载…" : "放弃确认并重新加载"}</Button></span></div> : <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => setConfirmReload(true)}>重新加载最新单据</Button>)}
     {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
   </FormDialog>;
 }
@@ -558,9 +564,13 @@ function AdjustmentDetailDialog({ adjustment, onClose, onEdit, onCancelDraft, on
     </> : adjustment.status === "POSTED" ? <Button variant="danger" onClick={onCancelPosted}>取消并冲销</Button> : undefined}
   />;
 }
-function AdjustmentItemRow({ item, reasonOptions, impact }: { item: InventoryAdjustmentItem; reasonOptions: readonly DictSelectOption<AdjustmentReason>[]; impact: boolean }) {
-  const balance = item.balanceBefore != null && item.balanceAfter != null ? `${item.balanceBefore} → ${item.balanceAfter}` : "-";
-  return <tr className="border-b border-border"><td className="p-2"><div>{item.productName}</div><div className="text-xs text-text-tertiary">{item.productCode}</div></td><td className="p-2">{item.productModel || "-"} / {item.productSpecification || "-"}</td><td className="p-2">{item.unit}</td><td className="p-2 tabular-nums">{item.quantity}</td><td className="p-2">{businessDictLabel(reasonOptions, item.reason)}</td>{impact && <td className="p-2 tabular-nums">{balance}</td>}<td className="max-w-56 whitespace-pre-wrap p-2">{item.remark || "-"}</td></tr>;
+function AdjustmentItemRow({ item, reasonOptions }: { item: InventoryAdjustmentItem; reasonOptions: readonly DictSelectOption<AdjustmentReason>[] }) {
+  return <tr className="border-b border-border">
+    <td className="px-space-5 py-space-3"><div className="font-medium">{item.productName}</div><div className="text-xs text-text-secondary">{[item.productCode, item.productModel, item.productSpecification].filter(Boolean).join(" · ")}</div></td>
+    <td className="whitespace-nowrap px-space-5 py-space-3 text-right tabular-nums">{item.quantity.startsWith("-") ? `减少 ${item.quantity.slice(1)}` : `增加 ${item.quantity}`} {item.unit}</td>
+    <td className="px-space-5 py-space-3">{businessDictLabel(reasonOptions, item.reason)}</td>
+    <td className="max-w-56 whitespace-pre-wrap break-words px-space-5 py-space-3">{item.remark || "—"}</td>
+  </tr>;
 }
 
 // The reversal of a stored decimal quantity is its sign flip, done on the digit

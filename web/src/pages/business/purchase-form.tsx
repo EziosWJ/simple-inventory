@@ -13,6 +13,8 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { createPurchase, getPartner, getProduct, getPurchase, postPurchase, purchaseSaveResult, resolvePurchaseSave, updatePurchase, type PartnerRecord, type ProductRecord, type PurchaseDraft, type PurchaseInput, type PurchaseSaveResult } from "@/api/business";
 import { PartnerSelect, ProductSelect } from "@/components/business/master-data-select";
 import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
+import { DocumentItems, DocumentSummary } from "@/components/business/document-presentation";
+import { purchaseInventoryImpact } from "@/pages/business/purchase-posting-impact";
 import { PageHeader } from "@/components/common/page-header";
 import { FormSection } from "@/components/common/form-section";
 import { FormDialog } from "@/components/common/form-dialog";
@@ -22,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
+import { getToastSnapshot, toast } from "@/components/common/toast-store";
 
 type Line = { priceEdited?: boolean; productId: number; productType: "GOODS"; unit: string; quantity: string; unitPrice: string; remark: string };
 type Form = { partnerId: number; businessDate: string; directDelivery: boolean; remark: string; items: Line[] };
@@ -70,6 +73,11 @@ export function PurchaseFormPage() {
   const terminal = document !== null && document.status !== "DRAFT";
   const locked = selectionChoice.busy || loading || saving || Boolean(confirmation) || Boolean(pending) || Boolean(postPending) || terminal || Boolean(id && !document);
   const leaveGuard = useBusinessLeaveGuard({ dirty, busy: saving, uncertain: Boolean(pending) || Boolean(postPending) });
+
+  function clearDocumentFeedback() {
+    for (const item of getToastSnapshot()) if (item.title === feedback?.title && item.description === feedback?.description) toast.dismiss(item.id);
+    setFeedback(null);
+  }
 
   const load = useCallback(async (target = documentID, clearMessage = false) => {
     const generation = ++loadGeneration.current;
@@ -256,6 +264,24 @@ export function PurchaseFormPage() {
     finally { savingRef.current = false; setSaving(false); }
   }
   const preview = confirmation === "RETRY_POST" && document ? fromDraft(document) : form;
+  const previewLines = preview.items.map((line, index) => {
+    const snapshot = confirmation === "RETRY_POST" ? document?.items[index] : undefined;
+    const selected = products.find(product => product.id === line.productId);
+    return {
+      productId: line.productId,
+      productCode: snapshot?.productCode ?? selected?.code ?? `#${line.productId}`,
+      productName: snapshot?.productName ?? selected?.name ?? "商品资料待核对",
+      productModel: snapshot ? snapshot.productModel : selected?.model,
+      productSpecification: snapshot ? snapshot.productSpecification : selected?.specification,
+      quantity: line.quantity,
+      unit: line.unit,
+      unitPrice: line.unitPrice,
+      amount: snapshot?.amount ?? (amount(line.quantity, line.unitPrice) === null ? undefined : money(amount(line.quantity, line.unitPrice)!)),
+      remark: line.remark,
+    };
+  });
+  const previewTotal = confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? undefined : money(total);
+  const previewInventoryImpact = purchaseInventoryImpact(previewLines, preview.directDelivery);
 
   return <div className="mx-auto max-w-[1200px] space-y-space-4">
     <PageHeader title={document ? `采购录单 · ${document.documentNo}` : "新建采购单"} description={document ? `版本 ${document.version} · ${document.status === "DRAFT" ? "草稿，未改变库存与应付" : "单据已生效或取消，不能编辑"}` : "保存草稿后生成单号；草稿不改变库存或应付。"} actions={<Button onClick={() => navigate(returnTo)}>{returnTo.split("?")[0] === "/business/purchases" ? "返回采购列表" : "返回来源页面"}</Button>} />
@@ -270,7 +296,7 @@ export function PurchaseFormPage() {
     {postPending && <div className="space-y-space-2 rounded-control border border-border bg-surface p-space-4">
       <p>单据 #{postPending.id} 的版本 {postPending.version} 过账结果待核实，保留原单据，不另建草稿。</p>
       <Button disabled={saving || loading} onClick={() => void verifyPost()}>核实过账状态</Button>{" "}
-      {postRetryReady && <Button disabled={saving || loading} onClick={() => setConfirmation("RETRY_POST")}>重新核对并重试过账</Button>}
+      {postRetryReady && <Button disabled={saving || loading} onClick={() => { clearDocumentFeedback(); setConfirmation("RETRY_POST"); }}>重新核对并重试过账</Button>}
     </div>}
     {pending && <div className="space-y-space-2 rounded-control border border-border bg-surface p-space-4">
       <p>原保存尚待核实，暂时保留输入和保存标识，避免重复建单。</p>
@@ -311,17 +337,20 @@ export function PurchaseFormPage() {
         <p className="font-medium tabular-nums">合计：¥{total === null || total > 9223372036854775807n ? "待核对数量/单价" : money(total)} · {form.items.length} 行</p>
         <div className="flex gap-space-2">
           <Button type="submit" disabled={locked || invalid || conflict || !storageKey || !recoveryLoaded}>{saving ? "保存/核实中…" : "保存草稿"}</Button>
-          <Button variant="primary" disabled={locked || invalid || conflict || !storageKey || !recoveryLoaded} onClick={() => setConfirmation("SAVE_POST")}>保存并过账</Button>
+          <Button variant="primary" disabled={locked || invalid || conflict || !storageKey || !recoveryLoaded} onClick={() => { clearDocumentFeedback(); setConfirmation("SAVE_POST"); }}>保存并过账</Button>
         </div>
       </div>
     </form>
-    <FormDialog trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试采购过账" : "确认保存并过账采购"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
-      <p>供应商：{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 日期：{preview.businessDate}</p>
-      <ol className="my-space-3 space-y-space-2">
-        {preview.items.map((line, index) => <li key={index}>{index + 1}. {[products.find(p => p.id === line.productId)?.code, products.find(p => p.id === line.productId)?.name, products.find(p => p.id === line.productId)?.model, products.find(p => p.id === line.productId)?.specification].filter(Boolean).join(" · ") || document?.items[index]?.productName || `商品 #${line.productId}`} · 数量 {line.quantity} {line.unit} · 单价 ¥{line.unitPrice} · 金额 ¥{money(amount(line.quantity, line.unitPrice) ?? 0n)}</li>)}
-      </ol>
-      <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
-      <p className="mt-space-3">{preview.directDelivery ? "旧版直送采购：先增加账面库存及供应商应付；关联销售仍需单独过账扣减。" : "确认后增加商品库存和供应商应付。"} 保存失败不继续过账，过账失败保留同一草稿。</p>
+    <FormDialog documentLayout trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对采购过账" : "确认保存并过账采购"} description={confirmation === "RETRY_POST" && document ? `${document.documentNo} · ${document.partnerName} · 业务日期 ${preview.businessDate} · 原单版本 ${postPending?.version ?? document.version}` : `供应商：${partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 业务日期 ${preview.businessDate}`} submitText={confirmation === "RETRY_POST" ? "确认重试过账" : "确认保存并过账"} cancelText={confirmation === "RETRY_POST" ? "返回核对" : "返回修改"} loadingText={confirmation === "RETRY_POST" ? "正在重试过账…" : "正在保存并过账…"} loading={saving} submitDisabled={Boolean(conflict || terminal || pending || (confirmation === "SAVE_POST" && postPending) || (confirmation === "RETRY_POST" && (!postPending || !document || postPending.id !== document.id || postPending.version !== document.version || document.status !== "DRAFT")))} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
+      <div className="space-y-space-5">
+        <DocumentSummary totals={[{ label: "采购金额", value: `¥${previewTotal ?? "待核对"}` }, { label: "明细行数", value: `${preview.items.length} 行` }]} hint={confirmation === "RETRY_POST" ? "即将执行：重试原草稿过账" : "即将执行：保存草稿并过账"}>
+          <p>{preview.directDelivery ? "旧版直送采购：确认后先增加账面库存和供应商方向往来余额；关联销售仍需单独过账扣减。" : "确认后增加本单实物库存和供应商方向往来余额。"}</p>
+          <p>{/^0(?:\.0+)?$/.test(previewTotal ?? "") ? "零金额，供应商往来余额无变化。" : `供应商方向往来余额增加 ¥${previewTotal ?? "待核对"}。`}</p>
+          {previewInventoryImpact.map(impact => <p key={impact}>{impact}</p>)}
+          <p>保存失败不会继续过账；过账失败会保留同一单号和草稿，允许核对后重试。</p>
+        </DocumentSummary>
+        <DocumentItems items={previewLines} />
+      </div>
     </FormDialog>
     {selectionChoice.dialog}
       <BusinessLeaveConfirm guard={leaveGuard} title="离开采购录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />

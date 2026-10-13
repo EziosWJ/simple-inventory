@@ -6,10 +6,12 @@ import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
 import { useDocumentSearch } from "@/hooks/use-document-search";
+import { getToastSnapshot, toast } from "@/components/common/toast-store";
 import { withBusinessReturn } from "@/lib/business-navigation";
 import { PartnerSelect, ProductSelect } from "@/components/business/master-data-select";
 import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
 import { purchasePostingConfirmation } from "@/pages/business/purchase-posting-impact";
+import { DocumentDisclosure, DocumentItems, DocumentOperationRecords, DocumentSummary } from "@/components/business/document-presentation";
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelPurchase,
@@ -40,7 +42,7 @@ import type { DataTableColumn } from "@/types";
 const PAGE_SIZE = 10;
 
 export function PurchasesPage() {
-  const { feedback, notify } = useBusinessFeedback();
+  const { feedback, notify, setFeedback } = useBusinessFeedback();
   const excelExport = useExcelExport(notify);
   const navigate=useNavigate();
   const location=useLocation();
@@ -58,7 +60,13 @@ export function PurchasesPage() {
   const [cancelTarget, setCancelTarget] = useState<PurchaseDraft | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [postTarget, setPostTarget] = useState<PurchaseDraft | null>(null);
+  const [postError, setPostError] = useState("");
   const itemView = searchParams.get("view") === "items";
+
+  function clearDocumentFeedback() {
+    for (const item of getToastSnapshot()) if (item.title === feedback?.title && item.description === feedback?.description) toast.dismiss(item.id);
+    setFeedback(null);
+  }
 
   const load = useCallback(() => {
     let active=true;
@@ -119,7 +127,28 @@ export function PurchasesPage() {
       setSaving(false);
     }
   }
-  async function confirmPost(){if(!postTarget)return;setSaving(true);try{const posted=await postPurchase(postTarget.id,postTarget.version);notify({type:"success",title:"采购单过账成功",description:postingImpact(posted,"purchase"),documentNo:posted.documentNo,status:"已过账"});setError("");setPostTarget(null);setDetail(null);setReload(v=>v+1);}catch(reason){const message=reason instanceof Error?reason.message:"过账失败，单据仍保留";setError(message);notify({type:"error",title:"过账失败",description:message});}finally{setSaving(false);}}
+  async function confirmPost(){
+    if(!postTarget)return;
+    setSaving(true);setPostError("");
+    try{
+      const posted=await postPurchase(postTarget.id,postTarget.version);
+      notify({type:"success",title:"采购单过账成功",description:postingImpact(posted,"purchase"),documentNo:posted.documentNo,status:"已过账"});
+      setError("");setPostTarget(null);setDetail(null);setReload(v=>v+1);
+    }catch(reason){
+      const message=reason instanceof Error?reason.message:"过账失败，单据仍保留";
+      try{
+        const current=await getPurchase(postTarget.id);
+        if(current.status==="POSTED"){
+          notify({type:"success",title:"采购单已过账",description:postingImpact(current,"purchase"),documentNo:current.documentNo,status:"已过账"});
+          setPostTarget(null);setDetail(null);setReload(v=>v+1);
+        }else{
+          setPostError(`${message}。已核实 ${current.documentNo} 当前为${current.status==="CANCELLED"?"已取消":`草稿（版本 ${current.version}）`}。请关闭确认并刷新列表后重新核对，不能直接重复提交。`);
+        }
+      }catch{
+        setPostError(`${message}。暂时无法核实单据实际状态，请关闭确认并刷新列表后重新核对；不要直接重复提交。`);
+      }
+    }finally{setSaving(false);}
+  }
 
   function applyFilters(next = filters) {
     if (next.businessFrom && next.businessTo && next.businessFrom > next.businessTo) {
@@ -163,7 +192,7 @@ export function PurchasesPage() {
           {record.status === "DRAFT" && !record.sourceOrderId && (
             <>
               <Button size="sm" variant="secondary" onClick={() => void startEdit(record)}>编辑</Button>
-              <Button size="sm" onClick={() => setPostTarget(record)}>过账</Button>
+              <Button size="sm" onClick={() => { clearDocumentFeedback(); setPostError(""); setPostTarget(record); }}>过账</Button>
               <Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>取消</Button>
             </>
           )}
@@ -240,42 +269,36 @@ export function PurchasesPage() {
         {itemView ? <DataTable columns={itemColumns} dataSource={itemRecords} rowKey="id" loading={loading} error={error || undefined} minWidth={1200} empty="暂无采购明细。" /> : <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error || undefined} minWidth={960} empty="暂无采购单。" />}
       </DataTableCard>
 
-      <DetailDialog footer={<BusinessReturnLink />}
+      <DetailDialog documentLayout fixedFooter footer={<div className="flex flex-wrap items-center justify-between gap-space-2"><BusinessReturnLink /><div className="flex flex-wrap justify-end gap-space-2">
+        {detail?.status === "DRAFT" && !detail.sourceOrderId && <Button variant="primary" onClick={() => startEdit(detail)}>编辑草稿</Button>}
+        {detail?.sourceOrderId && <Button variant="primary" onClick={() => goTo(`/business/direct-orders/${detail.sourceOrderId}`)}>查看来源直送单</Button>}
+        {detail && <Button variant="secondary" onClick={() => goTo(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>}
+        <Button variant="secondary" onClick={closeDetail}>关闭</Button>
+      </div></div>}
         open={detail !== null}
         title={`采购入库单${detail ? ` · ${detail.documentNo}` : "详情"}`}
-        description={detail ? `${detail.partnerName} · ${detail.businessDate} · ${{DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[detail.status]}` : undefined}
+        description={detail ? `${detail.partnerName} · 业务日期 ${detail.businessDate} · ${{DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[detail.status]}` : undefined}
         onCancel={closeDetail}
       >
         {detail && (
-          <>
-            {detail.status === "DRAFT" && !detail.sourceOrderId && <Button onClick={()=>startEdit(detail)}>编辑草稿</Button>}
-            {detail.sourceOrderId && <Button onClick={() => goTo(`/business/direct-orders/${detail.sourceOrderId}`)}>查看来源直送单</Button>}
-            <p className="mb-3">{detail.sourceOrderId ? "直送单生成：采购与销售统一确认或取消。" : detail.directDelivery ? "旧版直送：先单独过账采购，再单独过账销售；取消时先取消关联销售。" : "普通备货采购"}</p>
-            {detail.directDelivery && <div className="mb-3 space-y-2">{detail.directDocuments.map(d=><p key={d.id}><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button> {d.postedAt&&`过账：${d.postedByName} ${formatDateTime(d.postedAt)}`} {d.cancelReason&&`取消：${d.cancelledByName} ${d.cancelReason}`}</p>)}{!detail.sourceOrderId && detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}</div>}
-            <DataTable
-              columns={[
-                { title: "商品", key: "product", render: (_, item) => <div className="min-w-[12rem] space-y-1"><div>{[item.productCode,item.productName,item.productModel,item.productSpecification].filter(Boolean).join(" · ")}</div>{item.remark?.trim() && <div className="whitespace-pre-wrap break-words text-xs text-text-secondary">备注：{item.remark.trim()}</div>}</div> },
-                { title: "数量", dataIndex: "quantity" },
-                { title: "单位", dataIndex: "unit" },
-                { title: "成交单价", dataIndex: "unitPrice", align: "right" },
-                { title: "金额", dataIndex: "amount", align: "right" },
-              ]}
-              dataSource={detail.items}
-              rowKey="id"
-              minWidth={720}
-            />
-            <p className="mt-space-4 text-right font-medium">合计：¥{detail.totalAmount}</p>
-            <p className="mt-space-2 text-sm text-text-tertiary">
-              创建人：{detail.createdByName} · 创建时间：{formatDateTime(detail.createTime)}
-              {detail.postedByName && ` · 过账人：${detail.postedByName}${detail.postedAt ? ` · 实际过账时间：${formatDateTime(detail.postedAt)}` : ""}`}
-              {detail.cancelledByName && ` · 取消人：${detail.cancelledByName}`}
-              {detail.cancelledAt && ` · 取消时间：${formatDateTime(detail.cancelledAt)}`}
-            </p>
+          <div className="space-y-space-5">
+            <DocumentSummary totals={[{ label: detail.status === "CANCELLED" ? "原单金额" : "采购金额", value: `¥${detail.totalAmount}` }, { label: "明细行数", value: `${detail.items.length} 行` }]} hint={<span className="font-medium">{{DRAFT:"草稿 · 尚未生效",POSTED:"已过账",CANCELLED: detail.postedAt ? "已取消 · 原过账已冲销" : "已取消 · 草稿未生效"}[detail.status]}</span>}>
+              <p>{detail.status === "DRAFT" ? "草稿未改变库存或供应商往来余额。" : detail.status === "CANCELLED" ? detail.postedAt ? "原过账影响已通过冲销抵消；原单明细与金额保留。" : "草稿取消未改变库存或供应商往来余额。" : purchasePostingConfirmation(detail).join("；")}</p>
+              <p>{detail.sourceOrderId ? "新直送方案生成的采购单：请从来源直送单统一确认或取消。" : detail.directDelivery ? "旧版直送：采购与关联销售分别过账；取消采购前须先取消关联销售。" : "普通采购入库。"}</p>
+              {detail.directTrace?.purchase.status === "POSTED" && !detail.directTrace.saleReturns.some(record => record.status === "POSTED") && <p role="alert" className="text-error">直送采购退货过账前，须先办理并过账关联销售退货。</p>}
+              {detail.cancelReason && <p role="status" className="text-error">取消原因：{detail.cancelReason}</p>}
+            </DocumentSummary>
+            <DocumentItems items={detail.items} />
+            {detail.remark?.trim() && <section className="space-y-space-2"><h3 className="text-base font-semibold">单据备注</h3><p className="whitespace-pre-wrap break-words text-sm">{detail.remark.trim()}</p></section>}
+            {detail.directDelivery && <DocumentDisclosure title="关联单据与直送追溯" hint={`${detail.directDocuments.length} 张关联销售单`}>
+              <div className="space-y-space-3">{detail.directDocuments.map(d=><div key={d.id} className="flex flex-wrap items-center gap-space-3"><Button variant="secondary" onClick={()=>goTo(`/business/sales?saleId=${d.id}`)}>{d.documentNo} · {statusText(d.status)}</Button><span className="text-sm text-text-secondary">{d.postedAt?`过账：${d.postedByName || "—"} ${formatDateTime(d.postedAt)}`:"尚未过账"}</span>{d.cancelReason&&<span className="text-sm text-error">取消：{d.cancelledByName || "—"} · {d.cancelReason}</span>}</div>)}
+                {!detail.sourceOrderId && detail.status!=="CANCELLED" && !detail.directDocuments.some(d=>d.status!=="CANCELLED") && <Button onClick={()=>goTo(`/business/sales/new?directPurchaseId=${detail.id}`)}>关联新建直送销售</Button>}
+              </div>
+            </DocumentDisclosure>}
             <DirectDeliveryTrace trace={detail.directTrace}/>
-            {detail.cancelReason && <p className="mt-space-2 text-sm">取消原因：{detail.cancelReason}</p>}
-            {detail.remark?.trim() && <p className="mt-space-2 whitespace-pre-wrap break-words text-sm">单据备注：{detail.remark.trim()}</p>}
-            <Button className="mt-space-3" variant="secondary" onClick={() => goTo(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来</Button>
-          </>
+            <DocumentDisclosure title="供应商往来" hint="按供应商方向单独记录"><Button variant="secondary" onClick={() => goTo(`/business/partner-ledger?partnerId=${detail.partnerId}&direction=SUPPLIER`)}>查看供应商往来明细</Button></DocumentDisclosure>
+            <DocumentOperationRecords document={detail} />
+          </div>
         )}
       </DetailDialog>
 
@@ -293,8 +316,13 @@ export function PurchasesPage() {
           <Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} maxLength={500} placeholder="请说明取消原因" />
         </Field>
       </FormDialog>
-      <FormDialog open={postTarget !== null} title="过账采购入库单" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 合计 ¥${postTarget.totalAmount} · 当前版本 ${postTarget.version}` : undefined} submitText="确认过账" loading={saving} onCancel={() => setPostTarget(null)} onSubmit={confirmPost}>
-        {postTarget && <div className="max-h-56 space-y-2 overflow-auto text-sm"><p className="font-medium">本次过账影响</p>{purchasePostingConfirmation(postTarget).map((impact) => <p key={impact}>{impact}</p>)}</div>}
+      <FormDialog documentLayout open={postTarget !== null} title="确认过账采购入库单" description={postTarget ? `${postTarget.documentNo} · ${postTarget.partnerName} · 业务日期 ${postTarget.businessDate}` : undefined} submitText={postError ? "请刷新后重新核对" : "确认过账"} cancelText={postError ? "关闭确认" : "取消"} loadingText="正在过账…" loading={saving} submitDisabled={Boolean(postError)} onCancel={() => setPostTarget(null)} onSubmit={confirmPost}>
+        {postTarget && <div className="space-y-space-5">
+          {postError && <div role="alert" className="space-y-space-2 rounded-control border border-error/30 bg-error/5 p-space-3 text-sm text-error"><p>过账失败：{postError}</p><p>此确认已锁定。请根据上方核实结果处理，避免重复提交。</p></div>}
+          <DocumentSummary totals={[{label:"采购金额",value:`¥${postTarget.totalAmount}`},{label:"明细行数",value:`${postTarget.items.length} 行`}]} hint="即将执行：过账采购入库单"><p>{purchasePostingConfirmation(postTarget).join("；")}</p></DocumentSummary>
+          <DocumentItems items={postTarget.items} />
+          <p className="text-sm text-text-secondary">确认后本单实物商品将增加库存；有金额时供应商方向往来余额增加。零金额不会改变供应商往来余额。</p>
+        </div>}
       </FormDialog>
     </div>
   );

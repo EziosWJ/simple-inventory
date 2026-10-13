@@ -17,6 +17,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { createSale, getPartner, getProduct, getSale, getPurchase, postSale, saleSaveResult, resolveSaleSave, updateSale, type PartnerRecord, type ProductRecord, type SaleDraft, type SaleInput, type SaleSaveResult, type PurchaseDraft, type PurchaseSourceInput } from "@/api/business";
 import { PartnerSelect, ProductSelect, PurchaseSourceSelect } from "@/components/business/master-data-select";
 import { DraftProductConfirmation } from "@/components/business/draft-product-confirmation";
+import { DocumentDisclosure, DocumentItems, DocumentSummary } from "@/components/business/document-presentation";
 import { PageHeader } from "@/components/common/page-header";
 import { FormDialog } from "@/components/common/form-dialog";
 import { FormSection } from "@/components/common/form-section";
@@ -286,7 +287,6 @@ export function SaleFormPage() {
 
   async function confirmSavePost() {
     const action = confirmation;
-    setConfirmation(null);
     if (action === "SAVE_POST") { await save(false, true); return; }
     if (action !== "RETRY_POST" || !postPending || !document || document.id !== postPending.id || savingRef.current) return;
     savingRef.current = true; setSaving(true);
@@ -294,12 +294,20 @@ export function SaleFormPage() {
     finally { savingRef.current = false; setSaving(false); }
   }
   const preview = confirmation === "RETRY_POST" && document ? fromDraft(document) : form;
+  useEffect(() => { if (confirmation && document?.status === "POSTED") setConfirmation(null); }, [confirmation, document?.status]);
 
   const inventoryImpact = saleInventoryImpact(preview.items.map((line, index) => {
     const product = products.find(product => product.id === line.productId);
     const saved = document?.items[index];
-    return { ...line, productCode: product?.code ?? saved?.productCode ?? "", productName: product?.name ?? saved?.productName ?? `商品 #${line.productId}`, productModel: product?.model ?? saved?.productModel, productSpecification: product?.specification ?? saved?.productSpecification };
+    return { ...line, ...(confirmation === "RETRY_POST" && saved ? { productCode: saved.productCode, productName: saved.productName, productModel: saved.productModel, productSpecification: saved.productSpecification } : { productCode: product?.code ?? saved?.productCode ?? "", productName: product?.name ?? saved?.productName ?? `商品 #${line.productId}`, productModel: product?.model ?? saved?.productModel, productSpecification: product?.specification ?? saved?.productSpecification }) };
   }), preview.directDelivery);
+  const previewItems = preview.items.map((line, index) => {
+    const product = products.find(product => product.id === line.productId);
+    const saved = document?.items[index];
+    const lineAmount = amount(line.quantity, line.unitPrice);
+    return { ...(confirmation === "RETRY_POST" && saved ? { productCode: saved.productCode, productName: saved.productName, productModel: saved.productModel, productSpecification: saved.productSpecification } : { productCode: product?.code ?? saved?.productCode, productName: product?.name ?? saved?.productName ?? `商品 #${line.productId}`, productModel: product?.model ?? saved?.productModel, productSpecification: product?.specification ?? saved?.productSpecification }), productType: line.productType, quantity: line.quantity, unit: line.unit, unitPrice: line.unitPrice, amount: lineAmount === null ? undefined : money(lineAmount), remark: line.remark };
+  });
+  const previewTotal = confirmation === "RETRY_POST" ? document?.totalAmount ?? "待核对" : total === null ? "待核对" : money(total);
   return <div className="mx-auto max-w-[1200px] space-y-space-4">
     <PageHeader title={document ? `销售录单 · ${document.documentNo}` : "新建销售单"} description={document ? `版本 ${document.version} · ${document.status === "DRAFT" ? "草稿，未改变库存与应收" : "单据已生效或取消，不能编辑"}` : "保存草稿后生成单号；草稿不改变库存或应收。"} actions={<Button onClick={() => navigate(returnTo)}>{returnTo.split("?")[0] === "/business/sales" ? "返回销售列表" : "返回来源页面"}</Button>} />
     <BusinessFeedback feedback={feedback}>
@@ -367,16 +375,18 @@ export function SaleFormPage() {
         </div>
       </div>
     </form>
-    <FormDialog trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试销售过账" : "确认保存并过账销售"} submitText="确认保存并过账" loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
-      <p>客户：{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`} · 日期：{preview.businessDate}</p>
-      <ol className="my-space-3 space-y-space-2">
-        {preview.items.map((line, index) => <li key={index}>{index + 1}. {[products.find(p => p.id === line.productId)?.code, products.find(p => p.id === line.productId)?.name, products.find(p => p.id === line.productId)?.model, products.find(p => p.id === line.productId)?.specification].filter(Boolean).join(" · ") || document?.items[index]?.productName || `商品 #${line.productId}`} · 数量 {line.quantity} {line.unit} · 单价 ¥{line.unitPrice} · 金额 ¥{money(amount(line.quantity, line.unitPrice) ?? 0n)}</li>)}
-      </ol>
-      <p className="font-medium">合计：¥{confirmation === "RETRY_POST" ? document?.totalAmount : total === null ? "待核对" : money(total)}</p>
-      <p>送货：{preview.deliveryContact} / {preview.deliveryPhone} / {preview.deliveryAddress}</p>
-      <p className="mt-space-3">{preview.directDelivery ? `直送销售：关联采购 #${preview.directPurchaseId}；扣减此前采购增加的账面库存；旧版流程先采购后销售分别过账。` : preview.items.some(line => line.productType === "GOODS") ? "扣减店内实物库存（同商品及单位合计）：" : "纯服务销售：不改变库存。"}</p>
-      <p className="whitespace-pre-wrap">{inventoryImpact}</p>
-      <p>增加客户应收；零金额不产生往来金额流水。保存失败不继续过账，过账失败保留同一草稿。</p>
+    <FormDialog documentLayout trapFocus={!leaveGuard.open} closeOnEscape={!leaveGuard.open} closeOnOverlayClick={!leaveGuard.open} open={confirmation !== null} title={confirmation === "RETRY_POST" ? "重新核对并重试销售过账" : "确认保存并过账销售"} description={confirmation === "RETRY_POST" ? `按销售单 ${document?.documentNo ?? "—"} 的原版本核对并重试。` : "确认后先保存本次内容，再对同一单据过账。"} cancelText={confirmation === "RETRY_POST" ? "返回核对" : "返回修改"} submitText={confirmation === "RETRY_POST" ? "确认重试过账" : "确认保存并过账"} submitDisabled={conflict || terminal || Boolean(pending) || (confirmation === "SAVE_POST" && Boolean(postPending))} loadingText={postPending ? "正在过账…" : pending ? "正在保存并核实…" : "正在保存…"} loading={saving} onCancel={() => setConfirmation(null)} onSubmit={confirmSavePost}>
+      {(saving || pending || postPending) && <p role="status" className="rounded-control border border-border bg-neutral-background px-space-4 py-space-3 text-sm">{!saving ? "原保存或过账结果待核实，请返回核对并使用现有核实入口。" : postPending ? `销售单 ${document?.documentNo ?? `#${postPending.id}`} 已保存，正在过账。` : pending ? "正在保存并核实原保存请求；请保留当前输入。" : "正在保存销售草稿…"}</p>}
+      {error && <p role="alert" className="rounded-control border border-error-border bg-error-background px-space-4 py-space-3 text-sm text-error">{error}</p>}
+      <div className="space-y-space-5">
+        <section aria-label="过账对象" className="grid gap-space-2 text-sm sm:grid-cols-2"><p><span className="text-text-secondary">销售单：</span>{document?.documentNo ?? "新单待保存"}</p><p><span className="text-text-secondary">客户：</span>{partner?.id === preview.partnerId ? `${partner.code} · ${partner.name}` : document?.partnerName ?? `#${preview.partnerId}`}</p><p><span className="text-text-secondary">业务日期：</span>{preview.businessDate}</p><p><span className="text-text-secondary">执行动作：</span>{confirmation === "RETRY_POST" ? "按原单据和版本重试过账" : "保存当前草稿并过账"}</p></section>
+        <DocumentSummary totals={[{ label: "销售金额", value: `¥${previewTotal}` }, { label: "明细行数", value: `${preview.items.length} 行` }]} hint={`${preview.items.filter(line => line.productType === "GOODS").length} 行实物 · ${preview.items.filter(line => line.productType === "SERVICE").length} 行服务`}>
+          <p>确认后客户方向往来余额增加 ¥{previewTotal}；零金额单据不会产生往来金额流水。该金额不代表已收款或单据结清。</p>
+        </DocumentSummary>
+        <DocumentItems title="即将提交的销售明细" items={previewItems} />
+        <section aria-label="库存影响" className="space-y-space-2"><h3 className="text-base font-semibold">确认后库存影响</h3><p className="text-sm text-text-secondary">{preview.items.some(line => line.productType === "GOODS") ? "按商品身份和单位汇总扣减实物库存；成交明细仍按原行保留。" : "纯服务销售，不改变实物库存。"}{preview.directDelivery ? ` 旧版直送销售关联采购 #${preview.directPurchaseId}，沿用分别过账规则。` : ""}</p><ul className="list-inside list-disc whitespace-pre-wrap text-sm">{inventoryImpact.split("\n").map((line, index) => <li key={index}>{line}</li>)}</ul></section>
+        <DocumentDisclosure title="送货资料" hint={preview.deliveryContact || preview.deliveryPhone || preview.deliveryAddress ? "已填写" : "未填写"}><dl className="grid gap-space-3 text-sm sm:grid-cols-2"><div><dt className="text-text-secondary">送货联系人</dt><dd className="break-words">{preview.deliveryContact || "—"}</dd></div><div><dt className="text-text-secondary">收货人电话</dt><dd className="break-words">{preview.deliveryPhone || "—"}</dd></div><div className="sm:col-span-2"><dt className="text-text-secondary">送货地址</dt><dd className="whitespace-pre-wrap break-words">{preview.deliveryAddress || "—"}</dd></div></dl></DocumentDisclosure>
+      </div>
     </FormDialog>
     {selectionChoice.dialog}
       <BusinessLeaveConfirm guard={leaveGuard} title="离开销售录单" stayText="继续录单" leaveText="确认离开" description={saving || pending || postPending ? "保存或过账尚未核实，离开后仍需核实原结果；未保存的输入会丢失。" : undefined} />

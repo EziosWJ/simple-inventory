@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/common/field";
 import { FormDialog } from "@/components/common/form-dialog";
+import { DocumentSummary } from "@/components/business/document-presentation";
+import { DataTable } from "@/components/common/data-table";
 import { BusinessFeedback } from "@/components/business/business-feedback";
 import { useBusinessFeedback } from "@/hooks/use-business-feedback";
 import { useAuthStore } from "@/store/auth-store";
 import { ApiError } from "@/lib/api-error";
+type DirectOrderLine = DirectOrder["items"][number] & { id: number; productCode: string; productName: string; purchaseAmount: string; saleAmount: string };
 type Attempt = { action: "POST" | "CANCEL"; id: number; version: number; reason: string };
 export function DirectOrderActions({ document, disabled = false, onChange }: { document: DirectOrder; disabled?: boolean; onChange: (d: DirectOrder) => void }) {
   const user = useAuthStore(s => s.user);
@@ -55,6 +58,7 @@ export function DirectOrderActions({ document, disabled = false, onChange }: { d
     finally { busyRef.current = false; setBusy(false); }
   }
   const hasReturns = document.activeSaleReturns.length > 0 || document.activePurchaseReturns.length > 0;
+  const lines = document.items as DirectOrderLine[];
   return <div className="space-y-space-3">
     <BusinessFeedback feedback={feedback} />
     {error && <p role="alert" className="text-error">{error}</p>}
@@ -67,11 +71,27 @@ export function DirectOrderActions({ document, disabled = false, onChange }: { d
     </div>
     {document.status === "POSTED" && <div className="flex flex-wrap gap-space-3"><Link className="text-primary hover:underline" to={`/business/sale-returns?saleId=${document.saleId}`}>客户退回店内：销售退货</Link><Link className="text-primary hover:underline" to={`/business/purchase-returns?purchaseId=${document.purchaseId}`}>后续退供应商：采购退货</Link></div>}
     {hasReturns && <p role="alert" className="text-warning">存在生效退货，不能整笔取消。销售退货：{document.activeSaleReturns.join("、") || "无"}；采购退货：{document.activePurchaseReturns.join("、") || "无"}。</p>}
-    <FormDialog open={confirmation !== null} title={confirmation === "POST" ? "确认客户已收货" : "整笔取消直送"} submitText={confirmation === "POST" ? "确认并同时过账" : "确认整笔取消"} submitDisabled={confirmation === "CANCEL" && !reason.trim()} loading={busy} onCancel={() => { if (!busy) setConfirmation(null); }} onSubmit={() => perform()}>
-      <p>{document.documentNo} · {document.supplierName} → {document.customerName}</p>
-      <p>采购金额 ¥{document.purchaseTotal} / 销售金额 ¥{document.saleTotal}</p>
-      <p>{confirmation === "POST" ? "客户已收到商品后确认，采购与销售同时生效，实物库存净变化为零。" : document.status === "DRAFT" ? "取消草稿不改变库存或往来。" : "同时冲销采购、销售，保留原单据、流水及真实收付款；实际退款另行登记。"}</p>
-      {confirmation === "CANCEL" && <Field label="取消原因" required><Textarea aria-label="直送取消原因" maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></Field>}
+    <FormDialog documentLayout={confirmation === "POST"} open={confirmation !== null} title={confirmation === "POST" ? "确认客户已收货" : "整笔取消直送"} description={confirmation === "POST" ? `${document.documentNo} · ${document.supplierName} → ${document.customerName}` : undefined} cancelText={confirmation === "POST" ? "返回核对" : "取消"} submitText={confirmation === "POST" ? "确认并同时过账" : "确认整笔取消"} loadingText={confirmation === "POST" ? "正在同时过账采购与销售…" : "正在取消…"} submitDisabled={confirmation === "CANCEL" && !reason.trim()} loading={busy} onCancel={() => { if (!busy) setConfirmation(null); }} onSubmit={() => perform()}>
+      {confirmation === "POST" ? <div className="space-y-space-5">
+        {busy && <p role="status" className="rounded-control border border-border bg-neutral-background px-space-4 py-space-3 text-sm">正在按同一事务确认直送单 {document.documentNo}。</p>}
+        <section aria-label="直送双方与业务日期" className="grid gap-space-3 text-sm sm:grid-cols-2"><p><span className="text-text-secondary">供应商：</span>{document.supplierName}</p><p><span className="text-text-secondary">客户：</span>{document.customerName}</p><p><span className="text-text-secondary">业务日期：</span>{document.businessDate}</p><p><span className="text-text-secondary">执行动作：</span>生成并同时过账采购单与销售单</p></section>
+        <DocumentSummary totals={[{ label: "采购金额", value: `¥${document.purchaseTotal}` }, { label: "销售金额", value: `¥${document.saleTotal}` }]} hint={`${lines.length} 行 · ${lines.filter(item => item.productType === "GOODS").length} 行实物 · ${lines.filter(item => item.productType === "SERVICE").length} 行服务`}>
+          <p>同一事务中，供应商方向往来余额增加采购金额 ¥{document.purchaseTotal}；客户方向往来余额增加销售金额 ¥{document.saleTotal}。零金额方向不会产生往来金额流水。</p>
+        </DocumentSummary>
+        <section className="space-y-space-3"><h3 className="text-base font-semibold">即将确认的直送明细</h3><DataTable columns={[
+          { title: "商品 / 服务", key: "product", width: "30%", render: (_, item) => <div className="min-w-[12rem] space-y-space-1"><p className="font-medium">{item.productName}</p><p className="break-words text-xs text-text-secondary">{item.productCode}{item.productType === "SERVICE" ? " · 服务项目" : " · 实物商品"}</p>{item.remark?.trim() && <p className="whitespace-pre-wrap break-words text-sm text-text-secondary">备注：{item.remark.trim()}</p>}</div> },
+          { title: "数量", key: "quantity", align: "right", nowrap: true, render: (_, item) => `${item.quantity} ${item.unit}` },
+          { title: "采购单价 / 金额", key: "purchase", align: "right", render: (_, item) => item.productType === "SERVICE" ? "—（服务不计采购金额）" : <span className="tabular-nums">¥{item.purchasePrice}<span className="block text-sm">金额 ¥{item.purchaseAmount}</span></span> },
+          { title: "销售单价 / 金额", key: "sale", align: "right", render: (_, item) => <span className="tabular-nums">¥{item.salePrice}<span className="block text-sm">金额 ¥{item.saleAmount}</span></span> },
+        ]} dataSource={lines} rowKey="id" minWidth={820} /></section>
+        <section aria-label="确认影响" className="space-y-space-2 border-t border-border pt-space-4"><h3 className="text-base font-semibold">确认后的业务影响</h3><p className="text-sm text-text-secondary">确认依据：客户已实际收到本次直送货物。采购与销售将同时生效；实物库存净变化为零，但保留采购增加、销售减少的成对库存流水。</p><ul className="list-inside list-disc space-y-space-1 text-sm">{lines.map(item => <li key={item.id}>{item.productType === "GOODS" ? `${item.productCode} · ${item.productName}：采购增加 ${item.quantity} ${item.unit}，销售减少 ${item.quantity} ${item.unit}，库存净变化为零。` : `${item.productCode} · ${item.productName}：服务项目，不产生采购库存影响。`}</li>)}</ul></section>
+        <p className="text-sm text-text-tertiary">确认成功后两侧单据同时锁定；若请求结果暂不明确，可在当前页面核实原直送单，不要另建单据。</p>
+      </div> : <>
+        <p>{document.documentNo} · {document.supplierName} → {document.customerName}</p>
+        <p>采购金额 ¥{document.purchaseTotal} / 销售金额 ¥{document.saleTotal}</p>
+        <p>{document.status === "DRAFT" ? "取消草稿不改变库存或往来。" : "同时冲销采购、销售，保留原单据、流水及真实收付款；实际退款另行登记。"}</p>
+        {confirmation === "CANCEL" && <Field label="取消原因" required><Textarea aria-label="直送取消原因" maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></Field>}
+      </>}
     </FormDialog>
   </div>;
 }

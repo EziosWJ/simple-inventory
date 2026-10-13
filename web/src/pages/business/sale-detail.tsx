@@ -143,7 +143,7 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
             </DetailDisclosure>
           </div>}
 
-          {(detail.directDocuments.length > 0 || detail.directTrace) && <DetailDisclosure title="关联单据与直送追溯" hint={`${detail.directDocuments.length} 张关联采购单`}>
+          {detail.directDocuments.length > 0 && <DetailDisclosure title="关联单据与直送追溯" hint={`${detail.directDocuments.length} 张关联采购单`}>
             {detail.directDocuments.length > 0 && <section aria-label="关联采购单" className="space-y-space-3">
               {detail.directDocuments.map(document => <div key={document.id} className="flex flex-wrap items-center justify-between gap-space-3">
                 <Button size="sm" variant="secondary" onClick={() => goTo(`/business/purchases?purchaseId=${document.id}`)}>{document.documentNo}</Button>
@@ -154,8 +154,8 @@ export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, g
                 </div>
               </div>)}
             </section>}
-            <DirectDeliveryTrace trace={detail.directTrace} />
           </DetailDisclosure>}
+          <DirectDeliveryTrace trace={detail.directTrace} />
 
           <DetailDisclosure title="操作记录" hint={detail.postedAt ? `过账于 ${formatDateTime(detail.postedAt)}` : `创建于 ${formatDateTime(detail.createTime)}`}>
             <section aria-label="单据操作记录">

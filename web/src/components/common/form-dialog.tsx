@@ -30,6 +30,7 @@ type FormDialogProps = {
   closeOnEscape?: boolean;
   closeOnOverlayClick?: boolean;
   trapFocus?: boolean;
+  documentLayout?: boolean;
   onCancel: () => void;
   onSubmit: () => void | Promise<void>;
   children: ReactNode;
@@ -51,6 +52,7 @@ export function FormDialog({
   closeOnEscape = true,
   closeOnOverlayClick = true,
   trapFocus = true,
+  documentLayout = false,
   onCancel,
   onSubmit,
   children,
@@ -72,15 +74,17 @@ export function FormDialog({
       closeOnEscape={closeOnEscape && !loading}
       closeOnOverlayClick={closeOnOverlayClick && !loading}
       trapFocus={trapFocus}
+      restoreFocus={documentLayout}
     >
       <DialogOverlay />
       <DialogContent
         className={cn(
           "max-h-[calc(100vh-48px)] max-w-[760px]",
+          documentLayout && "flex max-h-[90dvh] max-w-[1100px] flex-col max-sm:h-dvh max-sm:max-h-dvh max-sm:w-full max-sm:rounded-none",
           contentClassName,
         )}
       >
-        <DialogHeader className={headerClassName}>
+        <DialogHeader className={cn(documentLayout && "shrink-0 py-space-5", headerClassName)}>
           <div className="min-w-0">
             <DialogTitle>{title}</DialogTitle>
             {description && (
@@ -92,16 +96,17 @@ export function FormDialog({
           </DialogClose>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className={cn(documentLayout && "flex min-h-0 flex-1 flex-col")}>
           <DialogBody
             className={cn(
               "max-h-[calc(100vh-184px)] px-card py-space-4",
+              documentLayout && "max-h-none min-h-0 flex-1 py-space-5 sm:px-space-6",
               bodyClassName,
             )}
           >
             {children}
           </DialogBody>
-          <DialogFooter className={footerClassName}>
+          <DialogFooter className={cn(documentLayout && "shrink-0 flex-wrap", footerClassName)}>
             <Button variant="secondary" disabled={loading} onClick={onCancel}>
               {cancelText}
             </Button>

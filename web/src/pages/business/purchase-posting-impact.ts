@@ -24,7 +24,7 @@ export function purchaseInventoryImpact(items: Pick<PurchaseLine, "productId" | 
 
 export function purchasePostingConfirmation(document: PurchaseDraft): string[] {
   return [
-    /^0(?:\.0+)?$/.test(document.totalAmount) ? "零金额，供应商往来余额无变化" : `供应商应付增加 ¥${document.totalAmount}`,
+    /^0(?:\.0+)?$/.test(document.totalAmount) ? "零金额，供应商方向往来余额无变化" : `供应商方向往来余额增加 ¥${document.totalAmount}`,
     ...purchaseInventoryImpact(document.items, document.directDelivery),
   ];
 }

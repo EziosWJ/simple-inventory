@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { DirectTrace, DirectTraceDocument } from "@/api/business";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/common/data-table";
+import { DocumentDisclosure } from "@/components/business/document-presentation";
 
 const statusText = (status: string) => ({ DRAFT: "草稿", POSTED: "已过账", CANCELLED: "已取消" }[status] ?? status);
 const kindText = { PURCHASE: "原采购", SALE: "原销售", PURCHASE_RETURN: "采购退货", SALE_RETURN: "销售退货" };
@@ -28,15 +29,17 @@ export function DirectDeliveryTrace({ trace }: { trace?: DirectTrace | null }) {
       {hasSalesReturn && trace.purchase.status === "POSTED" && <Button variant="secondary" onClick={() => navigate(`/business/purchase-returns?purchaseId=${trace.purchase.id}`)}>第二步：采购退货</Button>}
     </div>
     <p className="text-sm text-text-tertiary">销售退货 {trace.saleReturns.filter(d => d.status === "POSTED").length} 张已过账；采购退货 {trace.purchaseReturns.filter(d => d.status === "POSTED").length} 张已过账。草稿与取消记录保留；退款须另行办理。</p>
-    {documents.map(d => <div key={`${d.kind}-${d.id}`} className="space-y-2 border-t border-border pt-space-3">
-      <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="secondary" size="sm" onClick={() => navigate(href(d))}>{kindText[d.kind]} · {d.documentNo}</Button><span className="text-sm">{statusText(d.status)} · {d.partnerName} · {d.businessDate} · 金额 ¥{d.totalAmount}{d.status === "DRAFT" && "（草稿预览）"}</span></div>
-      <DataTable columns={[
-        { title: "商品 / 原明细", key: "product", render: (_, i) => `${i.productCode} ${i.productName}${i.originalItemId ? ` · 原明细 ${i.originalItemId}` : ""}` },
-        { title: "数量", key: "quantity", render: (_, i) => `${i.quantity} ${i.unit}` },
-        { title: "单价", dataIndex: "unitPrice", align: "right" },
-        { title: "金额", dataIndex: "amount", align: "right" },
-      ]} dataSource={d.items} rowKey="id" minWidth={540} empty="暂无明细" />
-      <p className="text-sm text-text-tertiary">创建：{d.createdByName} · {formatDateTime(d.createTime)}{d.postedAt && `；过账：${d.postedByName} · ${formatDateTime(d.postedAt)}`}{d.cancelledAt && `；取消：${d.cancelledByName} · ${formatDateTime(d.cancelledAt)} · ${d.cancelReason ?? ""}`}</p>
-    </div>)}
+    {documents.length > 0 && <DocumentDisclosure title="关联单据完整明细" hint={`${documents.length} 张，含草稿与历史记录`}>
+      <div className="space-y-space-4">{documents.map(d => <div key={`${d.kind}-${d.id}`} className="space-y-2 border-t border-border pt-space-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="secondary" size="sm" onClick={() => navigate(href(d))}>{kindText[d.kind]} · {d.documentNo}</Button><span className="text-sm">{statusText(d.status)} · {d.partnerName} · {d.businessDate} · 金额 ¥{d.totalAmount}{d.status === "DRAFT" && "（草稿预览）"}</span></div>
+        <DataTable columns={[
+          { title: "商品 / 原明细", key: "product", render: (_, i) => `${i.productCode} ${i.productName}${i.originalItemId ? ` · 原明细 ${i.originalItemId}` : ""}` },
+          { title: "数量", key: "quantity", render: (_, i) => `${i.quantity} ${i.unit}` },
+          { title: "单价", dataIndex: "unitPrice", align: "right" },
+          { title: "金额", dataIndex: "amount", align: "right" },
+        ]} dataSource={d.items} rowKey="id" minWidth={540} empty="暂无明细" />
+        <p className="text-sm text-text-tertiary">创建：{d.createdByName} · {formatDateTime(d.createTime)}{d.postedAt && `；过账：${d.postedByName} · ${formatDateTime(d.postedAt)}`}{d.cancelledAt && `；取消：${d.cancelledByName} · ${formatDateTime(d.cancelledAt)} · ${d.cancelReason ?? ""}`}</p>
+      </div>)}</div>
+    </DocumentDisclosure>}
   </section>;
 }
