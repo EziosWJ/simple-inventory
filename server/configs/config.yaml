@@ -2,7 +2,7 @@ service:
   name: simple-inventory-api
 
 http:
-  address: ":8099"
+  address: ":8300"
   trusted_proxies: []
   read_header_timeout: 10s
   read_timeout: 5m
