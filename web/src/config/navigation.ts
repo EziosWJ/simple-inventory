@@ -151,6 +151,7 @@ export const staticRouteTitleMap: Record<string, string> = {
   "/examples/tree-table": "左树右表 Demo",
   "/examples/detail": "详情页 Demo",
   "/examples/file-upload": "文件上传 Demo",
+  "/examples/browse-picker": "浏览选择 Demo",
   "/settings": "系统设置",
   "/system": "系统管理",
   "/system/user": "用户管理",
