@@ -1,22 +1,66 @@
 import { ArrowLeft, CheckCircle2, FileText, Pencil } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ContentCard } from "@/components/common/content-card";
+import { Field } from "@/components/common/field";
+import { FormDialog } from "@/components/common/form-dialog";
 import { PageHeader } from "@/components/common/page-header";
 import { StatusTag } from "@/components/common/status-tag";
+import { toast } from "@/components/common/toast-store";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/datetime";
 
-const detail = {
+const initialDetail = {
   code: "ORD-20260502001",
   title: "企业客户开通申请",
-  status: "processing",
   owner: "客户运营部",
   applicant: "上海示例科技有限公司",
   amount: "¥128,000.00",
+  remark: "开通后需要同步初始化客户权限。",
   createdAt: "2026-05-02 10:12:00",
   updatedAt: "2026-05-02 16:40:00",
 };
 
+type DetailDraft = {
+  title: string;
+  owner: string;
+  remark: string;
+};
+
 export function DetailDemoPage() {
+  const navigate = useNavigate();
+  const [detail, setDetail] = useState(initialDetail);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState<DetailDraft>({
+    title: initialDetail.title,
+    owner: initialDetail.owner,
+    remark: initialDetail.remark,
+  });
+
+  const openEdit = () => {
+    setDraft({
+      title: detail.title,
+      owner: detail.owner,
+      remark: detail.remark,
+    });
+    setEditOpen(true);
+  };
+
+  const submitEdit = () => {
+    setDetail((current) => ({
+      ...current,
+      ...draft,
+      updatedAt: new Date().toISOString(),
+    }));
+    setEditOpen(false);
+    toast.success({
+      title: "已保存演示详情",
+      description: "示例页只更新页面内存数据，不请求后端接口。",
+    });
+  };
+
   return (
     <>
       <PageHeader
@@ -24,11 +68,11 @@ export function DetailDemoPage() {
         description="展示后台详情页的摘要、分组信息、状态和操作布局。"
         actions={
           <>
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={() => navigate("/examples/list")}>
               <ArrowLeft className="h-4 w-4" aria-hidden />
               返回
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={openEdit}>
               <Pencil className="h-4 w-4" aria-hidden />
               编辑
             </Button>
@@ -84,10 +128,52 @@ export function DetailDemoPage() {
             <DetailField label="合同周期" value="2026-05-01 至 2027-04-30" />
             <DetailField label="服务等级" value="企业版 SLA" />
             <DetailField label="联系人" value="王敏 / 13800000000" />
-            <DetailField label="备注" value="开通后需要同步初始化客户权限。" />
+            <DetailField label="备注" value={detail.remark} />
           </div>
         </ContentCard>
       </div>
+
+      <FormDialog
+        open={editOpen}
+        title="编辑演示详情"
+        description={`单据编号：${detail.code}`}
+        onCancel={() => setEditOpen(false)}
+        onSubmit={submitEdit}
+        submitDisabled={!draft.title.trim()}
+      >
+        <div className="space-y-space-4">
+          <Field label="标题" htmlFor="detail-demo-title" required>
+            <Input
+              id="detail-demo-title"
+              value={draft.title}
+              onChange={(event) =>
+                setDraft({ ...draft, title: event.target.value })
+              }
+              placeholder="请输入标题"
+            />
+          </Field>
+          <Field label="归属部门" htmlFor="detail-demo-owner">
+            <Input
+              id="detail-demo-owner"
+              value={draft.owner}
+              onChange={(event) =>
+                setDraft({ ...draft, owner: event.target.value })
+              }
+              placeholder="请输入归属部门"
+            />
+          </Field>
+          <Field label="备注" htmlFor="detail-demo-remark">
+            <Textarea
+              id="detail-demo-remark"
+              value={draft.remark}
+              onChange={(event) =>
+                setDraft({ ...draft, remark: event.target.value })
+              }
+              placeholder="请输入备注"
+            />
+          </Field>
+        </div>
+      </FormDialog>
     </>
   );
 }
