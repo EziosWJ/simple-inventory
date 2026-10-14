@@ -10,3 +10,4 @@
 - 详情表达真实状态，确认表达即将执行的动作；取消原因、失败和阻断提示默认可见，完整辅助信息按需展开。
 - 库存调整、退货和直送保留各自必要的业务列，不强制使用普通成交四列表格。
 - 短小的系统确认和普通资料编辑继续使用既有模式；不因单据确认改造扩大全部弹窗。
+- 示例入口：页面示例 → 单据弹窗 Demo（`src/pages/examples/document-dialog-demo.tsx`，路由 `/examples/document-dialog`），用页面内存数据并排演示详情与过账确认两种模式；浏览器验收入口 `node tests/document-dialog-demo.mjs`。

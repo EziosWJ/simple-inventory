@@ -5,6 +5,7 @@ import { AccountProfilePage } from "@/pages/account-profile";
 import { ChangePasswordPage } from "@/pages/change-password";
 import { DashboardPage } from "@/pages/dashboard";
 import { BrowsePickerDemoPage } from "@/pages/examples/browse-picker-demo";
+import { DocumentDialogDemoPage } from "@/pages/examples/document-dialog-demo";
 import { DetailDemoPage } from "@/pages/examples/detail-demo";
 import { FileUploadDemoPage } from "@/pages/examples/file-upload-demo";
 import { FormExamplePage } from "@/pages/form-example";
@@ -127,6 +128,10 @@ export const router = createBrowserRouter([
       {
         path: "examples/browse-picker",
         element: <BrowsePickerDemoPage />,
+      },
+      {
+        path: "examples/document-dialog",
+        element: <DocumentDialogDemoPage />,
       },
       {
         path: "settings",
