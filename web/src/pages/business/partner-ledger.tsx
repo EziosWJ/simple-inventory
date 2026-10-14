@@ -6,10 +6,11 @@ import { exportPartnerEntries } from "@/api/business";
 import { businessMidnightToUtc } from "@/lib/datetime";
 import { formatDateTime } from "@/lib/datetime";
 import { BusinessReturnLink } from "@/components/business/business-return-link";
+import { LedgerSourceDetails, LedgerSourceDisclosure } from "@/components/business/ledger-source-details";
 import { PartnerSelect } from "@/components/business/master-data-select";
 import { withBusinessReturn } from "@/lib/business-navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getPartnerStatement, partnerBalanceEntries, partnerBalanceEntry, getPartner, type PartnerBalanceEntry, type PartnerRecord, type PartnerStatement } from "@/api/business";
 import { DataTable } from "@/components/common/data-table";
 import { DataTableCard } from "@/components/common/data-table-card";
@@ -21,7 +22,7 @@ import { SearchFilterBar } from "@/components/common/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { entryTypeLabel, ledgerSource, localPeriod, periodDateInput } from "@/lib/partner-ledger";
+import { balanceDescription, cents, entryTypeLabel, money, localPeriod, periodDateInput } from "@/lib/partner-ledger";
 import type { DataTableColumn } from "@/types";
 
 const pageSize = 20;
@@ -30,7 +31,6 @@ export function PartnerLedgerPage() {
   const excelExport = useExcelExport(notify);
   const navigate = useNavigate();
   const [params,setParams] = useSearchParams();
-  const location=useLocation();
   const [selectedPartner,setSelectedPartner] = useState<PartnerRecord|null>(null);
   const [partnerKeyword,setPartnerKeyword]=useState(params.get("partnerKeyword")??"");
   const [partnerId, setPartnerId] = useState(params.get("partnerId") ?? "");
@@ -45,9 +45,17 @@ export function PartnerLedgerPage() {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<PartnerStatement | null>(null);
   const [detail, setDetail] = useState<PartnerBalanceEntry | null>(null);
+  const detailAmount = detail ? cents(detail.amount) : null;
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState(0);
+  const [expanded, setExpanded] = useState<{ context: string; ids: string[] }>({ context: "", ids: [] });
+  const expansionContext = JSON.stringify([query, page, version]);
+  const expandedKeys = expanded.context === expansionContext ? expanded.ids : [];
+  function toggleDetails(id: number) {
+    const key = String(id);
+    setExpanded({ context: expansionContext, ids: expandedKeys.includes(key) ? expandedKeys.filter(value => value !== key) : [...expandedKeys, key] });
+  }
 
   useEffect(()=>{let active=true;if(query.partnerId)void getPartner(Number(query.partnerId)).then(p=>{if(active)setSelectedPartner(p)}).catch(()=>{if(active)setSelectedPartner(null)});else setSelectedPartner(null);return()=>{active=false}},[query.partnerId]);
   useEffect(() => {
@@ -87,12 +95,6 @@ export function PartnerLedgerPage() {
       navigate(withBusinessReturn(`/business/partner-statements?${new URLSearchParams({ partnerId, direction, ...range })}`,`/business/partner-ledger?${p}`));
     } catch (e) { setError(e instanceof Error ? e.message : "打印条件无效"); }
   }
-  async function openSource(entry: PartnerBalanceEntry) {
-    try {
-      const source = entry.entryType === "REVERSAL" && entry.reversesId ? await partnerBalanceEntry(entry.reversesId) : entry;
-      navigate(withBusinessReturn(ledgerSource(source),location.pathname+location.search));
-    } catch (e) { setError(e instanceof Error ? e.message : "打开来源失败"); }
-  }
 
   function exportEntries() {
     if (!partnerId && !partnerKeyword.trim()) { notify({ type: "error", title: "导出失败", description: "请输入关键词或选择往来单位" }); return; }
@@ -110,7 +112,7 @@ export function PartnerLedgerPage() {
     { title: "变动（元）", dataIndex: "amount" },
     { title: "前余额", dataIndex: "balanceBefore" },
     { title: "后余额", dataIndex: "balanceAfter" },
-    { title: "来源", key: "action", render: (_, row) => <Button size="sm" variant="secondary" onClick={() => void openSource(row)}>打开来源</Button> },
+    { title: "细节", key: "action", render: (_, row) => <Button size="sm" variant="secondary" aria-expanded={expandedKeys.includes(String(row.id))} onClick={() => toggleDetails(row.id)}>{expandedKeys.includes(String(row.id)) ? "收起细节" : "展示细节"}</Button> },
   ];
 
   return <div className="space-y-4">
@@ -131,17 +133,21 @@ export function PartnerLedgerPage() {
       <p>期间期末<br /><strong className="text-lg tabular-nums">{summary.closingAmount} 元</strong></p>
     </section>}
     <DataTableCard toolbar={<TableToolbar title="往来明细" description={(query.partnerId||query.partnerKeyword) ? `${query.partnerKeyword?`关键词：${query.partnerKeyword}，各单位余额分别保留`:selectedPartner?.id === Number(query.partnerId) ? selectedPartner.name : "往来单位"} · ${query.direction === "CUSTOMER" ? "客户" : "供应商"}方向 · 共 ${total} 笔` : "请选择往来单位和方向"} actions={<Button size="sm" variant="secondary" disabled={excelExport.exporting} onClick={exportEntries}>{excelExport.exporting ? "导出中" : "导出明细 Excel"}</Button>} />} pagination={query.partnerId||query.partnerKeyword ? <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} /> : undefined}>
-      <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} empty={<p className="text-sm text-text-secondary">{query.partnerId||query.partnerKeyword ? "当前条件下没有生效记录。" : "选择往来单位后查看明细。"}</p>} />
+      <DataTable columns={columns} dataSource={rows} rowKey="id" loading={loading} error={error} expandedRowKeys={expandedKeys} renderExpandedRow={row => <LedgerSourceDetails key={`${row.id}-${version}`} entry={row} />} empty={<p className="text-sm text-text-secondary">{query.partnerId||query.partnerKeyword ? "当前条件下没有生效记录。" : "选择往来单位后查看明细。"}</p>} />
     </DataTableCard>
-    <DetailDialog footer={<BusinessReturnLink />} open={detail !== null} title={detail ? `往来记录 · ${detail.documentNo}` : "往来记录"} onCancel={closeDetail}>
-      {detail && <div className="space-y-3 text-sm">
-        <p>{detail.partnerName} · {entryTypeLabel[detail.entryType] ?? detail.entryType}</p>
-        <p>业务日期 {detail.businessDate} · 实际生效 {formatDateTime(detail.effectiveAt)}</p>
-        <p>变动 {detail.amount} 元 · 余额 {detail.balanceBefore} → {detail.balanceAfter} 元</p>
-        <p>操作人 {detail.operatorName ?? detail.operatorId}{detail.description ? ` · ${detail.description}` : ""}</p>
-        {detail.reversedDocumentNo && <p>冲销来源：{detail.reversedDocumentNo}</p>}
-        {detail.reversedById && <p>已由往来记录 {detail.reversedById} 冲销</p>}
-        <Button variant="secondary" size="sm" onClick={() => void openSource(detail)}>打开来源业务</Button>
+    <DetailDialog documentLayout contentClassName="max-w-[960px]" headerClassName="[&_h2]:break-all" footer={<div className="flex items-center justify-between gap-3"><BusinessReturnLink /><Button onClick={closeDetail}>关闭</Button></div>} open={detail !== null} title={detail ? `${entryTypeLabel[detail.entryType] ?? "往来记录"} · ${detail.documentNo}` : "往来记录"} onCancel={closeDetail}>
+      {detail && <div className="space-y-5 text-sm">
+        <div className="flex flex-wrap justify-between gap-2"><p className="font-medium">{detail.partnerName} · {detail.direction === "CUSTOMER" ? "客户往来" : "供应商往来"}</p><span className="text-text-secondary">{detail.entryType === "REVERSAL" ? "冲销记录" : detail.reversedById ? "已冲销" : "已生效"}</span></div>
+        <section aria-label="本笔金额影响" className="grid gap-4 rounded-control border border-info-border bg-info-background p-4 sm:grid-cols-3">
+          <div><p className="text-text-secondary">{detailAmount === null ? "往来变动" : detailAmount < 0n ? "往来余额减少" : "往来余额增加"}</p><p className="mt-1 text-3xl font-semibold text-primary tabular-nums">¥{detailAmount === null ? "—" : money(detailAmount < 0n ? -detailAmount : detailAmount)}</p></div>
+          <div><p className="text-text-secondary">本笔生效前</p><p className="mt-2 font-medium tabular-nums">{balanceDescription(detail.direction, detail.balanceBefore)}</p></div>
+          <div><p className="text-text-secondary">本笔生效后</p><p className="mt-2 font-medium tabular-nums">{balanceDescription(detail.direction, detail.balanceAfter)}</p></div>
+        </section>
+        <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2"><p>业务日期：{detail.businessDate}</p><p>实际生效：{formatDateTime(detail.effectiveAt)}</p><p>操作人：{detail.operatorName ?? detail.operatorId}</p></div>
+        {detail.description && <p className="whitespace-pre-wrap break-words text-text-secondary">说明：{detail.description}</p>}
+        {detail.reversedDocumentNo && <p>冲销的原记录：{detail.reversedDocumentNo}</p>}
+        {detail.reversedById && <p className="text-text-secondary">已生成反向冲销记录，原记录保留。</p>}
+        <div className="border-t border-border pt-4"><LedgerSourceDisclosure key={detail.id} entry={detail} /></div>
       </div>}
     </DetailDialog>
   </div>;

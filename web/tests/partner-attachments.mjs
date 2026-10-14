@@ -15,7 +15,7 @@ let browser;
 try {
   for (let i = 0; i < 80; i++) { try { if ((await fetch(local)).ok) break; } catch {} await delay(100); }
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
-  for (const [routeName, category, entryType, amount, confirmText, direction] of [
+  for (const [routeName, category, entryType, amount, , direction] of [
     ['settlements', 'SETTLEMENT', 'RECEIPT', '100.00', '确认客户收款', 'CUSTOMER'],
     ['settlements', 'SETTLEMENT', 'PAYMENT', '100.00', '确认供应商付款', 'SUPPLIER'],
     ['refunds', 'REFUND', 'CUSTOMER_REFUND', '-100.00', '确认向客户退款', 'CUSTOMER'],
@@ -81,14 +81,13 @@ try {
       return respond(data);
     });
     const page = await context.newPage(); page.on('pageerror', e => pageErrors.push(e.message));
-    await page.goto(`${base}/business/${routeName}?direction=${direction}`);
+    await page.goto(`${base}/business/${routeName}?partnerId=1&direction=${direction}`);
     if (insecure) assert.deepEqual(await page.evaluate(() => [isSecureContext, typeof crypto.randomUUID]), [false, 'undefined']);
     await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 8000 }).catch(async e => { throw new Error(`${e.message} URL=${page.url()} errors=${JSON.stringify(pageErrors)} text=${(await page.locator('body').innerText()).slice(0,1800)}`); });
-    if (category === 'OPENING') await page.getByLabel('期初往来单位').selectOption('1');
-    else { const group = page.getByRole('group', { name: '资金往来单位', exact: true }); await group.getByRole('button').first().click(); await group.locator('button[aria-pressed]').filter({ hasText: partner.code }).last().click(); }
     await page.getByLabel(category === 'OPENING' ? '期初金额' : '资金金额', { exact: true }).fill('10.00');
     if (category === 'OPENING') await page.getByLabel('期初说明').fill('接入前余额');
-    const confirm = page.getByRole('button', { name: confirmText, exact: true }); await confirm.waitFor();
+    const confirm = page.getByRole('button', { name: '核对并登记', exact: true }); await confirm.waitFor();
+    await page.getByRole('dialog').locator('summary').click();
     await page.getByLabel('选择往来附件').setInputFiles([{ name: 'receipt.png', mimeType: 'image/png', buffer: png }, { name: 'retry.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }, { name: 'discard.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
     await page.getByText('模拟附件上传失败', { exact: true }).waitFor();
     assert.ok(await confirm.isDisabled()); assert.equal(writes, 0);
@@ -98,13 +97,13 @@ try {
     await page.locator('li').filter({ hasText: 'discard.pdf' }).getByRole('button', { name: '移除', exact: true }).click();
     await confirm.click();
     const saveDialog = page.getByRole('dialog'); await saveDialog.waitFor();
-    await saveDialog.getByRole('button', { name: category === 'OPENING' ? '保存并生效' : confirmText, exact: true }).click();
+    await saveDialog.getByRole('button', { name: '确认登记并生效', exact: true }).click();
     await page.getByText('模拟业务保存失败', { exact: true }).first().waitFor(); assert.equal(writes, 0);
     assert.equal(await page.getByText('上传成功', { exact: true }).count(), 2);
     await confirm.click(); await saveDialog.waitFor();
-    await saveDialog.getByRole('button', { name: category === 'OPENING' ? '保存并生效' : confirmText, exact: true }).click();
+    await saveDialog.getByRole('button', { name: '确认登记并生效', exact: true }).click();
     await page.getByRole('status', { name: '操作结果' }).filter({ hasText: '成功' }).waitFor();
-    assert.equal(await page.getByLabel(category === 'OPENING' ? '期初金额' : '资金金额', { exact: true }).inputValue(), '', '保存成功后表单重置');
+    assert.equal(await page.getByRole('dialog').count(), 0, '保存成功返回记录列表');
     await page.getByRole('button', { name: '查看详情', exact: true }).click();
     assert.equal(saveKeys.length, 2);
     assert.equal(saveKeys[0], saveKeys[1], '业务保存失败后的重试保留同一幂等键');

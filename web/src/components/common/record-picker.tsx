@@ -24,6 +24,7 @@ type Props<T extends {
     onKeywordChange?: (value: string) => void;
     onQuery?: () => void;
     onDraftKeywordChange?: (value: string) => void;
+    onBrowseOpenChange?: (open: boolean) => void;
     recentKey?: string;
     loadPage: (keyword: string, page: number, size: number) => Promise<ApiPageResult<T>>;
     loadRecord: (id: number) => Promise<T>;
@@ -43,10 +44,11 @@ function Highlight({ text, keyword }: {
 }
 export function RecordPicker<T extends {
     id: number;
-}>({ label, inlineBrowse = true, placeholder = "输入名称、型号或联系方式", value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
+}>({ label, inlineBrowse = true, placeholder = "输入名称、型号或联系方式", value, fallback, disabled, keyword: applied = "", onKeywordChange, onQuery, onDraftKeywordChange, onBrowseOpenChange, recentKey, loadPage, loadRecord, describe, warning, onChange }: Props<T>) {
     const id = useId(), input = useRef<HTMLInputElement>(null), panel = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false), [modal, setModal] = useState(false), [text, setText] = useState(applied), [page, setPage] = useState(1);
     const [records, setRecords] = useState<T[]>([]), [selected, setSelected] = useState<T | null>(null), [total, setTotal] = useState(0), [active, setActive] = useState(-1);
+    useEffect(() => { onBrowseOpenChange?.(modal); }, [modal, onBrowseOpenChange]);
     const [loading, setLoading] = useState(false), [error, setError] = useState(""), [selectedError, setSelectedError] = useState(""), [retry, setRetry] = useState(0), [recent, setRecent] = useState(false);
     const change = useRef(onChange);
     change.current = onChange;

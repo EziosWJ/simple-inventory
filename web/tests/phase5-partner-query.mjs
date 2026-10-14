@@ -42,17 +42,16 @@ try{
  await page.getByRole('button',{name:'下一页'}).click();assert.equal(new URL(page.url()).searchParams.get('page'),'2');await page.reload();
  await page.getByRole('row').filter({hasText:openings[24].documentNo}).waitFor();
  await page.getByRole('link',{name:'返回来源页面'}).last().click();assert.equal(page.url(),balanceURL);
- // Source kinds are opened from the actual ledger detail, with period preserved on return.
+ // Source kinds expand inside the ledger detail, preserving period and page.
  for(const direction of ['CUSTOMER','SUPPLIER']){
   const entries=(await call(`/v1/partner-balances/entries?partnerId=${partner.id}&direction=${direction}&pageSize=100`)).records;
   const types=new Set();
   for(const entry of entries){
    if(types.has(entry.entryType))continue;types.add(entry.entryType);
    const target=new URL(ledgerURL);target.searchParams.set('direction',direction);target.searchParams.set('entryId',entry.id);
-   await page.goto(target.href);const detail=page.getByRole('dialog');await detail.getByRole('button',{name:'打开来源业务'}).click();
-   const expected=entry.entryType==='REVERSAL'?'/business/opening-balances':entry.entryType==='OPENING'?'/business/opening-balances':entry.entryType==='SALE'?'/business/sales':entry.entryType==='PURCHASE'?'/business/purchases':entry.entryType==='SALE_RETURN'?'/business/sale-returns':entry.entryType==='PURCHASE_RETURN'?'/business/purchase-returns':entry.entryType.endsWith('_REFUND')?'/business/refunds':'/business/settlements';
-   await page.waitForURL(url=>url.pathname===expected);
-   await page.getByRole('dialog').getByRole('link',{name:'返回来源页面'}).click();
+   await page.goto(target.href);const detail=page.getByRole('dialog');await detail.getByRole('button',{name:'展示细节',exact:true}).click();
+   await detail.getByRole('region',{name:'来源内容细节'}).waitFor();assert.equal(page.url(),target.href);
+   await detail.getByRole('button',{name:'收起细节',exact:true}).click();assert.equal(await detail.getByRole('region',{name:'来源内容细节'}).count(),0);
    const back=new URL(page.url()).searchParams;assert.equal(back.get('partnerId'),query.get('partnerId'));assert.equal(back.get('direction'),direction);assert.equal(back.get('from'),query.get('from'));assert.equal(back.get('to'),query.get('to'));
   }
   assert.ok(types.has('OPENING')&&types.has(direction==='CUSTOMER'?'SALE':'PURCHASE')&&types.has(direction==='CUSTOMER'?'CUSTOMER_REFUND':'SUPPLIER_REFUND'));
