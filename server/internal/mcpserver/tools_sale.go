@@ -49,7 +49,7 @@ func (s Services) saleItems(ctx context.Context, raw json.RawMessage, maxPage in
 	if (in.PartnerID > 0 && in.PartnerKeyword != "") || (in.ProductID > 0 && in.ProductKeyword != "") {
 		return nil, 0, errInvalidArguments
 	}
-	from, to, _, err := businessRange(in.DateFrom, in.DateTo)
+	from, to, completion, err := businessRange(in.DateFrom, in.DateTo)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -74,8 +74,14 @@ func (s Services) saleItems(ctx context.Context, raw json.RawMessage, maxPage in
 			"productModel": r.ProductModel, "productSpecification": r.ProductSpecification,
 			"unit": r.Unit, "quantity": r.Quantity, "unitPrice": r.UnitPrice, "amount": r.Amount,
 			"returnsApplicable": r.ReturnsApplicable, "netApplicable": r.NetApplicable,
-			"returnedQuantity": r.ReturnedQuantity, "returnedAmount": r.ReturnedAmount,
 			"netQuantity": r.NetQuantity, "netAmount": r.NetAmount,
+		}
+		// A service line can never be returned. The business service reports
+		// zero here, and the tool must not present that as an actual return.
+		if r.ReturnsApplicable {
+			row["returnedQuantity"], row["returnedAmount"] = r.ReturnedQuantity, r.ReturnedAmount
+		} else {
+			row["returnedQuantity"], row["returnedAmount"] = nil, nil
 		}
 		if r.MatchesHistory {
 			row["matchesHistory"] = true
@@ -91,9 +97,10 @@ func (s Services) saleItems(ctx context.Context, raw json.RawMessage, maxPage in
 		quantities = append(quantities, map[string]any{"status": q.Status, "productId": q.ProductID, "productCode": q.ProductCode, "productName": q.ProductName, "productType": q.ProductType, "unit": q.Unit, "returnsApplicable": q.ReturnsApplicable, "quantity": q.Quantity, "returnedQuantity": q.ReturnedQuantity, "netQuantity": q.NetQuantity})
 	}
 	return map[string]any{
-		"timeZone":  toolTimeZone,
-		"timeBasis": "原销售业务日期，起止日均含",
-		"queriedAt": nowISO(),
+		"timeZone":       toolTimeZone,
+		"timeBasis":      "原销售业务日期，起止日均含",
+		"dateCompletion": completionNote(completion),
+		"queriedAt":      nowISO(),
 		"semantics": "每行 itemCount 统计的是明细行数，不是单据张数；不同商品或计量单位的数量分别表达，不混加。" +
 			"netQuantity／netAmount 是原数量金额减去截至当前仍有效（已过账且未取消）的销售退货，9月销售10件在10月有效退回2件时查9月得到原始10、有效退货2、净8；不是收款、退款现金流或利润。" +
 			"服务行不可退货（returnsApplicable=false）；草稿与取消行净额不适用，返回 null 而不是 0。summary 覆盖完整筛选范围。",
@@ -129,12 +136,13 @@ func (s Services) saleDocument(ctx context.Context, raw json.RawMessage) (map[st
 			"remark": line.Remark,
 		})
 	}
-	// A posted or cancelled sale carries the frozen customer name, delivery
-	// details and printer header. A draft has frozen nothing yet: the customer
-	// name and delivery details fall back to the current archive, while the
-	// printer header has no fallback at all and must not be reported as an
-	// empty snapshot.
-	frozen := d.Status != "DRAFT"
+	// Only posting freezes the customer name, the delivery details and the
+	// printer header. A draft has frozen nothing, and a draft cancelled before
+	// posting never posted at all, so both fall back to the current archive for
+	// the customer name; the printer header has no fallback and must not be
+	// reported as an empty snapshot. postedAt is the data-level proof that the
+	// snapshot exists, unlike the status, which also covers a cancelled draft.
+	frozen := d.PostedAt != nil
 	owner := func(value string) any {
 		if !frozen {
 			return nil
@@ -143,8 +151,9 @@ func (s Services) saleDocument(ctx context.Context, raw json.RawMessage) (map[st
 	}
 	return map[string]any{
 		"timeZone": toolTimeZone,
-		"semantics": "已过账或已取消单据的 customerName、送货资料与 owner* 是过账时冻结的快照，含当时的空值；snapshotAvailable=false 表示草稿尚未冻结，" +
-			"此时 customerName 与送货资料回退当前档案，owner* 因为没有回退来源而返回 null（不是「当时为空」）。" +
+		"semantics": "已过账单据（含过账后取消）的 customerName、送货资料与 owner* 是过账时冻结的快照，含当时的空值；" +
+			"snapshotAvailable=false 表示该单据从未过账（草稿，或过账前就被取消），此时 customerName 回退当前档案、" +
+			"owner* 因为没有回退来源而返回 null（不是「当时为空」），送货资料只是建档时写入的值而非过账快照。" +
 			"商品编码、名称、型号、规格与单位是明细快照。当前商品参考价与往来银行资料不会写入本响应。",
 		"document": map[string]any{
 			"id": d.ID, "documentNo": d.DocumentNo, "partnerId": d.PartnerID, "partnerName": d.PartnerName,

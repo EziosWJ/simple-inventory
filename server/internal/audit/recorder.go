@@ -18,6 +18,8 @@ type operationLog struct {
 	OperatorIP      string    `gorm:"column:operator_ip"`
 	UserAgent       string    `gorm:"column:user_agent"`
 	OperationStatus string    `gorm:"column:operation_status"`
+	RequestParams   string    `gorm:"column:request_params"`
+	ResponseResult  string    `gorm:"column:response_result"`
 	OperationTime   time.Time `gorm:"column:operation_time"`
 	CreateTime      time.Time `gorm:"column:create_time"`
 }
@@ -33,6 +35,7 @@ func (r *recorder) Record(ctx context.Context, e Event) error {
 		ModuleName: e.Resource, OperationType: e.Action,
 		RequestID: e.Metadata.RequestID, OperatorID: e.Metadata.ActorID,
 		RequestMethod: e.Metadata.RequestMethod, RequestURL: e.Metadata.RequestURL,
+		RequestParams: e.Params, ResponseResult: e.Summary,
 		OperatorIP: e.Metadata.ClientIP, UserAgent: e.Metadata.UserAgent,
 		OperationStatus: "SUCCESS", OperationTime: time.Now().UTC(), CreateTime: time.Now().UTC(),
 	}).Error
@@ -43,6 +46,7 @@ func RecordOn(ctx context.Context, tx *gorm.DB, e Event) error {
 		ModuleName: e.Resource, OperationType: e.Action,
 		RequestID: e.Metadata.RequestID, OperatorID: e.Metadata.ActorID,
 		RequestMethod: e.Metadata.RequestMethod, RequestURL: e.Metadata.RequestURL,
+		RequestParams: e.Params, ResponseResult: e.Summary,
 		OperatorIP: e.Metadata.ClientIP, UserAgent: e.Metadata.UserAgent,
 		OperationStatus: "SUCCESS", OperationTime: time.Now().UTC(), CreateTime: time.Now().UTC(),
 	}).Error

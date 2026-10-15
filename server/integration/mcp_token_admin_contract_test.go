@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -277,6 +278,11 @@ func assertMCPTokenAdminContract(t *testing.T, db *platformdatabase.Database, sq
 	if reset.Record.Name != "备用" || reset.Record.UserID != f.subjectID || !reset.Record.Enabled {
 		t.Fatalf("reset record: %+v", reset.Record)
 	}
+	// The validity survives a reset in both directions: a dated credential
+	// stays dated at the same instant and a permanent one stays permanent.
+	if reset.Record.Permanent != reEnabled.Permanent || !sameExpiry(reset.Record.ExpiresAt, reEnabled.ExpiresAt) {
+		t.Fatalf("reset changed the validity: %+v want permanent=%v expires=%v", reset.Record, reEnabled.Permanent, reEnabled.ExpiresAt)
+	}
 	if got := f.request(t, http.MethodPost, mcpListBody, tokenHeader(oldValue)); got.status != 401 {
 		t.Fatalf("reset left the previous value usable: %d", got.status)
 	}
@@ -290,6 +296,9 @@ func assertMCPTokenAdminContract(t *testing.T, db *platformdatabase.Database, sq
 	resetDisabled := secret(http.MethodPost, fmt.Sprintf("/api/system/mcp/tokens/%d/reset", permanent.Record.ID), "")
 	if resetDisabled.Record.Enabled || resetDisabled.Record.Usable {
 		t.Fatalf("reset re-enabled a disabled credential: %+v", resetDisabled.Record)
+	}
+	if !resetDisabled.Record.Permanent || resetDisabled.Record.ExpiresAt != nil {
+		t.Fatalf("reset changed a permanent credential's validity: %+v", resetDisabled.Record)
 	}
 	mustExec(t, db, "UPDATE mcp_token SET disabled_at=NULL WHERE id=?", permanent.Record.ID)
 
@@ -389,36 +398,85 @@ func assertMCPTokenAdminContract(t *testing.T, db *platformdatabase.Database, sq
 		t.Fatal("the administration grant did not enable the API")
 	}
 
-	// Every management action is recorded, and never with the value or the
-	// ciphertext.
-	var audited int64
-	if err := db.GORM.Table("sys_oper_log").Where("module_name='mcp-token'").Count(&audited).Error; err != nil {
+	// Every management action carries its operator, parameters, acted-on
+	// record, bound user and outcome, and never the value or the ciphertext.
+	type auditRow struct {
+		ID      int64  `gorm:"column:id"`
+		Action  string `gorm:"column:operation_type"`
+		Params  string `gorm:"column:request_params"`
+		Outcome string `gorm:"column:response_result"`
+	}
+	rows := []auditRow{}
+	if err := db.GORM.Table("sys_oper_log").Select("id,operation_type,request_params,response_result").Where("module_name='mcp-token'").Order("id").Scan(&rows).Error; err != nil {
 		t.Fatal(err)
 	}
-	if audited < 4 {
-		t.Fatalf("audit rows for the token lifecycle: %d", audited)
+	byAction := map[string]auditRow{}
+	for _, row := range rows {
+		byAction[row.Action] = row
 	}
 	for _, action := range []string{"mcp-token.create", "mcp-token.extend", "mcp-token.status", "mcp-token.reset", "mcp-token.reveal"} {
-		var count int64
-		if err := db.GORM.Table("sys_oper_log").Where("module_name='mcp-token' AND operation_type=?", action).Count(&count).Error; err != nil {
-			t.Fatal(err)
-		}
-		if count == 0 {
+		row, ok := byAction[action]
+		if !ok {
 			t.Fatalf("missing audit action %s", action)
 		}
-	}
-	logs := []struct {
-		Summary string `gorm:"column:summary"`
-		URL     string `gorm:"column:request_url"`
-	}{}
-	if err := db.GORM.Table("sys_oper_log").Select("'' AS summary,request_url AS url").Where("module_name='mcp-token'").Scan(&logs).Error; err != nil {
-		t.Fatal(err)
-	}
-	encoded, _ := json.Marshal(logs)
-	for _, secret := range []string{permanent.Token, reset.Token, legacyReset.Token, "simcp_"} {
-		if strings.Contains(string(encoded), secret) {
-			t.Fatalf("audit recorded a credential value: %s", encoded)
+		if !strings.Contains(row.Outcome, "令牌#") {
+			t.Fatalf("audit row %s does not name the acted-on record: %q", action, row.Outcome)
 		}
+		if !strings.Contains(row.Outcome, fmt.Sprintf("绑定用户#%d", f.subjectID)) {
+			t.Fatalf("audit row %s does not name the bound user: %q", action, row.Outcome)
+		}
+		if !strings.HasPrefix(row.Params, "{") {
+			t.Fatalf("audit row %s does not record its parameters: %q", action, row.Params)
+		}
+	}
+	if !strings.Contains(byAction["mcp-token.extend"].Outcome, "→") || !strings.Contains(byAction["mcp-token.extend"].Outcome, "有效期") {
+		t.Fatalf("the extension audit must record the validity change: %q", byAction["mcp-token.extend"].Outcome)
+	}
+	if !strings.Contains(byAction["mcp-token.reset"].Outcome, "启用状态=") {
+		t.Fatalf("the reset audit must record the enabled state: %q", byAction["mcp-token.reset"].Outcome)
+	}
+	if !strings.Contains(byAction["mcp-token.create"].Params, fmt.Sprintf(`"userId":%d`, f.subjectID)) {
+		t.Fatalf("the creation audit must record the target user: %q", byAction["mcp-token.create"].Params)
+	}
+	joined := make([]string, 0, len(rows)*2)
+	for _, row := range rows {
+		joined = append(joined, row.Params, row.Outcome)
+	}
+	auditText := strings.Join(joined, "|")
+	for _, secret := range []string{permanent.Token, reset.Token, legacyReset.Token, "simcp_"} {
+		if strings.Contains(auditText, secret) {
+			t.Fatal("audit recorded a credential value")
+		}
+	}
+	// The recorded detail is readable through the administrator log API, so the
+	// audit is usable rather than merely stored.
+	detail := inventoryData[struct {
+		OperationType  string `json:"operationType"`
+		RequestParams  string `json:"requestParams"`
+		ResponseResult string `json:"responseResult"`
+	}](t, ok(http.MethodGet, fmt.Sprintf("/api/system/oper-log/%d", byAction["mcp-token.extend"].ID), ""), 200)
+	if detail.OperationType != "mcp-token.extend" || !strings.Contains(detail.ResponseResult, "有效期") || !strings.Contains(detail.RequestParams, "days") {
+		t.Fatalf("the operation log detail lost the recorded outcome: %+v", detail)
+	}
+
+	// The name filter is a literal substring search: an underscore or a percent
+	// sign in a name is a character, not a wildcard.
+	mustExec(t, db, "DELETE FROM mcp_token")
+	named := secret(http.MethodPost, "/api/system/mcp/tokens", fmt.Sprintf(`{"name":"机_备50%%折扣","userId":%d,"permanent":true}`, f.subjectID))
+	if named.Record.Name != "机_备50%折扣" {
+		t.Fatalf("created name: %q", named.Record.Name)
+	}
+	if got := page("?keyword=机_备"); got.Total != 1 || len(got.Records) != 1 {
+		t.Fatalf("underscore search: %+v", got)
+	}
+	if got := page("?keyword=50%折扣"); got.Total != 1 {
+		t.Fatalf("percent search: %+v", got)
+	}
+	if got := page("?keyword=机X备"); got.Total != 0 {
+		t.Fatalf("a wildcard must not match a literal: %+v", got)
+	}
+	if got := page("?keyword=" + url.QueryEscape("备50")); got.Total != 1 {
+		t.Fatalf("plain substring search: %+v", got)
 	}
 }
 
@@ -446,6 +504,14 @@ func decodeTokenPage(t *testing.T, response *httptest.ResponseRecorder, method, 
 		t.Fatalf("%s %s -> %s", method, path, response.Body.String())
 	}
 	return inventoryData[tokenPage](t, response, 200)
+}
+
+// sameExpiry compares two optional instants by value.
+func sameExpiry(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
 }
 
 func envelopeCode(t *testing.T, response *httptest.ResponseRecorder) int {

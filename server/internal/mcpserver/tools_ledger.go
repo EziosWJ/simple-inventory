@@ -78,7 +78,7 @@ func (s Services) partnerEntries(ctx context.Context, raw json.RawMessage, maxPa
 		!enum(in.ReversalStatus, "", "EFFECTIVE", "REVERSED", "REVERSAL") {
 		return nil, 0, errInvalidArguments
 	}
-	from, to, _, err := businessRange(in.DateFrom, in.DateTo)
+	from, to, completion, err := businessRange(in.DateFrom, in.DateTo)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -96,10 +96,11 @@ func (s Services) partnerEntries(ctx context.Context, raw json.RawMessage, maxPa
 	}
 	records := entryViews(result.Records)
 	return map[string]any{
-		"timeZone":  toolTimeZone,
-		"timeBasis": "实际生效时刻，左闭右开 [dateFrom 00:00, dateTo 次日 00:00) Asia/Shanghai；记录同时返回原业务日期",
-		"queriedAt": nowISO(),
-		"semantics": ledgerSemantics,
+		"timeZone":       toolTimeZone,
+		"dateCompletion": completionNote(completion),
+		"timeBasis":      "实际生效时刻，左闭右开 [dateFrom 00:00, dateTo 次日 00:00) Asia/Shanghai；记录同时返回原业务日期",
+		"queriedAt":      nowISO(),
+		"semantics":      ledgerSemantics,
 		"filtersApplied": map[string]any{
 			"dateFrom": from, "dateTo": to, "partnerId": in.PartnerID, "partnerKeyword": in.PartnerKeyword,
 			"documentNo": in.DocumentNo, "direction": in.Direction, "category": in.Category, "reversalStatus": in.ReversalStatus,
@@ -122,7 +123,7 @@ func (s Services) partnerStatement(ctx context.Context, raw json.RawMessage, max
 	if in.PartnerID < 1 || in.PartnerID > 9007199254740991 || !enum(in.Direction, "", "CUSTOMER", "SUPPLIER") {
 		return nil, 0, errInvalidArguments
 	}
-	from, to, _, err := businessRange(in.DateFrom, in.DateTo)
+	from, to, completion, err := businessRange(in.DateFrom, in.DateTo)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -166,9 +167,10 @@ func (s Services) partnerStatement(ctx context.Context, raw json.RawMessage, max
 		}
 	}
 	return map[string]any{
-		"timeZone":  toolTimeZone,
-		"timeBasis": "实际生效时刻，左闭右开 [dateFrom 00:00, dateTo 次日 00:00) Asia/Shanghai；对账行同时返回原业务日期",
-		"queriedAt": nowISO(),
+		"timeZone":       toolTimeZone,
+		"dateCompletion": completionNote(completion),
+		"timeBasis":      "实际生效时刻，左闭右开 [dateFrom 00:00, dateTo 次日 00:00) Asia/Shanghai；对账行同时返回原业务日期",
+		"queriedAt":      nowISO(),
 		"semantics": ledgerSemantics + "期初、期间增加／减少、净变化与期末来自同一业务口径；合计覆盖完整期间，不是当前页；" +
 			"余额不代表某张单据未结金额。客户正余额为客户欠经营者，供应商正余额为经营者欠供应商，两方向不自动抵扣。",
 		"filtersApplied": map[string]any{"partnerId": in.PartnerID, "direction": in.Direction, "dateFrom": from, "dateTo": to},

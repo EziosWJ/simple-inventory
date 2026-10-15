@@ -76,7 +76,7 @@ func (s Services) purchaseItems(ctx context.Context, raw json.RawMessage, maxPag
 	if (in.PartnerID > 0 && in.PartnerKeyword != "") || (in.ProductID > 0 && in.ProductKeyword != "") {
 		return nil, 0, errInvalidArguments
 	}
-	from, to, _, err := businessRange(in.DateFrom, in.DateTo)
+	from, to, completion, err := businessRange(in.DateFrom, in.DateTo)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -110,9 +110,10 @@ func (s Services) purchaseItems(ctx context.Context, raw json.RawMessage, maxPag
 	}
 	amounts, quantities := purchaseAmounts(result.Summary)
 	return map[string]any{
-		"timeZone":  toolTimeZone,
-		"timeBasis": "采购业务日期，起止日均含",
-		"queriedAt": nowISO(),
+		"timeZone":       toolTimeZone,
+		"timeBasis":      "采购业务日期，起止日均含",
+		"dateCompletion": completionNote(completion),
+		"queriedAt":      nowISO(),
 		"semantics": "每行 itemCount 统计的是明细行数，不是单据张数；数量按商品与计量单位分别表达，不混加不同商品。" +
 			"原始数量金额、截至当前仍有效的采购退货与净数量／净额只对已过账行成立，不适用时返回 null 而不是 0。" +
 			"summary 覆盖完整筛选范围并按状态分别汇总，不是当前页。",

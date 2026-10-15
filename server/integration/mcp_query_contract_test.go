@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -267,6 +268,35 @@ func adminData[T any](t *testing.T, f *mcpFixture, method, path, body string) T 
 	return inventoryData[T](t, response, 200)
 }
 
+// runningBalanceHolds checks the ledger invariant the business layer enforces:
+// every row's balance is the previous balance plus its signed amount.
+func runningBalanceHolds(before, amount, after string) bool {
+	b, ok1 := moneyCents(before)
+	a, ok2 := moneyCents(amount)
+	after2, ok3 := moneyCents(after)
+	return ok1 && ok2 && ok3 && b+a == after2
+}
+
+func moneyCents(value string) (int64, bool) {
+	sign := int64(1)
+	if strings.HasPrefix(value, "-") {
+		sign, value = -1, value[1:]
+	}
+	whole, fraction, found := strings.Cut(value, ".")
+	if !found || len(fraction) != 2 {
+		return 0, false
+	}
+	units, err := strconv.ParseInt(whole, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	cents, err := strconv.ParseInt(fraction, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return sign * (units*100 + cents), true
+}
+
 func callToolData[T any](t *testing.T, ctx context.Context, session *mcp.ClientSession, name string, args any) T {
 	t.Helper()
 	var out T
@@ -376,7 +406,8 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 		id, _ := newTrade(kind, status, businessDate, partner, "", items)
 		return id
 	}
-	salePosted, saleDocumentNo := newTrade("sales", "POSTED", "2026-09-10", customer, "", line(goods, "GOODS", "台", "10", "100.00", "行备注甲"))
+	salePosted, saleDocumentNo := newTrade("sales", "POSTED", "2026-09-10", customer, `"remark":"整单备注",`, line(goods, "GOODS", "台", "10", "100.00", "行备注甲"))
+	saleCancelledDraft, _ := newTrade("sales", "CANCELLED", "2026-09-17", customer, "", line(goods, "GOODS", "台", "3", "100.00", ""))
 	saleDraft, draftDocumentNo := newTrade("sales", "DRAFT", "2026-09-15", customer, "", line(goods, "GOODS", "台", "2", "100.00", ""))
 	trade("sales", "CANCELLED", "2026-09-16", customer, line(service, "SERVICE", "次", "1", "50.00", ""))
 	// The September sale is returned in October: the later return is still
@@ -433,8 +464,21 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	}
 
 	stock := callToolData[mcpInventoryResult](t, ctx, session, "get_inventory_balances", map[string]any{"productId": goods})
-	if stock.InventoryStatus != "GOODS" || stock.Quantity == nil || stock.Product.PurchasePrice == nil {
+	if stock.InventoryStatus != "GOODS" || stock.Product.PurchasePrice == nil {
 		t.Fatalf("inventory: %+v", stock)
+	}
+	// The quantity must agree with the business endpoint and carry the original
+	// precision, so a constant or a rounded value cannot pass.
+	restStock := adminData[struct {
+		Records []struct {
+			Quantity string `json:"quantity"`
+		} `json:"records"`
+	}](t, f, http.MethodGet, fmt.Sprintf("/api/v1/inventory/balances?productId=%d&stock=all", goods), "")
+	if len(restStock.Records) != 1 || restStock.Records[0].Quantity == "0" {
+		t.Fatalf("inventory fixture is empty: %+v", restStock)
+	}
+	if stock.Quantity == nil || *stock.Quantity != restStock.Records[0].Quantity {
+		t.Fatalf("inventory quantity %v != business endpoint %q", stock.Quantity, restStock.Records[0].Quantity)
 	}
 	serviceStock := callToolData[mcpInventoryResult](t, ctx, session, "get_inventory_balances", map[string]any{"productId": service})
 	if serviceStock.InventoryStatus != "NOT_APPLICABLE_SERVICE" || serviceStock.Quantity != nil {
@@ -480,10 +524,10 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	// All three statuses are reported separately, a draft never claims a net,
 	// and the summary covers the whole filter set rather than one page.
 	all := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo, "status": "ALL", "pageSize": 1})
-	if all.Total != 4 || len(all.Records) != 1 || all.PageSize != 1 || !all.HasMore || all.Filters.Status != "" {
+	if all.Total != 5 || len(all.Records) != 1 || all.PageSize != 1 || !all.HasMore || all.Filters.Status != "" {
 		t.Fatalf("explicit page size and ALL status: %+v", all)
 	}
-	for status, want := range map[string]int64{"DRAFT": 1, "POSTED": 2, "CANCELLED": 1} {
+	for status, want := range map[string]int64{"DRAFT": 1, "POSTED": 2, "CANCELLED": 2} {
 		amounts := findAmount(all.Summary.Amounts, status)
 		if amounts == nil || amounts.ItemCount != want {
 			t.Fatalf("summary must cover every matching status: %+v", all.Summary.Amounts)
@@ -525,6 +569,9 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	saleDocument := callToolData[mcpDocumentResult](t, ctx, session, "get_sale_document", map[string]any{"saleId": salePosted})
 	if saleDocument.Document.Status != "POSTED" || !saleDocument.Document.SnapshotAvailable || saleDocument.Document.TotalAmount != "1000.00" {
 		t.Fatalf("sale document: %+v", saleDocument.Document)
+	}
+	if saleDocument.Document.Remark == nil || *saleDocument.Document.Remark != "整单备注" {
+		t.Fatalf("sale document remark: %+v", saleDocument.Document)
 	}
 	if len(saleDocument.Items) != 1 || saleDocument.Items[0].Remark == nil || *saleDocument.Items[0].Remark != "行备注甲" {
 		t.Fatalf("sale line remark: %+v", saleDocument.Items)
@@ -573,6 +620,16 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	if draftDocument.Document.OwnerName != nil {
 		t.Fatalf("draft printer header must not pose as a snapshot: %+v", draftDocument.Document)
 	}
+	if draftDocument.Document.Remark != nil {
+		t.Fatalf("a document without a remark must report null: %+v", draftDocument.Document)
+	}
+	// A document cancelled before it was ever posted has no snapshot either:
+	// its customer name comes from the current archive, not from posting.
+	cancelledDraft := callToolData[mcpDocumentResult](t, ctx, session, "get_sale_document", map[string]any{"saleId": saleCancelledDraft})
+	if cancelledDraft.Document.Status != "CANCELLED" || cancelledDraft.Document.SnapshotAvailable ||
+		cancelledDraft.Document.PartnerName != "契约客户改名" || cancelledDraft.Document.OwnerName != nil {
+		t.Fatalf("a sale cancelled before posting must not claim a snapshot: %+v", cancelledDraft.Document)
+	}
 	if saleDocument.Document.OwnerName == nil {
 		t.Fatalf("posted printer header must be a frozen value: %+v", saleDocument.Document)
 	}
@@ -607,10 +664,29 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	if original.Description != "收到货款" || original.PaymentMethod == nil || *original.PaymentMethod != "BANK_TRANSFER" || original.TransactionNo == nil || *original.TransactionNo != "FLOW-1" {
 		t.Fatalf("funds details: %+v", original)
 	}
+	// Every row carries the running balance and the effective instant the
+	// period filter uses; the opening row keeps its original business date.
+	openingSeen := false
 	for _, record := range entries.Records {
-		if record.EntryType == "OPENING" && record.BusinessDate != "2026-09-01" {
-			t.Fatalf("business date must survive beside the effective instant: %+v", record)
+		if !runningBalanceHolds(record.BalanceBefore, record.Amount, record.BalanceAfter) {
+			t.Fatalf("running balance is inconsistent: %+v", record)
 		}
+		effective, err := time.Parse(time.RFC3339Nano, record.EffectiveAt)
+		if err != nil {
+			t.Fatalf("effective instant %q is not a timestamp: %v", record.EffectiveAt, err)
+		}
+		if day := effective.In(shanghaiZone).Format("2006-01-02"); day < monthFrom || day > monthTo {
+			t.Fatalf("effective instant %s falls outside the requested month %s..%s", record.EffectiveAt, monthFrom, monthTo)
+		}
+		if record.EntryType == "OPENING" {
+			openingSeen = true
+			if record.BusinessDate != "2026-09-01" {
+				t.Fatalf("the opening row lost its business date: %+v", record)
+			}
+		}
+	}
+	if !openingSeen {
+		t.Fatal("the opening row is missing from the current month")
 	}
 	settlements := callToolData[mcpEntryQuery](t, ctx, session, "query_partner_entries", map[string]any{"partnerId": customer, "category": "SETTLEMENT"})
 	if settlements.Total != 2 {

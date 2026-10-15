@@ -393,7 +393,7 @@ func businessRange(dateFrom, dateTo string) (string, string, string, error) {
 			return "", "", "", err
 		}
 		start := time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, shanghai)
-		completion = "dateFrom completed to the first day of the dateTo month"
+		completion = "dateFrom 补齐为该月首日"
 		return start.Format(toolDateLayout), end.Format(toolDateLayout), completion, nil
 	case dateTo == "":
 		start, err := parseToolDate(dateFrom)
@@ -401,7 +401,7 @@ func businessRange(dateFrom, dateTo string) (string, string, string, error) {
 			return "", "", "", err
 		}
 		end := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, shanghai).AddDate(0, 1, -1)
-		completion = "dateTo completed to the last day of the dateFrom month"
+		completion = "dateTo 补齐为该月最后一日"
 		return start.Format(toolDateLayout), end.Format(toolDateLayout), completion, nil
 	}
 	start, err := parseToolDate(dateFrom)
@@ -454,6 +454,19 @@ var toolDescriptions = map[string]string{
 }
 
 func invalid(e error) bool { return errors.Is(e, errInvalidArguments) }
+
+// completionNote states exactly which end of a partial range the tool filled
+// in and why, so the applied period is never a silent guess.
+func completionNote(completion string) any {
+	switch completion {
+	case "":
+		return nil
+	case "default-current-month":
+		return "未给日期，按 Asia/Shanghai 本月月初至月末处理"
+	default:
+		return "只给了一端日期，已补齐另一端：" + completion
+	}
+}
 
 func nowISO() string { return time.Now().UTC().Format(time.RFC3339) }
 

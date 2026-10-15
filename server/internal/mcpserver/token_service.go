@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -112,7 +113,7 @@ func (s *TokenService) Create(ctx context.Context, meta audit.Metadata, in Token
 	if err != nil {
 		return TokenSecret{}, err
 	}
-	token, plaintext, err := s.store.Create(ctx, CreateOptions{UserID: in.UserID, Name: in.Name, ExpiresAt: expires}, event(meta, "mcp-token.create", "创建 MCP 令牌"))
+	token, plaintext, err := s.store.Create(ctx, CreateOptions{UserID: in.UserID, Name: in.Name, ExpiresAt: expires}, event(meta, "mcp-token.create"))
 	if err != nil {
 		return TokenSecret{}, err
 	}
@@ -135,7 +136,7 @@ func (s *TokenService) Reveal(ctx context.Context, meta audit.Metadata, id int64
 	if err != nil {
 		return TokenSecret{}, err
 	}
-	if err := s.store.Record(ctx, audit.Event{Action: "mcp-token.reveal", Resource: "mcp-token", ResourceID: id, Summary: "查看 MCP 令牌原值", Metadata: meta}); err != nil {
+	if err := s.store.Record(ctx, audit.Event{Action: "mcp-token.reveal", Resource: "mcp-token", ResourceID: id, Summary: fmt.Sprintf("查看令牌#%d（绑定用户#%d 名称=%s）原值", id, view.UserID, view.Name), Params: "{}", Metadata: meta}); err != nil {
 		return TokenSecret{}, err
 	}
 	return TokenSecret{Token: plaintext, Record: view, Permanent: view.Permanent, ExpiresAt: view.ExpiresAt}, nil
@@ -156,7 +157,7 @@ func (s *TokenService) Extend(ctx context.Context, meta audit.Metadata, id int64
 	if !in.Permanent && (in.Days < 1 || in.Days > maxTokenDays) {
 		return TokenView{}, ErrInvalid
 	}
-	if _, err := s.store.Extend(ctx, id, in.Days, in.Permanent, event(meta, "mcp-token.extend", "延期 MCP 令牌")); err != nil {
+	if _, err := s.store.Extend(ctx, id, in.Days, in.Permanent, event(meta, "mcp-token.extend")); err != nil {
 		return TokenView{}, err
 	}
 	return s.store.View(ctx, id)
@@ -170,7 +171,7 @@ func (s *TokenService) SetEnabled(ctx context.Context, meta audit.Metadata, id i
 	if id <= 0 || in.Enabled == nil {
 		return TokenView{}, ErrInvalid
 	}
-	if _, err := s.store.SetEnabled(ctx, id, *in.Enabled, event(meta, "mcp-token.status", "修改 MCP 令牌状态")); err != nil {
+	if _, err := s.store.SetEnabled(ctx, id, *in.Enabled, event(meta, "mcp-token.status")); err != nil {
 		return TokenView{}, err
 	}
 	return s.store.View(ctx, id)
@@ -185,7 +186,7 @@ func (s *TokenService) Reset(ctx context.Context, meta audit.Metadata, id int64)
 	if id <= 0 {
 		return TokenSecret{}, ErrInvalid
 	}
-	token, plaintext, err := s.store.Reset(ctx, id, event(meta, "mcp-token.reset", "重置 MCP 令牌"))
+	token, plaintext, err := s.store.Reset(ctx, id, event(meta, "mcp-token.reset"))
 	if err != nil {
 		return TokenSecret{}, err
 	}
@@ -200,8 +201,10 @@ func (s *TokenService) secret(ctx context.Context, token Token, plaintext string
 	return TokenSecret{Token: plaintext, Record: view, Permanent: view.Permanent, ExpiresAt: view.ExpiresAt}, nil
 }
 
-func event(meta audit.Metadata, action, summary string) audit.Event {
-	return audit.Event{Action: action, Resource: "mcp-token", Summary: summary, Metadata: meta}
+// The token repository fills the summary because it knows the before and after
+// values; the service only names the action.
+func event(meta audit.Metadata, action string) audit.Event {
+	return audit.Event{Action: action, Resource: "mcp-token", Metadata: meta}
 }
 
 func normalizeTokenPage(page, pageSize int) (int, int) {

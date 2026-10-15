@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/EziosWJ/simple-inventory/server/internal/audit"
 	"github.com/EziosWJ/simple-inventory/server/internal/auth"
+	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
 	"gorm.io/gorm"
 )
 
@@ -122,6 +124,40 @@ type CreateOptions struct {
 
 func digest(raw string) string { sum := sha256.Sum256([]byte(raw)); return hex.EncodeToString(sum[:]) }
 
+// describeExpiry renders one validity for an audit summary; permanent is the
+// absence of an expiry rather than a sentinel.
+func describeExpiry(value *time.Time) string {
+	if value == nil {
+		return "永久"
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func describeState(disabled bool) string {
+	if disabled {
+		return "停用"
+	}
+	return "启用"
+}
+
+// paramsJSON renders the action's parameters for the audit record. Only the
+// administrator's own input is stored here, never a credential.
+func paramsJSON(values map[string]any) string {
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
+}
+
+// The token repository writes the audit summary itself: it is the only place
+// that knows both the previous and the new validity or enabled state, and
+// recording the change there keeps it in the same transaction as the change.
+// The original value and the ciphertext never appear in a summary.
+func setSummary(event *audit.Event, format string, args ...any) {
+	event.Summary = fmt.Sprintf(format, args...)
+}
+
 func validLabel(s string) bool {
 	return strings.TrimSpace(s) != "" && utf8.RuneCountInString(s) <= 100 && !strings.ContainsAny(s, "\r\n\x00")
 }
@@ -195,6 +231,8 @@ func (r *Repository) Create(ctx context.Context, opts CreateOptions, e audit.Eve
 			return err
 		}
 		e.ResourceID = t.ID
+		e.Params = paramsJSON(map[string]any{"name": t.Name, "userId": t.UserID, "expiresAt": describeExpiry(t.ExpiresAt)})
+		setSummary(&e, "创建令牌#%d（绑定用户#%d 名称=%s）有效期=%s", t.ID, t.UserID, t.Name, describeExpiry(t.ExpiresAt))
 		return audit.RecordOn(ctx, tx, e)
 	})
 	if err != nil {
@@ -227,9 +265,7 @@ func (r *Repository) tokenScope(ctx context.Context, q TokenQuery) *gorm.DB {
 	if q.UserID > 0 {
 		query = query.Where("t.user_id=?", q.UserID)
 	}
-	if keyword := strings.TrimSpace(q.Keyword); keyword != "" {
-		query = query.Where("t.client_id LIKE ?", "%"+strings.NewReplacer("%", "!%", "_", "!_").Replace(keyword)+"%")
-	}
+	query = platformdatabase.LiteralContains(query, q.Keyword, "t.client_id")
 	now := time.Now().UTC()
 	switch q.State {
 	case "ENABLED":
@@ -336,6 +372,8 @@ func (r *Repository) Reset(ctx context.Context, id int64, e audit.Event) (Token,
 		existing.Digest, existing.SecretVersion, existing.SecretCipher = sum, &version, cipher
 		t = existing
 		e.ResourceID = id
+		e.Params = paramsJSON(map[string]any{"name": existing.Name, "userId": existing.UserID})
+		setSummary(&e, "重置令牌#%d（绑定用户#%d 名称=%s）有效期=%s 启用状态=%s", id, existing.UserID, existing.Name, describeExpiry(existing.ExpiresAt), describeState(existing.DisabledAt != nil))
 		return audit.RecordOn(ctx, tx, e)
 	})
 	if err != nil {
@@ -367,9 +405,12 @@ func (r *Repository) Extend(ctx context.Context, id int64, days int, permanent b
 		if err := tx.Model(&Token{}).Where("id=?", id).Update("expires_at", expires).Error; err != nil {
 			return err
 		}
+		previous := existing.ExpiresAt
 		existing.ExpiresAt = expires
 		t = existing
 		e.ResourceID = id
+		e.Params = paramsJSON(map[string]any{"days": days, "permanent": permanent})
+		setSummary(&e, "延期令牌#%d（绑定用户#%d 名称=%s）有效期 %s → %s", id, existing.UserID, existing.Name, describeExpiry(previous), describeExpiry(expires))
 		return audit.RecordOn(ctx, tx, e)
 	})
 	if err != nil {
@@ -401,6 +442,12 @@ func (r *Repository) SetEnabled(ctx context.Context, id int64, enabled bool, e a
 		existing.DisabledAt = disabled
 		t = existing
 		e.ResourceID = id
+		e.Params = paramsJSON(map[string]any{"enabled": enabled})
+		verb := "停用"
+		if enabled {
+			verb = "启用"
+		}
+		setSummary(&e, "%s令牌#%d（绑定用户#%d 名称=%s）有效期=%s", verb, id, existing.UserID, existing.Name, describeExpiry(existing.ExpiresAt))
 		return audit.RecordOn(ctx, tx, e)
 	})
 	if err != nil {
