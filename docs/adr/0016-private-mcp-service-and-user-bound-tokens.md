@@ -9,3 +9,6 @@ status: accepted
 MCP 凭证与网页登录会话分开，绑定实际系统用户，工具权限取凭证 scope 与该用户当前有效业务权限的交集。这样可以单独撤销某个客户端访问，同时立即继承账号停用和业务撤权；代价是新增凭证持久化、生命周期管理及双库迁移，不直接复用已有 Web JWT。首批仅开放只读工具，身份绑定父亲账号；本地试用直接复用现有 SQLite 开发库，支持本机与手机局域网连接。
 
 这不改变现有 REST 的授权行为，也不代表原 REST 已具备全面细粒度鉴权；MCP 独立执行服务端授权。业务写入与审计继续遵循 [ADR-0006](0006-atomic-operation-audit.md)。实现范围及验收以 [MCP V1 规格](../mcp-server-v1-design.md) 为准。
+
+
+后续方案说明：[ADR-0017](0017-recoverable-mcp-tokens-and-inherited-query-permissions.md) 已确认更新凭证可恢复保存与逐凭证scope策略；进程内Service复用和系统用户绑定继续适用。新增功能尚待实施，见[后续规格](../mcp-next-spec.md)。
