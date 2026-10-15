@@ -58,6 +58,7 @@ const MENU_ICON_MAP: Record<string, LucideIcon> = {
   database: Database,
   permission: KeyRound,
   permissions: KeyRound,
+  "key-round": KeyRound,
   lock: LockKeyhole,
   link: Link,
   notice: Bell,

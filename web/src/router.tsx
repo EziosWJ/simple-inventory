@@ -23,6 +23,7 @@ import { SystemLoginLogsPage } from "@/pages/system/logs/login-logs";
 import { SystemOperLogsPage } from "@/pages/system/logs/oper-logs";
 import { SystemMenusPage } from "@/pages/system/menus";
 import { SystemRolesPage } from "@/pages/system/roles";
+import { McpTokensPage } from "@/pages/system/mcp-tokens";
 import { UsersPage } from "@/pages/system/users";
 import { NotificationsPage } from "@/pages/notifications";
 import { NotificationManagePage } from "@/pages/system/notifications";
@@ -156,6 +157,10 @@ export const router = createBrowserRouter([
       {
         path: "system/role",
         element: <SystemRolesPage />,
+      },
+      {
+        path: "system/mcp-token",
+        element: <McpTokensPage />,
       },
       {
         path: "system/menu",

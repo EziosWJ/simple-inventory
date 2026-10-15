@@ -160,6 +160,7 @@ export const staticRouteTitleMap: Record<string, string> = {
   "/system/dict": "字典管理",
   "/system/config": "配置管理",
   "/system/role": "角色管理",
+  "/system/mcp-token": "MCP令牌",
   "/system/menu": "菜单管理",
   "/system/login-log": "登录日志",
   "/system/oper-log": "操作日志",
