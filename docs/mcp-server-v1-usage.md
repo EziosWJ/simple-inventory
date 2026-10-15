@@ -41,6 +41,10 @@ Cherry Studio 或支持 MCP 的手机客户端填写：
 
 连接后可用四个工具：找商品、找客户／供应商、按商品 ID 查库存、按单位 ID 查欠款与待退款。同名候选需要明确选择；服务没有库存；客户／供应商两个方向余额分别表达、不自动抵扣。
 
+## HTTPS 域名／Cloudflare Tunnel
+
+Tunnel 服务地址填写 `http://localhost:8300`，MCP 客户端使用 `https://你的域名/mcp`，请求头仍为 `Authorization: Bearer <token>`。本服务允许代理添加的转发头，并支持代理从本机连接时保留外部 Host，无需在 Tunnel 中伪装 localhost Host。
+
 ## 令牌管理与其他启动方式
 
 在 `server/` 中可列举和吊销 SQLite 凭证：

@@ -84,7 +84,7 @@ func assertMCP(t *testing.T, db *database.Database, sqlite bool) {
 	deps.Receivable = receivable.NewService(receivable.NewRepository(db.GORM))
 	// Bind a real loopback socket first so exact authority is known.
 	server := httptest.NewUnstartedServer(nil)
-	cfg.MCP.AllowedHosts = []string{server.Listener.Addr().String()}
+	cfg.MCP.AllowedHosts = []string{server.Listener.Addr().String(), "mcp.example.test"}
 	router, e := app.Build(cfg, db, deps)
 	must(e)
 	server.Config.Handler = router
@@ -146,9 +146,17 @@ func assertMCP(t *testing.T, db *database.Database, sqlite bool) {
 	for _, token := range []string{"", "bad", strings.Repeat("a", 70)} {
 		checkHTTP(401, token, list, nil)
 	}
-	for _, headers := range []map[string]string{{"Host": "evil.test"}, {"Origin": "https://evil.test"}, {"X-Forwarded-For": "127.0.0.1"}, {"Forwarded": "for=127.0.0.1"}} {
+	for _, headers := range []map[string]string{{"Host": "evil.test"}, {"Origin": "https://evil.test"}} {
 		checkHTTP(403, raw, list, headers)
 	}
+	// Cloudflare Tunnel / reverse proxies append these headers on normal requests.
+	proxyHeaders := map[string]string{"X-Forwarded-For": "192.0.2.12", "X-Forwarded-Host": "mcp.example.test", "X-Forwarded-Proto": "https", "Forwarded": "for=192.0.2.12;proto=https", "X-Real-IP": "192.0.2.12"}
+	checkHTTP(200, raw, list, proxyHeaders)
+	proxyHeaders["Host"] = "mcp.example.test"
+	checkHTTP(200, raw, list, proxyHeaders)
+	checkHTTP(401, "", list, proxyHeaders)
+	proxyHeaders["Host"] = "evil.test"
+	checkHTTP(403, raw, list, proxyHeaders)
 	checkHTTP(413, raw, strings.Repeat("x", 65537), nil)
 	// Cherry v1.6.0 uses initialize and merges custom headers into fetch requests.
 	for _, version := range []string{"2025-03-26", "2025-06-18", "2025-11-25"} {

@@ -79,13 +79,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", 403)
 		return
 	}
-	// Forwarded headers never determine the peer or authority.
-	for _, key := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-IP"} {
-		if r.Header.Get(key) != "" {
-			http.Error(w, "forbidden", 403)
-			return
-		}
-	}
+	// Reverse proxies may add forwarding headers; authorization and Host checks
+	// use the actual request, never values supplied through those headers.
 	origins := r.Header.Values("Origin")
 	if len(origins) > 1 || (len(origins) == 1 && !slices.Contains(h.cfg.AllowedOrigins, origins[0])) {
 		http.Error(w, "forbidden", 403)
@@ -224,7 +219,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return toolResult(value, false), nil
 		})
 	}
-	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
+	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{
+		Stateless: true, JSONResponse: true,
+		// Host admission is already enforced above, including the explicit development
+		// wildcard. A tunnel may connect over loopback while preserving a public Host.
+		DisableLocalhostProtection: true,
+	})
 	recorder := &boundedResponse{headers: make(http.Header), limit: h.cfg.MaxOutputBytes, code: 200}
 	done := make(chan struct{})
 	launched = true

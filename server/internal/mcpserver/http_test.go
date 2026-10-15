@@ -58,7 +58,7 @@ func TestBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		headers map[string]string
 		status  int
-	}{{map[string]string{"RemoteAddr": "192.168.1.20:54321"}, 200}, {map[string]string{"RemoteAddr": "bad"}, 403}, {map[string]string{"Host": "localhost.evil:18300"}, 403}, {map[string]string{"Origin": "app://evil"}, 403}, {map[string]string{"Origin": "null"}, 403}, {map[string]string{"X-Forwarded-Host": "localhost:18300"}, 403}, {map[string]string{"X-Real-IP": "127.0.0.1"}, 403}, {map[string]string{"Origin": "app://cherry"}, 200}} {
+	}{{map[string]string{"RemoteAddr": "192.168.1.20:54321"}, 200}, {map[string]string{"RemoteAddr": "bad"}, 403}, {map[string]string{"Host": "localhost.evil:18300"}, 403}, {map[string]string{"Origin": "app://evil"}, 403}, {map[string]string{"Origin": "null"}, 403}, {map[string]string{"X-Forwarded-Host": "localhost:18300"}, 200}, {map[string]string{"X-Real-IP": "127.0.0.1"}, 200}, {map[string]string{"Origin": "app://cherry"}, 200}} {
 		w := req(h, "POST", listBody, tc.headers)
 		if w.Code != tc.status {
 			t.Fatalf("%v: %d %s", tc.headers, w.Code, w.Body.String())
@@ -181,8 +181,8 @@ func TestLANHostStillRequiresCredentials(t *testing.T) {
 		t.Fatal("LAN auth bypass", w.Code)
 	}
 	headers["X-Forwarded-For"] = "127.0.0.1"
-	if w := req(h, "POST", listBody, headers); w.Code != 403 {
-		t.Fatal("forwarding header accepted", w.Code)
+	if w := req(h, "POST", listBody, headers); w.Code != 401 {
+		t.Fatal("forwarding header changed authentication result", w.Code)
 	}
 }
 
@@ -198,5 +198,52 @@ func TestDevelopmentWildcardHost(t *testing.T) {
 	h = NewHandler(cfg, fakeAuth{fail: ErrUnauthorized}, Services{}, logger)
 	if w := req(h, "POST", listBody, headers); w.Code != 401 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestReverseProxyForwardingHeaders(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedHosts = []string{"*"}
+	headers := map[string]string{"Host": "mcp.example.test", "RemoteAddr": "127.0.0.1:34567", "Forwarded": "for=192.0.2.12;proto=https;host=mcp.example.test", "X-Forwarded-For": "192.0.2.12", "X-Forwarded-Host": "mcp.example.test", "X-Forwarded-Proto": "https", "X-Real-IP": "192.0.2.12"}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandler(cfg, fakeAuth{}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 200 {
+		t.Fatalf("proxy request rejected: HTTP %d %s", w.Code, w.Body.String())
+	}
+	h = NewHandler(cfg, fakeAuth{fail: ErrUnauthorized}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 401 {
+		t.Fatalf("proxy must still authenticate: HTTP %d", w.Code)
+	}
+	cfg.AllowedHosts = []string{"localhost:18300"}
+	h = NewHandler(cfg, fakeAuth{}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 403 {
+		t.Fatal("forwarded authority bypassed actual Host")
+	}
+}
+
+func TestTunnelHostThroughLoopbackOrigin(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedHosts = []string{"*"}
+	handler := NewHandler(cfg, fakeAuth{}, Services{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	r, e := http.NewRequest("POST", server.URL+"/mcp", strings.NewReader(listBody))
+	if e != nil {
+		t.Fatal(e)
+	}
+	r.Host = "mcp.example.test"
+	r.Header.Set("Authorization", "Bearer test")
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	r.Header.Set("MCP-Protocol-Version", "2025-06-18")
+	r.Header.Set("X-Forwarded-For", "192.0.2.12")
+	res, e := server.Client().Do(r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != 200 {
+		t.Fatalf("loopback tunnel origin rejected external Host: HTTP %d %s", res.StatusCode, body)
 	}
 }

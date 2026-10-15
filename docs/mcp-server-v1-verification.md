@@ -25,3 +25,12 @@
 - Cherry Studio与手机实机：由用户独立完成，未将SDK调用标记为客户端实机验收。
 - 未改REST合同，不运行Swagger生成；未改前端，不运行前端lint/build。
 - 本次没有数据库schema或业务行为变化，复用上述全量门禁，不重复运行全量双库检查。
+
+
+## Cloudflare Tunnel 兼容修复
+
+已复现并修复两个403：转发头被直接拒绝，以及SDK自动将“回环来源＋外部Host”判为无效。现在允许代理附加转发头，实际Host仍由应用配置校验；SDK不再重复强制localhost。令牌、当前账号权限、Origin与资源限制保持原行为。
+
+修复前 `TestReverseProxyForwardingHeaders` 返回403 forbidden；真实HTTP测试 `TestTunnelHostThroughLoopbackOrigin` 返回403 invalid Host。修复后两项通过，另在双库MCP HTTP契约加入外部域名与转发头成功、无凭证401、未允许Host403断言。
+
+本次不修改数据库或REST合同，复用全量数据库门禁。后端tests/vet、race（1.117秒）、SQLite MCP HTTP（0.590秒）、PostgreSQL MCP HTTP（5.910秒）、embedweb app/webui检查通过。用户已运行的开发API需要重启才能加载修复，公开域名端到端尚待新进程复测。
