@@ -46,7 +46,10 @@ jwt:
 			t.Fatal("invalid authority accepted", host)
 		}
 	}
-	cfg.MCP.AllowedHosts = []string{"192.168.1.10:18300"}
+	cfg.MCP.AllowedHosts = []string{"*"}
+	if e := cfg.Validate(); e != nil {
+		t.Fatal("development wildcard rejected", e)
+	}
 	cfg.HTTP.Address = "127.0.0.1:18300"
 	cfg.MCP.MaxConcurrent = 33
 	if cfg.Validate() == nil {

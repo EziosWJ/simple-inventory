@@ -81,13 +81,26 @@ tasks:
       - task --parallel api web
 
   dev:sqlite:
-    desc: 执行 SQLite 迁移并同时启动 SQLite API 和前端
+    desc: 执行 SQLite 迁移并启动前后端与 MCP（0.0.0.0:8300）
     env:
       APP_CONFIG_PROFILE: sqlite
+      APP_HTTP__ADDRESS: 0.0.0.0:8300
+      APP_FILE__STORAGE_ROOT: '{{.ROOT_DIR}}/server/.data/uploads'
+      APP_MCP__ENABLED: 'true'
+      APP_MCP__ALLOWED_HOSTS: '*'
     deps:
       - db:migrate:sqlite
     cmds:
       - task --parallel api:sqlite web
+
+  mcp:token:sqlite:
+    desc: 为本地 SQLite 用户签发 MCP 令牌（USER_ID 默认1）
+    dir: server
+    env:
+      APP_CONFIG_PROFILE: sqlite
+      SI_MCP_USER_ID: '{{.USER_ID | default "1"}}'
+    cmds:
+      - go run ./cmd/mcp-token issue --user-id "$SI_MCP_USER_ID" --client local-mcp --actor local-dev --scopes search_products,search_partners,get_inventory_balances,get_partner_balances
 
   backend:test:
     desc: 运行后端单元测试

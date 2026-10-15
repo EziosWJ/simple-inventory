@@ -185,3 +185,18 @@ func TestLANHostStillRequiresCredentials(t *testing.T) {
 		t.Fatal("forwarding header accepted", w.Code)
 	}
 }
+
+func TestDevelopmentWildcardHost(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedHosts = []string{"*"}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	headers := map[string]string{"Host": "192.168.1.50:8300", "RemoteAddr": "192.168.1.20:1234"}
+	h := NewHandler(cfg, fakeAuth{}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	h = NewHandler(cfg, fakeAuth{fail: ErrUnauthorized}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 401 {
+		t.Fatal(w.Code)
+	}
+}

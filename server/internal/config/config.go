@@ -114,6 +114,9 @@ func (c Config) Validate() error {
 			errs = append(errs, errors.New("invalid MCP limits"))
 		}
 		for _, h := range m.AllowedHosts {
+			if h == "*" {
+				continue
+			}
 			host, port, err := net.SplitHostPort(h)
 			n, portErr := strconv.Atoi(port)
 			if err != nil || portErr != nil || n < 1 || n > 65535 || host == "" || strings.ContainsAny(host, "* /\\?#@\t\r\n") || (strings.Contains(host, ":") && net.ParseIP(host) == nil) {

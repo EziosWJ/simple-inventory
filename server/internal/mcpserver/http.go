@@ -75,7 +75,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	host, _, e := net.SplitHostPort(r.RemoteAddr)
 	ip := net.ParseIP(host)
-	if e != nil || ip == nil || !slices.Contains(h.cfg.AllowedHosts, r.Host) || r.URL.RawQuery != "" {
+	if e != nil || ip == nil || (!slices.Contains(h.cfg.AllowedHosts, "*") && !slices.Contains(h.cfg.AllowedHosts, r.Host)) || r.URL.RawQuery != "" {
 		http.Error(w, "forbidden", 403)
 		return
 	}

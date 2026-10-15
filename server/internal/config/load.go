@@ -141,7 +141,7 @@ func splitList(value string) []string {
 func defaultValues() map[string]interface{} {
 	return map[string]interface{}{
 		"mcp.enabled":                            false,
-		"mcp.allowed_hosts":                      []string{"127.0.0.1:18300", "localhost:18300", "[::1]:18300"},
+		"mcp.allowed_hosts":                      []string{"127.0.0.1:8300", "localhost:8300", "[::1]:8300"},
 		"mcp.allowed_origins":                    []string{},
 		"mcp.max_body_bytes":                     65536,
 		"mcp.max_output_bytes":                   131072,
