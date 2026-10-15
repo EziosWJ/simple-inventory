@@ -131,6 +131,7 @@ type mcpItemQuery struct {
 }
 
 type mcpDocument struct {
+	OwnerName         *string `json:"ownerName"`
 	Remark            *string `json:"remark"`
 	DeliveryContact   *string `json:"deliveryContact"`
 	DeliveryAddress   *string `json:"deliveryAddress"`
@@ -535,6 +536,14 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	draftDocument := callToolData[mcpDocumentResult](t, ctx, session, "get_sale_document", map[string]any{"saleId": saleDraft})
 	if draftDocument.Document.SnapshotAvailable || draftDocument.Document.PartnerName != "契约客户改名" {
 		t.Fatalf("draft must fall back to the current archive: %+v", draftDocument.Document)
+	}
+	// The printer header has no fallback for a draft, so it must read as
+	// unavailable rather than as an empty frozen value.
+	if draftDocument.Document.OwnerName != nil {
+		t.Fatalf("draft printer header must not pose as a snapshot: %+v", draftDocument.Document)
+	}
+	if saleDocument.Document.OwnerName == nil {
+		t.Fatalf("posted printer header must be a frozen value: %+v", saleDocument.Document)
 	}
 
 	// Ledger queries use the effective instant and keep reversal pairs.

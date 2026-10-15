@@ -129,18 +129,28 @@ func (s Services) saleDocument(ctx context.Context, raw json.RawMessage) (map[st
 			"remark": line.Remark,
 		})
 	}
-	// A posted or cancelled sale carries the frozen customer name and delivery
-	// details; a draft has not frozen them yet and falls back to current data.
+	// A posted or cancelled sale carries the frozen customer name, delivery
+	// details and printer header. A draft has frozen nothing yet: the customer
+	// name and delivery details fall back to the current archive, while the
+	// printer header has no fallback at all and must not be reported as an
+	// empty snapshot.
 	frozen := d.Status != "DRAFT"
+	owner := func(value string) any {
+		if !frozen {
+			return nil
+		}
+		return value
+	}
 	return map[string]any{
 		"timeZone": toolTimeZone,
-		"semantics": "已过账或已取消单据的 customerName 与送货资料是过账时冻结的快照，含当时的空值；snapshotAvailable=false 表示草稿尚未冻结，" +
-			"partnerName 与送货资料回退当前档案。商品编码、名称、型号、规格与单位是明细快照。当前商品参考价与往来银行资料不会写入本响应。",
+		"semantics": "已过账或已取消单据的 customerName、送货资料与 owner* 是过账时冻结的快照，含当时的空值；snapshotAvailable=false 表示草稿尚未冻结，" +
+			"此时 customerName 与送货资料回退当前档案，owner* 因为没有回退来源而返回 null（不是「当时为空」）。" +
+			"商品编码、名称、型号、规格与单位是明细快照。当前商品参考价与往来银行资料不会写入本响应。",
 		"document": map[string]any{
 			"id": d.ID, "documentNo": d.DocumentNo, "partnerId": d.PartnerID, "partnerName": d.PartnerName,
 			"snapshotAvailable": frozen,
 			"deliveryContact":   d.DeliveryContact, "deliveryPhone": d.DeliveryPhone, "deliveryAddress": d.DeliveryAddress,
-			"ownerName": d.OwnerName, "ownerPhone": d.OwnerPhone, "ownerAddress": d.OwnerAddress,
+			"ownerName": owner(d.OwnerName), "ownerPhone": owner(d.OwnerPhone), "ownerAddress": owner(d.OwnerAddress),
 			"businessDate": d.BusinessDate, "status": d.Status, "version": d.Version,
 			"directDelivery": d.DirectDelivery, "directPurchaseId": d.DirectPurchaseID,
 			"postedBy": d.PostedBy, "postedByName": d.PostedByName, "postedAt": d.PostedAt,
