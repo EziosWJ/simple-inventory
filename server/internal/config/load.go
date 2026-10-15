@@ -115,7 +115,7 @@ func envKeyValue(key, value string) (string, interface{}) {
 	switch key {
 	case "env":
 		return key, strings.ToLower(strings.TrimSpace(value))
-	case "cors.allowed_origins", "cors.allowed_methods", "cors.allowed_headers", "cors.exposed_headers", "http.trusted_proxies":
+	case "mcp.allowed_hosts", "mcp.allowed_origins", "cors.allowed_origins", "cors.allowed_methods", "cors.allowed_headers", "cors.exposed_headers", "http.trusted_proxies":
 		return key, splitList(value)
 	default:
 		return key, value
@@ -140,6 +140,15 @@ func splitList(value string) []string {
 
 func defaultValues() map[string]interface{} {
 	return map[string]interface{}{
+		"mcp.enabled":                            false,
+		"mcp.allowed_hosts":                      []string{"127.0.0.1:8300", "localhost:8300", "[::1]:8300"},
+		"mcp.allowed_origins":                    []string{},
+		"mcp.max_body_bytes":                     65536,
+		"mcp.max_output_bytes":                   131072,
+		"mcp.timeout":                            "10s",
+		"mcp.requests_per_minute":                60,
+		"mcp.max_concurrent":                     4,
+		"mcp.max_page":                           1000,
 		"env":                                    EnvironmentDev,
 		"service.name":                           "simple-inventory-api",
 		"http.address":                           ":8080",

@@ -126,3 +126,7 @@ Handler → Service → Repository → GORM/database/sql → Database
 Schema 变更必须使用 Goose migration；API 进程不执行 `AutoMigrate()`。PostgreSQL 与 SQLite 的方言差异应限制在 migration、database 或 repository 层，不扩散到 Service 和 Handler。
 
 详细约定见 [CONTEXT.md](CONTEXT.md) 和 [docs/adr/](docs/adr/)。后端运行说明见 [server/README.md](server/README.md)。
+
+## 私有 MCP（默认关闭）
+
+运行 `task dev:sqlite` 即可在现有开发库上启用 MCP，地址为 `http://localhost:8300/mcp`，手机使用电脑局域网 IP。运行 `task mcp:token:sqlite` 获取连接令牌。详见[使用指南](docs/mcp-server-v1-usage.md)和[验证记录](docs/mcp-server-v1-verification.md)。

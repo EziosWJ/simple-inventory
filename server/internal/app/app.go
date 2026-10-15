@@ -4,7 +4,9 @@ package app
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/mcpserver"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformhttp "github.com/EziosWJ/simple-inventory/server/internal/platform/http"
@@ -37,6 +40,7 @@ import (
 // Core management services are required; notification routes are enabled when
 // the optional Notification service is supplied.
 type Dependencies struct {
+	MCP            mcpserver.Authenticator
 	Auth           *auth.Service
 	RBAC           *rbac.Service
 	Department     *dept.Service
@@ -81,6 +85,23 @@ func New(cfg config.Config, readiness platformhttp.ReadinessChecker, deps Depend
 	if err := router.SetTrustedProxies(cfg.HTTP.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure trusted proxies: %w", err)
 	}
+	if cfg.MCP.Enabled && (deps.MCP == nil || deps.Product == nil || deps.Partner == nil || deps.Inventory == nil || deps.Receivable == nil) {
+		return nil, fmt.Errorf("MCP dependencies are required")
+	}
+	mcpHandler := mcpserver.NewHandler(cfg.MCP, deps.MCP, mcpserver.Services{Product: deps.Product, Partner: deps.Partner, Inventory: deps.Inventory, Receivable: deps.Receivable}, logger)
+	// Intercept before shared CORS and embedded SPA fallback.
+	router.Use(func(c *gin.Context) {
+		if c.Request.URL.Path == "/mcp" || strings.HasPrefix(c.Request.URL.Path, "/mcp/") {
+			if c.Request.URL.Path != "/mcp" {
+				http.NotFound(c.Writer, c.Request)
+			} else {
+				mcpHandler.ServeHTTP(c.Writer, c.Request)
+			}
+			c.Abort()
+			return
+		}
+		c.Next()
+	})
 	router.Use(
 		platformhttp.RequestMetadata(),
 		platformhttp.RequestLogger(logger),
