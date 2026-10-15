@@ -1,6 +1,6 @@
 # Simple Inventory 私有 MCP Server V1 实施规格
 
-状态：2026-10-15 需求访谈已确认，四工具实现及自动验收见[实施验证记录](mcp-server-v1-verification.md)，使用方法见[使用与试用指南](mcp-server-v1-usage.md)；Cherry Studio 桌面实机待人工验收，生产保持关闭。本文由 [PR #91](https://github.com/EziosWJ/simple-inventory/pull/91) 的设计草案收敛为首批实施规格，该 PR 仅交付文档。决定来源见[讨论记录](mcp-server-plan.md)，架构取舍见 [ADR-0016](adr/0016-private-mcp-service-and-user-bound-tokens.md)。
+状态：2026-10-15 需求访谈已确认，四工具实现及自动验收见[实施验证记录](mcp-server-v1-verification.md)，使用方法见[使用与试用指南](mcp-usage.md)；Cherry Studio 桌面实机待人工验收，生产保持关闭。本文由 [PR #91](https://github.com/EziosWJ/simple-inventory/pull/91) 的设计草案收敛为首批实施规格，该 PR 仅交付文档。决定来源见[讨论记录](mcp-server-plan.md)，架构取舍见 [ADR-0016](adr/0016-private-mcp-service-and-user-bound-tokens.md)。
 
 ## 1. 目标与首批边界
 
