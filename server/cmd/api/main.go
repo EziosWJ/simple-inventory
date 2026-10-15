@@ -21,6 +21,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/mcpserver"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
@@ -118,6 +119,7 @@ func main() {
 	warehouseService := warehouse.NewService(warehouse.NewRepository(database.GORM))
 
 	application, err := app.New(*cfg, database, app.Dependencies{
+		MCP:            mcpserver.NewRepository(database.GORM),
 		Auth:           authService,
 		RBAC:           rbacService,
 		Department:     deptService,

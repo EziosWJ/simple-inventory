@@ -25,6 +25,8 @@ COPY server/ .
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/backup ./cmd/backup
 
+RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/mcp-token ./cmd/mcp-token
+
 FROM build AS api-build
 
 COPY --from=frontend /web/dist ./internal/webui/dist
@@ -45,6 +47,7 @@ FROM runtime AS release
 COPY --from=api-build --chown=app:app /out/api ./api
 COPY --from=build /out/backup ./backup
 COPY --from=build /out/migrate ./migrate
+COPY --from=build /out/mcp-token ./mcp-token
 COPY --chown=app:app server/migrations ./migrations
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]

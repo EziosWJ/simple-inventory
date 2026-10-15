@@ -169,6 +169,7 @@ tasks:
       - go build -tags=embedweb -trimpath -o ../bin/simple-inventory-api ./cmd/api
       - go build -trimpath -o ../bin/simple-inventory-migrate ./cmd/migrate
       - go build -trimpath -o ../bin/simple-inventory-backup ./cmd/backup
+      - go build -trimpath -o ../bin/simple-inventory-mcp-token ./cmd/mcp-token
 
   build:check:
     desc: 构建发布程序并检查嵌入前端资源的测试与代码
