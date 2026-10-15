@@ -20,9 +20,18 @@ jwt:
 	if e != nil {
 		t.Fatal(e)
 	}
-	if cfg.MCP.Enabled || cfg.MCP.MaxBodyBytes != 65536 || cfg.MCP.MaxConcurrent != 4 {
+	if cfg.MCP.Enabled || cfg.MCP.MaxBodyBytes != 65536 || cfg.MCP.MaxOutputBytes != 524288 || cfg.MCP.MaxConcurrent != 4 {
 		t.Fatal(cfg.MCP)
 	}
+	// The higher default stays explicitly bounded.
+	cfg.MCP.Enabled = true
+	cfg.MCP.AllowedHosts = []string{"127.0.0.1:18300"}
+	cfg.MCP.MaxOutputBytes = 1048577
+	if e := cfg.Validate(); e == nil {
+		t.Fatal("unbounded output limit accepted")
+	}
+	cfg.MCP.MaxOutputBytes = 524288
+	cfg.MCP.Enabled = false
 	t.Setenv("APP_MCP__ENABLED", "true")
 	t.Setenv("APP_HTTP__ADDRESS", "127.0.0.1:18300")
 	t.Setenv("APP_MCP__ALLOWED_HOSTS", "127.0.0.1:18300,localhost:18300")

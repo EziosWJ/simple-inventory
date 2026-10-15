@@ -144,7 +144,7 @@ func defaultValues() map[string]interface{} {
 		"mcp.allowed_hosts":                      []string{"127.0.0.1:8300", "localhost:8300", "[::1]:8300"},
 		"mcp.allowed_origins":                    []string{},
 		"mcp.max_body_bytes":                     65536,
-		"mcp.max_output_bytes":                   131072,
+		"mcp.max_output_bytes":                   524288,
 		"mcp.timeout":                            "10s",
 		"mcp.requests_per_minute":                60,
 		"mcp.max_concurrent":                     4,
