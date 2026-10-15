@@ -18,7 +18,7 @@ func (r *Repository) LedgerExport(ctx context.Context, q EntryFilter, actorID in
 	out := LedgerExport{Records: []Entry{}}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		repo := &Repository{db: tx}
-		rows, err := repo.ledgerRows(ctx, q, false, exportfile.RowLimit+1)
+		rows, err := repo.ledgerRows(ctx, q, exportfile.RowLimit+1)
 		if err != nil {
 			return err
 		}
@@ -33,7 +33,11 @@ func (r *Repository) LedgerExport(ctx context.Context, q EntryFilter, actorID in
 				return err
 			}
 			if q.Direction != "" && q.From != "" && q.To != "" {
-				statement, err := repo.Statement(ctx, q)
+				// The export prints the whole period, so it must not inherit the
+				// listing page that shares this filter.
+				statementQuery := q
+				statementQuery.Page, statementQuery.PageSize = 0, 0
+				statement, err := repo.Statement(ctx, statementQuery)
 				if err != nil {
 					return err
 				}

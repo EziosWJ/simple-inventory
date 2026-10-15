@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/EziosWJ/simple-inventory/server/internal/config"
-	"github.com/EziosWJ/simple-inventory/server/internal/partner"
-	"github.com/EziosWJ/simple-inventory/server/internal/product"
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -92,7 +90,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, token, Content-Type, MCP-Protocol-Version, MCP-Session-Id")
 		w.WriteHeader(204)
 		return
 	}
@@ -111,13 +109,16 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.cfg.Timeout)
 	defer cancel()
 	r = r.WithContext(ctx)
-	auth := r.Header.Values("Authorization")
-	if len(auth) != 1 || !strings.HasPrefix(auth[0], "Bearer ") {
-		w.Header().Set("WWW-Authenticate", "Bearer")
-		http.Error(w, "unauthenticated", 401)
+	raw, credentialErr := parseCredential(r.Header)
+	if credentialErr != nil {
+		if errors.Is(credentialErr, errCredentialMissing) {
+			w.Header().Set("WWW-Authenticate", "token")
+			http.Error(w, "unauthenticated", 401)
+			return
+		}
+		http.Error(w, credentialErr.Error(), 400)
 		return
 	}
-	raw := strings.TrimPrefix(auth[0], "Bearer ")
 	token, allowed, e := h.repo.Authenticate(ctx, raw)
 	if e != nil {
 		status := 401
@@ -177,7 +178,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status := "ok"
 			count := 0
 			defer func() {
-				h.logger.Info("mcp tool access", "request_id", requestID, "client", token.ClientID, "user_id", token.UserID, "tool", name, "status", status, "records", count, "duration_ms", time.Since(start).Milliseconds())
+				h.logger.Info("mcp tool access", "request_id", requestID, "client", token.Name, "user_id", token.UserID, "tool", name, "status", status, "records", count, "duration_ms", time.Since(start).Milliseconds())
 			}()
 			_, current, e := h.repo.Authenticate(ctx, raw)
 			if e != nil || !current[name] {
@@ -199,15 +200,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			value, n, e := h.services.query(ctx, name, arguments, h.cfg.MaxPage)
 			count = n
 			if e != nil {
-				status = "temporarily_unavailable"
-				switch {
-				case errors.Is(e, context.DeadlineExceeded) || ctx.Err() != nil:
-					status = "timeout"
-				case errors.Is(e, product.ErrNotFound) || errors.Is(e, partner.ErrNotFound):
-					status = "not_found"
-				case e.Error() == "invalid_arguments":
-					status = "invalid_arguments"
-				}
+				status = mapError(ctx, e)
 				return toolResult(map[string]any{"error": status}, true), nil
 			}
 			encoded, _ := json.Marshal(value)

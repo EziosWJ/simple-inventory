@@ -16,6 +16,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/dictionary"
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/mcpserver"
 	"github.com/EziosWJ/simple-inventory/server/internal/rbac"
 	"github.com/EziosWJ/simple-inventory/server/internal/sysconfig"
 	"github.com/EziosWJ/simple-inventory/server/internal/usermgmt"
@@ -44,6 +45,29 @@ func testConfig(environment string, swaggerEnabled bool) config.Config {
 			ShutdownTimeout: time.Second,
 		},
 	}
+}
+
+// stubTokenService registers the MCP token administration routes without a
+// database.
+type stubTokenService struct{}
+
+func (stubTokenService) Page(context.Context, mcpserver.TokenPageQuery) (mcpserver.Page[mcpserver.TokenView], error) {
+	return mcpserver.Page[mcpserver.TokenView]{}, nil
+}
+func (stubTokenService) Create(context.Context, mcpserver.AuditMetadata, mcpserver.TokenCreateInput) (mcpserver.TokenSecret, error) {
+	return mcpserver.TokenSecret{}, nil
+}
+func (stubTokenService) Reveal(context.Context, mcpserver.AuditMetadata, int64) (mcpserver.TokenSecret, error) {
+	return mcpserver.TokenSecret{}, nil
+}
+func (stubTokenService) Extend(context.Context, mcpserver.AuditMetadata, int64, mcpserver.TokenExtendInput) (mcpserver.TokenView, error) {
+	return mcpserver.TokenView{}, nil
+}
+func (stubTokenService) SetEnabled(context.Context, mcpserver.AuditMetadata, int64, mcpserver.TokenStatusInput) (mcpserver.TokenView, error) {
+	return mcpserver.TokenView{}, nil
+}
+func (stubTokenService) Reset(context.Context, mcpserver.AuditMetadata, int64) (mcpserver.TokenSecret, error) {
+	return mcpserver.TokenSecret{}, nil
 }
 
 // fakeStores provide enough in-memory state to construct every real business
@@ -91,6 +115,7 @@ func (f *fakeStores) deps() Dependencies {
 		panic(err)
 	}
 	return Dependencies{
+		MCPTokens:  stubTokenService{},
 		Auth:       authService,
 		RBAC:       rbacService,
 		Department: deptService,
@@ -131,6 +156,7 @@ func TestBuildRegistersAllSystemManagementRoutes(t *testing.T) {
 		"/api/system/user/page",
 		"/api/system/dict-type/page",
 		"/api/system/config/page",
+		"/api/system/mcp/tokens/page",
 		"/api/system/file/page",
 		"/api/system/login-log/page",
 	} {

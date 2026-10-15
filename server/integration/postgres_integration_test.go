@@ -30,6 +30,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/mcpserver"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
@@ -1121,7 +1122,17 @@ func testDependencies(t *testing.T, database *platformdatabase.Database, storage
 	if err != nil {
 		t.Fatalf("create log service: %v", err)
 	}
+	// The MCP token administration module is part of every assembled router.
+	mcpBox, err := mcpserver.NewSecretBox("integration-mcp-display-secret")
+	if err != nil {
+		t.Fatalf("create MCP secret box: %v", err)
+	}
+	mcpTokens, err := mcpserver.NewTokenService(mcpserver.NewRepository(database.GORM, mcpBox))
+	if err != nil {
+		t.Fatalf("create MCP token service: %v", err)
+	}
 	return app.Dependencies{
+		MCPTokens:      mcpTokens,
 		Auth:           authService,
 		RBAC:           rbacService,
 		Department:     deptService,

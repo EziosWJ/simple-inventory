@@ -118,8 +118,23 @@ func main() {
 	partnerService := partner.NewService(partner.NewRepository(database.GORM))
 	warehouseService := warehouse.NewService(warehouse.NewRepository(database.GORM))
 
+	// The display key derives from the existing jwt.secret, so deployment still
+	// needs one configuration value; authentication keeps using digests only.
+	mcpSecretBox, err := mcpserver.NewSecretBox(cfg.JWT.Secret)
+	if err != nil {
+		slog.Error("build MCP token secret protection", "error", err)
+		os.Exit(1)
+	}
+	mcpTokenRepository := mcpserver.NewRepository(database.GORM, mcpSecretBox)
+	mcpTokenService, err := mcpserver.NewTokenService(mcpTokenRepository)
+	if err != nil {
+		slog.Error("build MCP token service", "error", err)
+		os.Exit(1)
+	}
+
 	application, err := app.New(*cfg, database, app.Dependencies{
-		MCP:            mcpserver.NewRepository(database.GORM),
+		MCP:            mcpTokenRepository,
+		MCPTokens:      mcpTokenService,
 		Auth:           authService,
 		RBAC:           rbacService,
 		Department:     deptService,

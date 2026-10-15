@@ -23,7 +23,7 @@ type fakeAuth struct {
 }
 
 func (f fakeAuth) Authenticate(context.Context, string) (Token, map[string]bool, error) {
-	return Token{ID: 1, UserID: 2, ClientID: "test"}, f.allowed, f.fail
+	return Token{ID: 1, UserID: 2, Name: "test"}, f.allowed, f.fail
 }
 func testConfig() config.MCPConfig {
 	return config.MCPConfig{Enabled: true, AllowedHosts: []string{"localhost:18300"}, AllowedOrigins: []string{"app://cherry"}, MaxBodyBytes: 65536, MaxOutputBytes: 131072, Timeout: time.Second, RequestsPerMinute: 60, MaxConcurrent: 1, MaxPage: 1000}
