@@ -354,25 +354,40 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	line := func(product int64, kind, unit, quantity, price, remark string) string {
 		return fmt.Sprintf(`{"productId":%d,"productType":%q,"unit":%q,"quantity":%q,"unitPrice":%q,"remark":%q}`, product, kind, unit, quantity, price, remark)
 	}
-	trade := func(kind, status, businessDate string, partner int64, items string) int64 {
+	newTrade := func(kind, status, businessDate string, partner int64, extra, items string) (int64, string) {
 		t.Helper()
-		id := idOf("/api/v1/"+kind, fmt.Sprintf(`{"partnerId":%d,"businessDate":%q,"items":[%s]}`, partner, businessDate, items))
+		created := post("/api/v1/"+kind, fmt.Sprintf(`{"partnerId":%d,"businessDate":%q,%s"items":[%s]}`, partner, businessDate, extra, items))
+		number, ok := created["id"].(float64)
+		if !ok {
+			t.Fatalf("%s -> %v", kind, created)
+		}
+		id := int64(number)
+		documentNo, _ := created["documentNo"].(string)
 		switch status {
 		case "POSTED":
 			post(fmt.Sprintf("/api/v1/%s/%d/post", kind, id), `{"version":1}`)
 		case "CANCELLED":
 			post(fmt.Sprintf("/api/v1/%s/%d/cancel", kind, id), `{"version":1,"reason":"录错取消"}`)
 		}
+		return id, documentNo
+	}
+	trade := func(kind, status, businessDate string, partner int64, items string) int64 {
+		t.Helper()
+		id, _ := newTrade(kind, status, businessDate, partner, "", items)
 		return id
 	}
-	salePosted := trade("sales", "POSTED", "2026-09-10", customer, line(goods, "GOODS", "台", "10", "100.00", "行备注甲"))
-	saleDraft := trade("sales", "DRAFT", "2026-09-15", customer, line(goods, "GOODS", "台", "2", "100.00", ""))
+	salePosted, saleDocumentNo := newTrade("sales", "POSTED", "2026-09-10", customer, "", line(goods, "GOODS", "台", "10", "100.00", "行备注甲"))
+	saleDraft, draftDocumentNo := newTrade("sales", "DRAFT", "2026-09-15", customer, "", line(goods, "GOODS", "台", "2", "100.00", ""))
 	trade("sales", "CANCELLED", "2026-09-16", customer, line(service, "SERVICE", "次", "1", "50.00", ""))
 	// The September sale is returned in October: the later return is still
 	// effective when September is queried again.
 	saleSource := adminData[mcpReturnSource](t, f, http.MethodGet, fmt.Sprintf("/api/v1/sale-returns/source/%d", salePosted), "")
 	saleReturn := idOf("/api/v1/sale-returns", fmt.Sprintf(`{"saleId":%d,"businessDate":"2026-10-20","items":[{"saleItemId":%d,"quantity":"2"}]}`, salePosted, saleSource.Items[0].SaleItemID))
 	post(fmt.Sprintf("/api/v1/sale-returns/%d/post", saleReturn), `{"version":1}`)
+
+	// A delivery detail that was explicitly emptied while drafting must stay
+	// empty after posting instead of being refilled from the current archive.
+	saleEmptyDelivery, _ := newTrade("sales", "POSTED", "2026-09-11", customer, `"deliveryContact":"","deliveryAddress":"",`, line(goods, "GOODS", "台", "1", "100.00", ""))
 
 	purchasePosted := trade("purchases", "POSTED", "2026-09-12", supplier, line(goods, "GOODS", "台", "5", "80.00", "采购行备注"))
 	trade("purchases", "DRAFT", "2026-09-18", supplier, line(goods, "GOODS", "台", "1", "80.00", ""))
@@ -431,7 +446,7 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 		t.Fatalf("partner balances: %+v", balances)
 	}
 	for _, item := range balances.Items {
-		if item.Direction == "CUSTOMER" && item.Amount != "1800.00" {
+		if item.Direction == "CUSTOMER" && item.Amount != "1900.00" {
 			t.Fatalf("customer balance: %+v", item)
 		}
 		if item.Direction == "SUPPLIER" && item.HasRecords {
@@ -440,7 +455,7 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	}
 
 	// September sales: the raw line, the October return and the net.
-	sales := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo})
+	sales := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo, "documentNo": saleDocumentNo})
 	if sales.Total != 1 || len(sales.Records) != 1 || sales.Filters.Status != "POSTED" {
 		t.Fatalf("september sales: %+v", sales)
 	}
@@ -465,19 +480,22 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	// All three statuses are reported separately, a draft never claims a net,
 	// and the summary covers the whole filter set rather than one page.
 	all := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo, "status": "ALL", "pageSize": 1})
-	if all.Total != 3 || len(all.Records) != 1 || all.PageSize != 1 || !all.HasMore || all.Filters.Status != "" {
+	if all.Total != 4 || len(all.Records) != 1 || all.PageSize != 1 || !all.HasMore || all.Filters.Status != "" {
 		t.Fatalf("explicit page size and ALL status: %+v", all)
 	}
-	for _, status := range []string{"DRAFT", "POSTED", "CANCELLED"} {
+	for status, want := range map[string]int64{"DRAFT": 1, "POSTED": 2, "CANCELLED": 1} {
 		amounts := findAmount(all.Summary.Amounts, status)
-		if amounts == nil || amounts.ItemCount != 1 {
+		if amounts == nil || amounts.ItemCount != want {
 			t.Fatalf("summary must cover every matching status: %+v", all.Summary.Amounts)
 		}
+	}
+	if postedSummary := findAmount(all.Summary.Amounts, "POSTED"); postedSummary.OriginalAmount != "1100.00" {
+		t.Fatalf("the summary must cover every matching line, not the page: %+v", postedSummary)
 	}
 	if draftAmounts := findAmount(all.Summary.Amounts, "DRAFT"); draftAmounts.NetAmount != nil || draftAmounts.ReturnedAmount != nil {
 		t.Fatalf("draft summary must not claim a net: %+v", draftAmounts)
 	}
-	drafts := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo, "status": "DRAFT"})
+	drafts := callToolData[mcpItemQuery](t, ctx, session, "query_sale_items", map[string]any{"dateFrom": septemberFrom, "dateTo": septemberTo, "status": "DRAFT", "documentNo": draftDocumentNo})
 	if drafts.Total != 1 || drafts.Records[0].NetApplicable || drafts.Records[0].NetAmount != nil || drafts.Records[0].Quantity != "2" {
 		t.Fatalf("draft line: %+v", drafts.Records)
 	}
@@ -514,6 +532,19 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 	if saleDocument.Items[0].UnitPrice != "100.00" || saleDocument.Items[0].Amount != "1000.00" {
 		t.Fatalf("sale line amounts: %+v", saleDocument.Items[0])
 	}
+	// A deliberately emptied delivery detail stays empty after posting; the
+	// current archive must not be backfilled into the frozen snapshot.
+	emptyDelivery := callToolData[mcpDocumentResult](t, ctx, session, "get_sale_document", map[string]any{"saleId": saleEmptyDelivery})
+	if !emptyDelivery.Document.SnapshotAvailable {
+		t.Fatalf("posted sale must report a frozen snapshot: %+v", emptyDelivery.Document)
+	}
+	if emptyDelivery.Document.DeliveryContact == nil || *emptyDelivery.Document.DeliveryContact != "" ||
+		emptyDelivery.Document.DeliveryAddress == nil || *emptyDelivery.Document.DeliveryAddress != "" {
+		t.Fatalf("frozen empty delivery details were backfilled: %+v", emptyDelivery.Document)
+	}
+	if archivePartner.Contact == nil || archivePartner.Address == nil {
+		t.Fatal("the current archive must still carry contact details for the comparison")
+	}
 	purchaseDocument := callToolData[mcpDocumentResult](t, ctx, session, "get_purchase_document", map[string]any{"purchaseId": purchasePosted})
 	if len(purchaseDocument.Items) != 1 || purchaseDocument.Items[0].Remark == nil || *purchaseDocument.Items[0].Remark != "采购行备注" {
 		t.Fatalf("purchase line remark: %+v", purchaseDocument.Items)
@@ -548,7 +579,7 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 
 	// Ledger queries use the effective instant and keep reversal pairs.
 	entries := callToolData[mcpEntryQuery](t, ctx, session, "query_partner_entries", map[string]any{"partnerId": customer, "direction": "CUSTOMER"})
-	if entries.Total != 5 || len(entries.Records) != 5 || entries.PageSize != 20 || entries.TimeBasis == "" {
+	if entries.Total != 6 || len(entries.Records) != 6 || entries.PageSize != 20 || entries.TimeBasis == "" {
 		t.Fatalf("current month entries: %+v", entries)
 	}
 	empty := callToolData[mcpEntryQuery](t, ctx, session, "query_partner_entries", map[string]any{"partnerId": customer, "direction": "CUSTOMER", "dateFrom": septemberFrom, "dateTo": septemberTo})
@@ -586,7 +617,7 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 		t.Fatalf("settlement category must keep the reversal: %+v", settlements)
 	}
 	effectiveOnly := callToolData[mcpEntryQuery](t, ctx, session, "query_partner_entries", map[string]any{"partnerId": customer, "reversalStatus": "EFFECTIVE"})
-	if effectiveOnly.Total != 3 {
+	if effectiveOnly.Total != 4 {
 		t.Fatalf("effective filter: %+v", effectiveOnly)
 	}
 
@@ -596,11 +627,11 @@ func assertMCPQueryContract(t *testing.T, db *platformdatabase.Database, sqlite 
 		t.Fatalf("statement directions: %+v", statement)
 	}
 	sheet := statement.Statements[0]
-	if sheet.OpeningAmount != "0.00" || sheet.IncreaseAmount != "2300.00" || sheet.DecreaseAmount != "500.00" || sheet.NetChange != "1800.00" || sheet.ClosingAmount != "1800.00" || sheet.Total != 5 {
+	if sheet.OpeningAmount != "0.00" || sheet.IncreaseAmount != "2400.00" || sheet.DecreaseAmount != "500.00" || sheet.NetChange != "1900.00" || sheet.ClosingAmount != "1900.00" || sheet.Total != 6 {
 		t.Fatalf("statement totals: %+v", sheet)
 	}
 	paged := callToolData[mcpStatementResult](t, ctx, session, "get_partner_statement", map[string]any{"partnerId": customer, "direction": "CUSTOMER", "dateFrom": monthFrom, "dateTo": monthTo, "pageSize": 2})
-	if len(paged.Statements[0].Records) != 2 || paged.Statements[0].Total != 5 || !paged.Statements[0].HasMore || paged.Statements[0].ClosingAmount != "1800.00" {
+	if len(paged.Statements[0].Records) != 2 || paged.Statements[0].Total != 6 || !paged.Statements[0].HasMore || paged.Statements[0].ClosingAmount != "1900.00" {
 		t.Fatalf("paged statement: %+v", paged.Statements[0])
 	}
 	both := callToolData[mcpStatementResult](t, ctx, session, "get_partner_statement", map[string]any{"partnerId": customer, "dateFrom": monthFrom, "dateTo": monthTo})
