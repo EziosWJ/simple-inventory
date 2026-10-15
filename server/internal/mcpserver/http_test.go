@@ -58,7 +58,7 @@ func TestBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		headers map[string]string
 		status  int
-	}{{map[string]string{"RemoteAddr": "192.0.2.1:1"}, 403}, {map[string]string{"RemoteAddr": "bad"}, 403}, {map[string]string{"Host": "localhost.evil:18300"}, 403}, {map[string]string{"Origin": "app://evil"}, 403}, {map[string]string{"Origin": "null"}, 403}, {map[string]string{"X-Forwarded-Host": "localhost:18300"}, 403}, {map[string]string{"X-Real-IP": "127.0.0.1"}, 403}, {map[string]string{"Origin": "app://cherry"}, 200}} {
+	}{{map[string]string{"RemoteAddr": "192.168.1.20:54321"}, 200}, {map[string]string{"RemoteAddr": "bad"}, 403}, {map[string]string{"Host": "localhost.evil:18300"}, 403}, {map[string]string{"Origin": "app://evil"}, 403}, {map[string]string{"Origin": "null"}, 403}, {map[string]string{"X-Forwarded-Host": "localhost:18300"}, 403}, {map[string]string{"X-Real-IP": "127.0.0.1"}, 403}, {map[string]string{"Origin": "app://cherry"}, 200}} {
 		w := req(h, "POST", listBody, tc.headers)
 		if w.Code != tc.status {
 			t.Fatalf("%v: %d %s", tc.headers, w.Code, w.Body.String())
@@ -164,5 +164,24 @@ func TestLegacyBatchCannotBypassAdmission(t *testing.T) {
 	w := req(h, "POST", "["+listBody+","+listBody+"]", map[string]string{"MCP-Protocol-Version": "2025-03-26"})
 	if w.Code != 400 || !strings.Contains(w.Body.String(), "batch_requests_disabled") {
 		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+func TestLANHostStillRequiresCredentials(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedHosts = []string{"192.168.1.10:18300"}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	headers := map[string]string{"Host": "192.168.1.10:18300", "RemoteAddr": "192.168.1.20:54321"}
+	h := NewHandler(cfg, fakeAuth{}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	h = NewHandler(cfg, fakeAuth{fail: ErrUnauthorized}, Services{}, logger)
+	if w := req(h, "POST", listBody, headers); w.Code != 401 {
+		t.Fatal("LAN auth bypass", w.Code)
+	}
+	headers["X-Forwarded-For"] = "127.0.0.1"
+	if w := req(h, "POST", listBody, headers); w.Code != 403 {
+		t.Fatal("forwarding header accepted", w.Code)
 	}
 }

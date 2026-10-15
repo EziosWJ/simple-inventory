@@ -10,8 +10,8 @@ export APP_DATABASE__USERNAME='' APP_DATABASE__PASSWORD=''
 export APP_JWT__SECRET
 APP_JWT__SECRET=$(openssl rand -hex 32)
 export APP_FILE__STORAGE_ROOT="$demo_dir/uploads"
-export APP_HTTP__ADDRESS=127.0.0.1:18300 APP_MCP__ENABLED=true
-export APP_MCP__ALLOWED_HOSTS=127.0.0.1:18300,localhost:18300
+export APP_HTTP__ADDRESS=0.0.0.0:18300 APP_MCP__ENABLED=true
+export APP_MCP__ALLOWED_HOSTS="127.0.0.1:18300,localhost:18300${MCP_DEMO_HOST:+,$MCP_DEMO_HOST:18300}"
 export APP_MCP__ALLOWED_ORIGINS=''
 export GOCACHE="$project_dir/.task/go-build"
 # Persist only local environment settings (no MCP token); the directory is private.

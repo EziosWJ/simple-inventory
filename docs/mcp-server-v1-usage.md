@@ -15,8 +15,10 @@
 在仓库根目录运行：
 
 ```sh
-scripts/mcp-demo.sh
+MCP_DEMO_HOST=192.168.1.10 scripts/mcp-demo.sh
 ```
+
+将 `192.168.1.10` 换成运行 API 的电脑局域网 IP。脚本监听 `0.0.0.0:18300`，并将此 IP 加入 MCP Host 白名单；不填 `MCP_DEMO_HOST` 时白名单只包含本机地址，手机访问前需添加电脑 IP。MCP 与 API 共用监听端口，因此该配置也用于隔离 API 和内嵌 Web。
 
 需要 Go、Python 3、OpenSSL。脚本固定创建新的 `/tmp/simple-inventory-mcp-demo.XXXXXX` 私有目录，不接受数据库路径，不读取现有业务库。Goose 执行完整 SQLite 迁移；创建 `father-mcp-test` 对应测试身份，其密码不可用于 Web 登录；分配现有四个业务 permission_code。脚本输出准确 `userId` 和 `env.sh` 路径。
 
@@ -64,11 +66,11 @@ go run ./cmd/mcp-token revoke --id <令牌ID> --actor <管理员标识>
 
 ## Cherry Studio 连接设置
 
-在与隔离 API 同机运行的 Cherry Studio 中新增 MCP 服务：
+在电脑或同一局域网的手机 MCP 客户端中新增服务（手机必须支持 Streamable HTTP 和自定义请求头）：
 
 - 名称：`Simple Inventory 隔离试用`
 - 类型：**Streamable HTTP**（内部类型 `streamableHttp`）
-- URL：`http://127.0.0.1:18300/mcp`
+- URL：电脑本机用 `http://127.0.0.1:18300/mcp`，手机用 `http://<电脑局域网IP>:18300/mcp`
 - 请求头：`Authorization` = `Bearer <签发时显示的独立令牌>`
 - 无需填写 Web 登录密码、JWT、OAuth 或命令行启动参数。
 
@@ -83,11 +85,11 @@ go run ./cmd/mcp-token revoke --id <令牌ID> --actor <管理员标识>
 }
 ```
 
-Electron 主进程通常没有 Origin。如果实际请求带 Origin，先确认准确值，再添加到独立 MCP 白名单；不要填 `*`。WSL 的 API 与 Windows 客户端是否共享回环地址需在目标机器实测，禁止为规避连接问题开放公网或改生产网络。
+Electron 主进程通常没有 Origin。如果实际请求带 Origin，先确认准确值，再添加到独立 MCP 白名单；不要填 `*`。手机上的 `127.0.0.1` 指手机自身，不能填它；也不要把监听地址 `0.0.0.0` 填作连接地址。若在 WSL 中运行，手机到 WSL 的网络可达性及电脑防火墙需在目标机器核对，本次不修改防火墙、路由或生产网络。
 
 ## 配置和访问边界
 
-沿用 `APP_` 环境变量、`__` 分层与现有 YAML 配置；未配置 `mcp.enabled` 时为 false。启动时启用 MCP 要求 `http.address` 是明确的回环 IP（例如 `127.0.0.1:18300`、`[::1]:18300`），拒绝空 host、`0.0.0.0` 和依赖解析的监听主机名。不开 MCP 时不改变现有 Web 监听配置。
+沿用 `APP_` 环境变量、`__` 分层与现有 YAML 配置；未配置 `mcp.enabled` 时为 false。MCP 不再强制回环监听和回环来源，可使用 `APP_HTTP__ADDRESS=0.0.0.0:18300` 供手机直连。默认仍关闭；通用 API 监听默认值不因本功能改变。Host 白名单必须配置客户端连接 URL 中的准确主机与端口。
 
 | YAML 键（mcp 下） | 默认值 / 范围 |
 | --- | --- |
@@ -101,9 +103,9 @@ Electron 主进程通常没有 Origin。如果实际请求带 Origin，先确认
 | max_concurrent | 4；1..32，整个 MCP 入口的全局并发槽 |
 | max_page | 1000；1..1000，搜索每页默认20，上限50 |
 
-例如 `APP_MCP__ALLOWED_HOSTS=127.0.0.1:18300,localhost:18300`。每个 HTTP 请求只允许一条 JSON-RPC 消息，拒绝旧协议 batch，避免批量扇出绕过频率／并发限制。并发占用期间超时不会提前释放仍在执行的槽，防止慢依赖无限堆积；频率表最多10000个有效窗口，到期清理，重启进程清空。
+例如 `APP_MCP__ALLOWED_HOSTS=127.0.0.1:18300,localhost:18300,192.168.1.10:18300`。每个 HTTP 请求只允许一条 JSON-RPC 消息，拒绝旧协议 batch，避免批量扇出绕过频率／并发限制。并发占用期间超时不会提前释放仍在执行的槽，防止慢依赖无限堆积；频率表最多10000个有效窗口，到期清理，重启进程清空。
 
-独立验证真实连接来源 `RemoteAddr` 为回环地址；不信任代理头，存在 Forwarded、X-Forwarded-For、X-Forwarded-Host 或 X-Real-IP 时拒绝。拒绝查询串传参。Origin、Host 校验在全局 Web CORS 预检之前执行。禁用时 `/mcp` 和子路径返回404，不回退到 SPA。响应 `Cache-Control: no-store`；工具列表 MCP 缓存提示为 private、TTL 0。
+允许真实非回环连接来源；不信任代理头，存在 Forwarded、X-Forwarded-For、X-Forwarded-Host 或 X-Real-IP 时拒绝。拒绝查询串传参。Origin、Host 校验在全局 Web CORS 预检之前执行。禁用时 `/mcp` 和子路径返回404，不回退到 SPA。响应 `Cache-Control: no-store`；工具列表 MCP 缓存提示为 private、TTL 0。
 
 ## 工具参数与结果
 
@@ -130,7 +132,7 @@ HTTP 错误包括401认证失败、403访问边界、413请求体过大、429频
 
 桌面客户端版本：**待填写**。以下均为 Cherry Studio 实机验收待完成项：
 
-- [ ] 记录操作系统、Cherry 版本、API commit、样例目录；连接后仅出现四工具。
+- [ ] 记录操作系统、Cherry 版本、API commit、样例目录；连接后仅出现四工具；手机通过电脑局域网 IP 连接。
 - [ ] 输入“找同名硒鼓”，返回A/B两个候选，要求用户选择；不能默认第一项。
 - [ ] 指定 DEMO-G1 查询12.5支；DEMO-G2为0；服务无库存；不存在 ID 明确报错。
 - [ ] 搜索“双向往来样例”，客户欠123.45、供应商应退67.89，分别陈述且不抵扣；无往来样例 hasRecords=false。

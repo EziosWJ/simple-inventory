@@ -1,6 +1,6 @@
 # MCP 首批交付需求讨论
 
-状态：2026-10-15 用户已确认全部推荐，需求访谈完成。四工具实现进度与自动验证见[实施验证记录](mcp-server-v1-verification.md)，试用入口见[使用指南](mcp-server-v1-usage.md)。本文件保留需求确认过程。以 [PR #91](https://github.com/EziosWJ/simple-inventory/pull/91) 的私有 MCP V1 设计草案为讨论基础；已收敛为[首批实施规格](mcp-server-v1-design.md)，讨论记录、规格与架构决策由该 PR 一并交付。
+状态：2026-10-15 用户已确认全部推荐，需求访谈完成。四工具实现进度与自动验证见[实施验证记录](mcp-server-v1-verification.md)，试用入口见[使用指南](mcp-server-v1-usage.md)。本文件保留需求确认过程。用户后续补充允许本地手机通过局域网试用、监听 `0.0.0.0`，网络边界以更新后的实施规格和使用指南为准。以 [PR #91](https://github.com/EziosWJ/simple-inventory/pull/91) 的私有 MCP V1 设计草案为讨论基础；已收敛为[首批实施规格](mcp-server-v1-design.md)，讨论记录、规格与架构决策由该 PR 一并交付。
 
 ## 已确认的方向
 

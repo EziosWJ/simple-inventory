@@ -8,9 +8,9 @@ const require = createRequire(resolve(process.env.MCP_SDK_DIR || '/tmp/mcp-js-cl
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
 const credentialFile = process.argv[2];
-if (!credentialFile) throw new Error('usage: node scripts/mcp-client-smoke.mjs <private-credential.json> [loopback-url]');
+if (!credentialFile) throw new Error('usage: node scripts/mcp-client-smoke.mjs <private-credential.json> [mcp-url]');
 const endpoint = new URL(process.argv[3] || 'http://127.0.0.1:18300/mcp');
-assert(['127.0.0.1', '[::1]', 'localhost'].includes(endpoint.hostname));
+assert(['http:', 'https:'].includes(endpoint.protocol));
 const { token } = JSON.parse(readFileSync(credentialFile, 'utf8'));
 const observed = [];
 const transport = new StreamableHTTPClientTransport(endpoint, {

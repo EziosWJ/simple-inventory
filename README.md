@@ -129,4 +129,4 @@ Schema 变更必须使用 Goose migration；API 进程不执行 `AutoMigrate()`�
 
 ## 私有 MCP（默认关闭）
 
-支持在回环地址通过 Cherry Studio 只读查询商品、库存及指定往来单位余额。隔离样例、令牌 CLI、连接配置与试用清单见[使用指南](docs/mcp-server-v1-usage.md)，自动验收与待人工项见[验证记录](docs/mcp-server-v1-verification.md)。
+支持通过本机或局域网 MCP 客户端（如 Cherry Studio） 只读查询商品、库存及指定往来单位余额。隔离样例、令牌 CLI、连接配置与试用清单见[使用指南](docs/mcp-server-v1-usage.md)，自动验收与待人工项见[验证记录](docs/mcp-server-v1-verification.md)。

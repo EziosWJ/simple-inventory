@@ -109,18 +109,15 @@ type LogConfig struct {
 func (c Config) Validate() error {
 	var errs []error
 	if c.MCP.Enabled {
-		host, _, _ := net.SplitHostPort(c.HTTP.Address)
-		if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
-			errs = append(errs, errors.New("MCP requires a literal loopback HTTP listener"))
-		}
 		m := c.MCP
 		if len(m.AllowedHosts) == 0 || m.MaxBodyBytes < 1 || m.MaxBodyBytes > 65536 || m.MaxOutputBytes < 1024 || m.MaxOutputBytes > 1048576 || m.Timeout <= 0 || m.Timeout > 10*time.Second || m.RequestsPerMinute < 1 || m.RequestsPerMinute > 600 || m.MaxConcurrent < 1 || m.MaxConcurrent > 32 || m.MaxPage < 1 || m.MaxPage > 1000 {
 			errs = append(errs, errors.New("invalid MCP limits"))
 		}
 		for _, h := range m.AllowedHosts {
-			host, _, err := net.SplitHostPort(h)
-			if err != nil || (host != "localhost" && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback())) {
-				errs = append(errs, errors.New("MCP hosts must be exact loopback host:port authorities"))
+			host, port, err := net.SplitHostPort(h)
+			n, portErr := strconv.Atoi(port)
+			if err != nil || portErr != nil || n < 1 || n > 65535 || host == "" || strings.ContainsAny(host, "* /\\?#@\t\r\n") || (strings.Contains(host, ":") && net.ParseIP(host) == nil) {
+				errs = append(errs, errors.New("MCP hosts must be exact host:port authorities without wildcards"))
 			}
 		}
 		for _, o := range m.AllowedOrigins {
@@ -327,7 +324,7 @@ func isSQLiteMemoryPath(value string) bool {
 	return value == ":memory:" || strings.HasPrefix(value, "file::memory:")
 }
 
-// MCPConfig bounds the private, loopback-only read adapter.
+// MCPConfig bounds the private read adapter.
 type MCPConfig struct {
 	Enabled           bool          `koanf:"enabled"`
 	AllowedHosts      []string      `koanf:"allowed_hosts"`

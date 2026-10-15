@@ -6,7 +6,7 @@
 
 | 工作包 | 状态 | 交付 |
 | --- | --- | --- |
-| T01 基础与授权 | 已实现，定向验证通过 | 默认关闭、SDK HTTP、实时权限交集、摘要令牌、CLI、双库 migration 30、安全边界与资源限制 |
+| T01 基础与授权 | 已实现，定向验证通过 | 默认关闭、SDK HTTP、实时权限交集、摘要令牌、CLI、双库 migration 30、安全边界与资源限制；局域网补充见文末 |
 | T02 四只读工具 | 已实现，定向验证通过 | 显式 Schema、Service 适配、分页和输出白名单、对象与余额语义、统一脱敏错误 |
 | T03 集成与试用 | 已实现并通过自动验证；桌面实机待人工 | 双库 HTTP/SDK 与升级契约、样例脚本、CLI 指南、JS 客户端 smoke、Cherry 人工清单 |
 | Cherry Studio 桌面实机 | 待人工完成 | 当前工具无法操作桌面 Cherry；不将 SDK 验证视为桌面验收 |
@@ -49,3 +49,17 @@ Taskfile 的 SQLite 选择器 `^TestSQLite` 与 PostgreSQL 选择器 `^Test(Post
 - 未修改前端源码，故未运行 frontend lint/build；嵌入兼容检查复用现有构建产物，不宣称重新验证前端构建。
 - 不运行生产部署或真实业务接入；默认关闭，开发 PR 不自动合并。
 - 资源限制是单 API 进程内限制；SQLite 继续仅支持单实例。外部模型是否遵守候选选择与数据指令隔离提示仍需人工试用，服务端查询本身严格要求内部 ID。
+
+## 手机／局域网测试补充
+
+用户于2026-10-15要求本地测试允许手机访问，撤销仅本机限制。MCP现在允许 `0.0.0.0` 监听和非回环直连，Host白名单允许明确的局域网IP／主机名；令牌、权限、Origin、转发头和资源限制继续生效。样例脚本默认监听 `0.0.0.0:18300`，用 `MCP_DEMO_HOST=<电脑局域网IP>` 添加连接地址白名单。
+
+本次通过：
+
+- `task backend:check`：tests/vet通过，配置与入口回归覆盖局域网来源／Host成功、错误凭证401及非法Host／伪造代理头拒绝。
+- 定向 `TestSQLiteMCPHTTPContract` 通过（1.977秒），随后 `TestPostgresMCPHTTPContract` 通过（5.906秒）。
+- `go test -race ./internal/mcpserver` 通过（1.080秒）。
+- 样例脚本成功生成 `0.0.0.0:18300` 环境；实际API监听全接口，通过开发机真实非回环私网地址调用 `scripts/mcp-client-smoke.mjs`，Bearer、2025-06-18协商、四工具、候选、库存、双向余额及错误凭证全部通过。
+- `bash -n scripts/mcp-demo.sh`、`node --check scripts/mcp-client-smoke.mjs`、`git diff --check`通过。
+
+本次仅改MCP配置及连接边界，没有schema、数据库基础设施、业务查询或REST合同变化，因此复用此前完整双库门禁，不重复 `task db:check`；不运行Swagger生成或前端检查。真实手机及Cherry Studio由用户独立测试，不能将开发机私网地址smoke视作手机已验收。测试后停止本次临时API并吊销本次凭证，不修改生产网络或账号。
