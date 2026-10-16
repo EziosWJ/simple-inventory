@@ -124,8 +124,11 @@ func (c Config) Validate() error {
 			}
 		}
 		for _, o := range m.AllowedOrigins {
-			if o == "" || strings.Contains(o, "*") {
-				errs = append(errs, errors.New("MCP origins must be exact, without wildcards"))
+			// Only the bare development wildcard is allowed, mirroring how
+			// allowed_hosts opts one authority in explicitly; any other pattern
+			// would read as an exact origin while matching more than one.
+			if o == "" || (o != "*" && strings.Contains(o, "*")) {
+				errs = append(errs, errors.New("MCP origins must be exact, or the explicit * development wildcard"))
 			}
 		}
 	}

@@ -151,6 +151,7 @@ func (f *mcpFixture) issue(t *testing.T, name string, expires *time.Time) (mcpse
 
 // mcpResponse is one raw HTTP exchange with the MCP endpoint.
 type mcpResponse struct {
+	header http.Header
 	status int
 	body   []byte
 }
@@ -182,7 +183,7 @@ func (f *mcpFixture) request(t *testing.T, method, body string, headers map[stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	return mcpResponse{status: response.StatusCode, body: payload}
+	return mcpResponse{status: response.StatusCode, body: payload, header: response.Header}
 }
 
 func tokenHeader(raw string) map[string][]string { return map[string][]string{"token": {raw}} }

@@ -58,6 +58,28 @@ func assertMCPTransport(t *testing.T, db *platformdatabase.Database, sqlite bool
 	for _, headers := range []map[string][]string{{"Host": {"evil.test"}}, {"Origin": {"https://evil.test"}}} {
 		check(403, mergeHeaders(tokenHeader(raw), headers), mcpListBody)
 	}
+	// The development entry point opts into any Origin explicitly; the response
+	// still echoes the caller's own origin and never a blanket wildcard.
+	wildcard := newMCPFixture(t, db, sqlite, func(cfg *config.Config) { cfg.MCP.AllowedOrigins = []string{"*"} })
+	_, wildcardRaw := wildcard.issue(t, "wildcard-origin", nil)
+	for _, origin := range []string{"http://192.168.1.32:8300", "null", "capacitor://localhost"} {
+		response := wildcard.request(t, http.MethodPost, mcpListBody, mergeHeaders(tokenHeader(wildcardRaw), map[string][]string{"Origin": {origin}}))
+		if response.status != http.StatusOK {
+			t.Fatalf("development origin wildcard rejected %s: %d %s", origin, response.status, response.body)
+		}
+		if got := response.header.Get("Access-Control-Allow-Origin"); got != origin {
+			t.Fatalf("echoed origin %q want %q", got, origin)
+		}
+		if response.header.Get("Vary") != "Origin" {
+			t.Fatal("the origin wildcard must still vary on Origin")
+		}
+	}
+	// A rejected request still names the rule in the log; the exact origin is
+	// what an operator has to allow.
+	rejected := wildcard.request(t, http.MethodPost, mcpListBody, mergeHeaders(tokenHeader(wildcardRaw), map[string][]string{"Host": {"evil.test"}}))
+	if rejected.status != http.StatusForbidden || rejected.header.Get("X-Request-ID") == "" {
+		t.Fatalf("rejected request: %d %v", rejected.status, rejected.header)
+	}
 	// Cloudflare Tunnel and reverse proxies append these on normal requests.
 	proxy := map[string][]string{
 		"X-Forwarded-For": {"192.0.2.12"}, "X-Forwarded-Host": {"mcp.example.test"},

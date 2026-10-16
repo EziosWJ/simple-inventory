@@ -24,6 +24,21 @@
 - **快照判定以过账时刻为准**：销售单详情的 `snapshotAvailable` 由 `postedAt` 决定，而不是由状态决定——过账前就被取消的草稿从未生成快照，不能把当前客户档案当成冻结值返回。
 - **可退化筛选修好**：令牌列表的名称检索改用仓库统一的 `database.LiteralContains`（`ESCAPE '!'` 与 `!`→`!!`），含 `_`／`%` 的名称不再搜不到。
 
+## 局域网与移动端接入（用户实测反馈）
+
+用户在手机上配置后台生成的令牌时报"无法添加"。按手机使用的同一个地址（`http://192.168.1.32:8300/mcp`）实测后确认服务端本身正常（带真实令牌 `initialize` → 200、`tools/list` → 10 个工具），失败来自请求形态与配置：
+
+- `Origin` 白名单默认为空，而 `task dev:sqlite` 只设置了 Host 通配，因此任何带 `Origin` 的客户端（浏览器、WebView 类手机客户端）都被 403 拒绝。
+- 凭证值里多写 `Bearer `、或客户端只接受 `application/json`（不含 `text/event-stream`）时返回 400。
+- 这些拒绝响应是纯文本而非 JSON 信封，客户端只显示"失败"，服务端又没有任何日志，无法定位。
+
+据此做了两处改动：
+
+1. **Origin 与 Host 采用同一套通配约定**：`mcp.allowed_origins` 接受唯一的显式值 `*`（与 `allowed_hosts` 对齐，由 `task dev:sqlite` 一并设置），除此之外仍必须是精确 Origin，部分通配（如 `http://*.example.test`）仍被配置校验拒绝；响应始终回显调用方自己的 Origin 并带 `Vary: Origin`，不下发通配的 `Access-Control-Allow-Origin`。
+2. **拒绝原因进日志**：请求 ID 提前到任何准入判定之前生成（被拒请求也带 `X-Request-ID`），每个拒绝路径输出 `reason` 与来源／主机／Origin 等可操作信息，凭证值一律不记录。协议层自身的拒绝（例如客户端只接受 `application/json`）也一并记录，否则这一类必然无法定位。使用说明里列出了各 `reason` 的含义与处理方式。
+
+用开发库副本起了一个隔离实例实测（不改动正在运行的开发库）：任意 `Origin`（含 `null`）配真实令牌 → 200 且回显调用方自己的 Origin 与 `Vary: Origin`；未允许的 Host → 403；`token` 值里带 `Bearer ` → 400；只接受 `application/json` → 400。日志分别输出 `reason=host_not_allowed`（附 `request_host` 与 `allowed_hosts`）、`credential_malformed`、`protocol_rejected`（附 `detail`），且**不含令牌原值**。
+
 ## 独立复核与修复
 
 实现完成后做了一轮独立对抗式复核（四个视角：凭证与生命周期、安全与凭据泄漏、查询语义、测试鉴别力；每条发现再由独立复核者尝试反驳）。16 条发现中确认 10 条（去重后 6 类），逐条处理：

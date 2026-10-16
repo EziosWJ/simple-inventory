@@ -65,8 +65,21 @@ jwt:
 		t.Fatal("unbounded concurrency")
 	}
 	cfg.MCP.MaxConcurrent = 4
+	// The bare development wildcard is accepted, exactly like the host one, but
+	// a partial pattern stays rejected: it would read as exact while matching
+	// more than one origin.
 	cfg.MCP.AllowedOrigins = []string{"*"}
-	if cfg.Validate() == nil {
-		t.Fatal("wildcard origin")
+	if e := cfg.Validate(); e != nil {
+		t.Fatal("development origin wildcard rejected", e)
+	}
+	for _, origin := range []string{"", "http://*.example.test", "http://192.168.1.32:8300*"} {
+		cfg.MCP.AllowedOrigins = []string{origin}
+		if cfg.Validate() == nil {
+			t.Fatal("invalid origin accepted", origin)
+		}
+	}
+	cfg.MCP.AllowedOrigins = []string{"http://192.168.1.32:8300", "null"}
+	if e := cfg.Validate(); e != nil {
+		t.Fatal("exact origin list rejected", e)
 	}
 }

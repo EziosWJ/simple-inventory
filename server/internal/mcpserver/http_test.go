@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -245,5 +246,115 @@ func TestTunnelHostThroughLoopbackOrigin(t *testing.T) {
 	body, _ := io.ReadAll(res.Body)
 	if res.StatusCode != 200 {
 		t.Fatalf("loopback tunnel origin rejected external Host: HTTP %d %s", res.StatusCode, body)
+	}
+}
+
+// request sends one MCP request with exactly the given headers, so a test can
+// control which credential headers are present.
+func request(t *testing.T, h http.Handler, method string, headers map[string][]string) *httptest.ResponseRecorder {
+	t.Helper()
+	r := httptest.NewRequest(method, "http://localhost:18300/mcp", strings.NewReader(listBody))
+	r.RemoteAddr = "127.0.0.1:54321"
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	for key, values := range headers {
+		if key == "Host" {
+			r.Host = values[0]
+			continue
+		}
+		// The caller's headers replace the defaults instead of adding to them,
+		// so a test can send exactly one Accept or credential header.
+		r.Header.Del(key)
+		for _, value := range values {
+			r.Header.Add(key, value)
+		}
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+// A rejected request must be diagnosable from the server log alone, because a
+// mobile client only reports "it failed". The log names the failing rule and
+// the offending origin or host, and never the credential itself.
+func TestRejectionsAreLoggedWithoutTheCredential(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedOrigins = []string{"http://allowed.test"}
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	h := NewHandler(cfg, fakeAuth{allowed: map[string]bool{}}, Services{}, logger)
+	const marker = "simcp_secret_marker_value"
+	for _, tc := range []struct {
+		name    string
+		headers map[string][]string
+		reason  string
+		status  int
+	}{
+		{"missing credential", nil, "credential_missing", 401},
+		{"malformed credential", map[string][]string{"token": {"Bearer " + marker}}, "credential_malformed", 400},
+		{"conflicting credentials", map[string][]string{"token": {marker}, "Authorization": {"Bearer other"}}, "credential_conflict", 400},
+		{"duplicated credential", map[string][]string{"token": {marker, marker}}, "credential_duplicated", 400},
+		{"rejected origin", map[string][]string{"Origin": {"http://blocked.test"}}, "origin_not_allowed", 403},
+		{"rejected host", map[string][]string{"Host": {"evil.test"}}, "host_not_allowed", 403},
+	} {
+		logs.Reset()
+		w := request(t, h, "POST", tc.headers)
+		if w.Code != tc.status {
+			t.Fatalf("%s: status=%d want=%d", tc.name, w.Code, tc.status)
+		}
+		if !strings.Contains(logs.String(), "reason="+tc.reason) {
+			t.Fatalf("%s: log does not name the rule: %s", tc.name, logs.String())
+		}
+		if strings.Contains(logs.String(), marker) || strings.Contains(logs.String(), "simcp_secret") {
+			t.Fatalf("%s: log leaked the credential: %s", tc.name, logs.String())
+		}
+		if w.Header().Get("X-Request-ID") == "" {
+			t.Fatalf("%s: rejected request must still carry a request id", tc.name)
+		}
+	}
+	// A protocol-level rejection (here an Accept header the endpoint cannot
+	// answer) is logged as well, because the client only sees status text.
+	logs.Reset()
+	credential := "Bearer " + strings.Repeat("a", 70)
+	if w := request(t, h, "POST", map[string][]string{"Authorization": {credential}, "Accept": {"application/json"}}); w.Code != 400 {
+		t.Fatalf("unacceptable Accept returned %d", w.Code)
+	}
+	if !strings.Contains(logs.String(), "reason=protocol_rejected") || !strings.Contains(logs.String(), "text/event-stream") {
+		t.Fatalf("protocol rejection must be diagnosable: %s", logs.String())
+	}
+	if strings.Contains(logs.String(), strings.Repeat("a", 70)) {
+		t.Fatalf("protocol rejection leaked the credential: %s", logs.String())
+	}
+
+	// The value the operator has to fix is logged; that is the whole point.
+	logs.Reset()
+	request(t, h, "POST", map[string][]string{"Origin": {"http://blocked.test"}})
+	if !strings.Contains(logs.String(), "origin=http://blocked.test") || !strings.Contains(logs.String(), "allowed_origins=http://allowed.test") {
+		t.Fatalf("origin rejection must be actionable: %s", logs.String())
+	}
+}
+
+// The development entry point opts into any Origin explicitly; the response
+// still echoes the caller's own origin rather than a blanket wildcard.
+func TestDevelopmentOriginWildcardAcceptsAnyOrigin(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedOrigins = []string{"*"}
+	h := NewHandler(cfg, fakeAuth{allowed: map[string]bool{}}, Services{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	credential := "Bearer " + strings.Repeat("a", 70)
+	for _, origin := range []string{"http://192.168.1.32:8300", "null", "capacitor://localhost"} {
+		w := request(t, h, "POST", map[string][]string{"Origin": {origin}, "Authorization": {credential}})
+		if w.Code != 200 {
+			t.Fatalf("origin %s rejected with %d", origin, w.Code)
+		}
+		if got := w.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Fatalf("echoed origin %q want %q", got, origin)
+		}
+		if w.Header().Get("Vary") != "Origin" {
+			t.Fatal("wildcard origin must still vary on Origin")
+		}
+	}
+	w := request(t, h, "OPTIONS", map[string][]string{"Origin": {"capacitor://localhost"}, "Authorization": {credential}})
+	if w.Code != 204 || w.Header().Get("Access-Control-Allow-Origin") != "capacitor://localhost" {
+		t.Fatalf("preflight: %d %v", w.Code, w.Header())
 	}
 }

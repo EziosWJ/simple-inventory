@@ -87,7 +87,10 @@ tasks:
       APP_HTTP__ADDRESS: 0.0.0.0:8300
       APP_FILE__STORAGE_ROOT: '{{.ROOT_DIR}}/server/.data/uploads'
       APP_MCP__ENABLED: 'true'
+      # Development entry point: accept any Host and Origin so a phone on the
+      # LAN and a tunnel can connect without pre-listing their authority.
       APP_MCP__ALLOWED_HOSTS: '*'
+      APP_MCP__ALLOWED_ORIGINS: '*'
     deps:
       - db:migrate:sqlite
     cmds:

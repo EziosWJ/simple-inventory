@@ -87,6 +87,34 @@ APP_CONFIG_PROFILE=sqlite go run ./cmd/mcp-token revoke --id <令牌ID> --actor 
 
 `task dev:sqlite` 自动开启 MCP；单独运行 API 或其他环境默认关闭，可通过 `APP_MCP__ENABLED=true` 开启。监听地址沿用 `APP_HTTP__ADDRESS`，Host 支持 `APP_MCP__ALLOWED_HOSTS='*'` 或逗号分隔的准确 `host:port`。
 
+Origin 沿用同一套规则：`APP_MCP__ALLOWED_ORIGINS` 默认空，`task dev:sqlite` 与本机 Host 通配一起设为 `*`，接受任何来源（浏览器与 WebView 客户端会带 `Origin`，这是手机端最容易踩的一项）。其他启动方式必须填精确值，除单独的 `*` 外不接受部分通配。
+
 请求体 64 KiB、查询超时 10 秒、单令牌每分钟 60 次、全局并发 4、单请求单 RPC。因业务字段完整返回，默认输出上限为 512 KiB，配置仍有明确上界；超出时明确要求缩小范围，不会静默截断备注或银行资料。
+
+## 连不上时看日志
+
+MCP 端点的拒绝响应是纯文本（`forbidden`、`unauthenticated`、`malformed credential header` 等），不是 `/api` 的 JSON 信封，所以客户端往往只显示"失败"。**服务端日志会写清原因**，`task dev:sqlite` 的 `dev` 环境日志级别为 `debug`，直接输出在运行 API 的终端：
+
+```text
+level=WARN msg="mcp request rejected" reason=origin_not_allowed status=403 request_id=... method=POST path=/mcp remote_addr=192.168.1.50:51234 request_host=192.168.1.32:8300 origin=http://192.168.1.32:8300 allowed_origins=*
+```
+
+常见的 `reason`：
+
+| reason | 含义与处理 |
+| --- | --- |
+| `credential_missing` | 请求里没有 `token` 也没有 `Authorization` |
+| `credential_malformed` | 头格式非法，最常见是值里多写了 `Bearer ` |
+| `credential_conflict` | `token` 与 `Authorization` 同时存在但值不同 |
+| `credential_duplicated` | 同一个头出现多次 |
+| `credential_rejected` | 值本身无效：已停用／已过期／已重置／绑定用户停用或无权限 |
+| `origin_not_allowed` | `Origin` 不在白名单，日志里的 `origin=` 就是要加入的值 |
+| `host_not_allowed` | `Host` 不在白名单，日志里的 `request_host=` 就是要加入的值 |
+| `query_string_not_allowed` | URL 上带了查询串，客户端地址应只写到 `/mcp` |
+| `protocol_rejected` | 协议层拒绝，`detail=` 给出原文；最常见是客户端只接受 `application/json` 而没有 `text/event-stream` |
+| `output_too_large` | 结果超过输出上限，日志给出上限；请缩小查询范围 |
+| `rate_limited` / `concurrency_limited` | 触发每分钟 60 次或并发上限 |
+
+日志只记录失败的规则与来源／主机值，**不记录任何令牌内容**。成功的调用另有一条 `mcp tool access`（工具、主体、耗时、状态、记录数）。
 
 技术实现使用官方 Go SDK v1.8.0、无状态 Streamable HTTP，支持 2025-03-26、2025-06-18、2025-11-25 协商。Cherry Studio 与手机实机由使用者测试，自动验证结果见[下一阶段验证记录](mcp-next-progress.md)。
