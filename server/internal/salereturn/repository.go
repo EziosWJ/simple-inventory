@@ -575,7 +575,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 		return p, e
 	}
 	var ids []int64
-	if e := d.Select("id").Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
+	if e := d.Select("id").Order("business_date DESC,id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
 		return p, e
 	}
 	for _, id := range ids {

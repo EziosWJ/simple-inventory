@@ -353,7 +353,7 @@ type entryRow struct {
 
 func (entryRow) TableName() string { return "partner_balance_entry" }
 func (s *Repository) Find(ctx context.Context, id int64) (Entry, error) {
-	rows, e := s.ledgerRows(ctx, EntryFilter{EntryID: id})
+	rows, e := s.ledgerRows(ctx, EntryFilter{EntryID: id}, ledgerOrderOldestFirst)
 	if e != nil {
 		return Entry{}, e
 	}

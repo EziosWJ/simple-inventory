@@ -506,7 +506,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 		ID             int64
 		MatchesHistory bool
 	}
-	if e := d.Select("id,("+strings.Join(historySQL, " OR ")+") AS matches_history", historyArgs...).Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
+	if e := d.Select("id,("+strings.Join(historySQL, " OR ")+") AS matches_history", historyArgs...).Order("business_date DESC,id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Scan(&ids).Error; e != nil {
 		return p, e
 	}
 	for _, id := range ids {

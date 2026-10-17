@@ -164,7 +164,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 	if e := d.Count(&p.Total).Error; e != nil {
 		return p, e
 	}
-	e := adjustmentQuery(d).Order("a.id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
+	e := adjustmentQuery(d).Order("a.create_time DESC,a.id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&p.Records).Error
 	if e != nil {
 		return p, e
 	}

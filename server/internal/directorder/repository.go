@@ -236,7 +236,7 @@ func (r *Repository) Page(ctx context.Context, q Query) (Page, error) {
 			return e
 		}
 		var headers []Draft
-		if e := d.Order("id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&headers).Error; e != nil {
+		if e := d.Order("business_date DESC,id DESC").Offset((q.Page - 1) * q.PageSize).Limit(q.PageSize).Find(&headers).Error; e != nil {
 			return e
 		}
 		for _, h := range headers {

@@ -18,7 +18,7 @@ func (r *Repository) LedgerExport(ctx context.Context, q EntryFilter, actorID in
 	out := LedgerExport{Records: []Entry{}}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		repo := &Repository{db: tx}
-		rows, err := repo.ledgerRows(ctx, q, exportfile.RowLimit+1)
+		rows, err := repo.ledgerRows(ctx, q, ledgerOrderNewestFirst, exportfile.RowLimit+1)
 		if err != nil {
 			return err
 		}

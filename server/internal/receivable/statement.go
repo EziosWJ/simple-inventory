@@ -161,15 +161,22 @@ func (r *Repository) ledgerQuery(db *gorm.DB, ctx context.Context, q EntryFilter
 	return query
 }
 
+// Ledger listings default to the newest effective instant first; the printed
+// statement reads oldest first because it builds a running balance in order.
+const (
+	ledgerOrderNewestFirst = "e.effective_at DESC,e.id DESC"
+	ledgerOrderOldestFirst = "e.effective_at ASC,e.id ASC"
+)
+
 // ledgerRows reads at most one bounded window of ledger rows; partner and
 // source identities come from the same query as their filters.
-func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, limit ...int) ([]entryRow, error) {
+func (r *Repository) ledgerRows(ctx context.Context, q EntryFilter, order string, limit ...int) ([]entryRow, error) {
 	query := r.ledgerQuery(r.db, ctx, q).Select(r.ledgerSelect(ctx))
 	if len(limit) > 0 {
 		query = query.Limit(limit[0])
 	}
 	rows := []entryRow{}
-	err := query.Order("e.effective_at ASC,e.id ASC").Scan(&rows).Error
+	err := query.Order(order).Scan(&rows).Error
 	return rows, err
 }
 
@@ -186,7 +193,7 @@ func (r *Repository) FilterPage(ctx context.Context, q EntryFilter) (Page, error
 		return out, nil
 	}
 	rows := []entryRow{}
-	err := r.ledgerQuery(r.db, ctx, q).Select(records).Order("e.effective_at ASC,e.id ASC").
+	err := r.ledgerQuery(r.db, ctx, q).Select(records).Order(ledgerOrderNewestFirst).
 		Offset(offset).Limit(q.PageSize).Scan(&rows).Error
 	if err != nil {
 		return Page{}, err
@@ -279,7 +286,7 @@ func (r *Repository) Statement(ctx context.Context, q EntryFilter) (Statement, e
 			return scanErr
 		}
 		page := []entryRow{}
-		window := r.ledgerQuery(tx, ctx, q).Select(records).Order("e.effective_at ASC,e.id ASC")
+		window := r.ledgerQuery(tx, ctx, q).Select(records).Order(ledgerOrderOldestFirst)
 		skip := false
 		if q.Page > 0 {
 			offset, beyond := pageOffset(q.Page, q.PageSize)

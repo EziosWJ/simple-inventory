@@ -114,8 +114,14 @@ func assertEffectiveTimeContract(t *testing.T, db *platformdatabase.Database, r 
 		if len(page.Records) != want {
 			t.Fatalf("entries=%+v", page)
 		}
+		for i := 1; i < len(page.Records); i++ {
+			if page.Records[i-1].EffectiveAt.Before(page.Records[i].EffectiveAt) {
+				t.Fatalf("entries must default to the newest effective instant first: %+v", page.Records)
+			}
+		}
 		previous := "0.00"
-		for _, entry := range page.Records {
+		for i := len(page.Records) - 1; i >= 0; i-- {
+			entry := page.Records[i]
 			if entry.BalanceBefore != previous {
 				t.Fatalf("effective-time order breaks balance chain: %+v", page.Records)
 			}
@@ -136,7 +142,7 @@ func assertEffectiveTimeContract(t *testing.T, db *platformdatabase.Database, r 
 	if so.PostedAt == nil || !so.PostedAt.Equal(saleEntry.EffectiveAt) {
 		t.Fatalf("posting time diverged: sale=%+v entry=%+v", so, saleEntry)
 	}
-	if postgres && (receipt.ID != entries[1].ID || saleEntry.ID != entries[2].ID) {
+	if postgres && (receipt.ID != entries[1].ID || saleEntry.ID != entries[0].ID) {
 		t.Fatalf("balance lock queue order diverged: %+v", entries)
 	}
 	note := inventoryData[struct{ BusinessDate string }](t, serveJSON(r, "GET", fmt.Sprintf("/api/v1/sales/%d/delivery-note", so.ID), "", token), 200)
@@ -146,7 +152,7 @@ func assertEffectiveTimeContract(t *testing.T, db *platformdatabase.Database, r 
 
 	so = inventoryData[sale.Draft](t, serveJSON(r, "POST", fmt.Sprintf("/api/v1/sales/%d/cancel", so.ID), `{"version":2,"reason":"时间一致性"}`, token), 200)
 	entries = checkChain(4, "99.00")
-	if so.CancelledAt == nil || !so.CancelledAt.Equal(entries[3].EffectiveAt) {
-		t.Fatalf("cancel time diverged: sale=%+v entry=%+v", so, entries[3])
+	if so.CancelledAt == nil || !so.CancelledAt.Equal(entries[0].EffectiveAt) {
+		t.Fatalf("cancel time diverged: sale=%+v entry=%+v", so, entries[0])
 	}
 }
