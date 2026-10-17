@@ -240,6 +240,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 		flusher, _ := w.(http.Flusher)
+		// A buffering reverse proxy otherwise holds the response headers until
+		// the first keepalive arrives. One comment line makes the connection
+		// visible to the client immediately; event parsers ignore it.
+		if _, err := io.WriteString(w, ": connected\n\n"); err != nil {
+			return
+		}
 		if flusher != nil {
 			flusher.Flush()
 		}

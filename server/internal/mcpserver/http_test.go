@@ -407,6 +407,9 @@ func TestGetStreamDoesNotBlockTools(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("GET stream did not end with the client")
 	}
+	if !strings.Contains(recorder.Body.String(), ": connected") {
+		t.Fatalf("stream did not prime the connection: %q", recorder.Body.String())
+	}
 }
 
 func TestGetStreamRequiresCredential(t *testing.T) {
