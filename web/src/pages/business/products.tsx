@@ -99,15 +99,16 @@ export function ProductsPage() {
       key: "specification",
       render: (_, record) => `${record.model || "-"} / ${record.specification || "-"}`,
     },
-    { title: "类型", dataIndex: "type", render: (value) => businessDictLabel(productTypeDict.options, value) },
-    { title: "分类", dataIndex: "category", render: (value) => value || "-" },
-    { title: "单位", dataIndex: "unit" },
-    { title: "参考采购价", dataIndex: "purchasePrice", render: (value) => value ?? "-" },
-    { title: "参考销售价", dataIndex: "salePrice", render: (value) => value ?? "-" },
-    { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(businessStatusDict.options, value) },
+    { title: "类型", dataIndex: "type", nowrap: true, render: (value) => businessDictLabel(productTypeDict.options, value) },
+    { title: "分类", dataIndex: "category", nowrap: true, render: (value) => value || "-" },
+    { title: "单位", dataIndex: "unit", nowrap: true },
+    { title: "参考采购价", dataIndex: "purchasePrice", nowrap: true, render: (value) => value ?? "-" },
+    { title: "参考销售价", dataIndex: "salePrice", nowrap: true, render: (value) => value ?? "-" },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (value) => businessDictLabel(businessStatusDict.options, value) },
     {
       title: "操作",
       key: "actions",
+      nowrap: true,
       render: (_, record) => (
         <div className="flex gap-1">
           <Button size="sm" variant="secondary" onClick={() => setDetail(record)}>查看</Button>

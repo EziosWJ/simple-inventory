@@ -101,10 +101,9 @@ export function DataTable<T>({
               <th
                 key={getColumnKey(column, index)}
                 className={cn(
-                  "border-b border-border px-space-5 py-space-3 font-medium",
+                  "whitespace-nowrap border-b border-border px-3 py-space-3 font-medium 2xl:px-space-5",
                   column.align === "center" && "text-center",
                   column.align === "right" && "text-right",
-                  column.nowrap && "whitespace-nowrap",
                 )}
                 style={{ width: column.width }}
                 scope="col"
@@ -145,7 +144,7 @@ export function DataTable<T>({
                   <td
                     key={getColumnKey(column, columnIndex)}
                     className={cn(
-                      "border-b border-border px-space-5 py-space-3 align-middle",
+                      "border-b border-border px-3 py-space-3 align-middle 2xl:px-space-5",
                       column.align === "center" && "text-center",
                       column.align === "right" && "text-right",
                       column.nowrap && "whitespace-nowrap",

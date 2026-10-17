@@ -79,14 +79,15 @@ export function InventoryBalancesPage() {
         </div>
       ),
     },
-    { title: "型号 / 规格", key: "specification", render: (_, record) => `${record.model || "-"} / ${record.specification || "-"}` },
-    { title: "分类", dataIndex: "category", render: (value) => value || "-" },
-    { title: "基本单位", dataIndex: "unit" },
-    { title: "当前数量", dataIndex: "quantity", render: (value) => <span className="tabular-nums font-medium">{String(value ?? "")}</span> },
-    { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(businessStatusDict.options, value) },
+    { title: "型号 / 规格", key: "specification", nowrap: true, render: (_, record) => `${record.model || "-"} / ${record.specification || "-"}` },
+    { title: "分类", dataIndex: "category", nowrap: true, render: (value) => value || "-" },
+    { title: "基本单位", dataIndex: "unit", nowrap: true },
+    { title: "当前数量", dataIndex: "quantity", nowrap: true, render: (value) => <span className="tabular-nums font-medium">{String(value ?? "")}</span> },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (value) => businessDictLabel(businessStatusDict.options, value) },
     {
       title: "操作",
       key: "actions",
+      nowrap: true,
       render: (_, record) => <Button size="sm" variant="secondary" onClick={() => navigate(`/business/inventory-entries?productId=${record.productId}`)}>查看流水</Button>,
     },
   ];

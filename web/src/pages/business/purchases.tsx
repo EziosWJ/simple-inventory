@@ -168,11 +168,11 @@ export function PurchasesPage() {
   const columns: DataTableColumn<PurchaseDraft>[] = [
     { title: "供应商", dataIndex: "partnerName", render: (value, record) => <span className="block min-w-[8rem]">{String(value ?? "")}{record.matchesHistory && <span className="block text-xs text-primary">匹配历史资料</span>}</span> },
     { title: "采购内容", key: "items", render: (_, record) => { const full = record.items.map(item => `${item.productCode} · ${item.productName} ${item.productModel ?? ""} ${item.productSpecification ?? ""} ×${item.quantity} ${item.unit}`).join("、"); return <span className="block max-w-[22rem] truncate text-sm" title={full}>{full || "—"}</span>; } },
-    { title: "交付方式", dataIndex: "directDelivery", render: value => value ? "直送" : "普通" },
+    { title: "交付方式", dataIndex: "directDelivery", nowrap: true, render: value => value ? "直送" : "普通" },
     { title: "业务日期", dataIndex: "businessDate", nowrap: true },
-    { title: "金额", dataIndex: "totalAmount", align: "right", render: (value) => `¥${String(value ?? "0.00")}` },
-    { title: "状态", dataIndex: "status", render: (value) => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[String(value)] ?? String(value)) },
-    { title: "创建人", dataIndex: "createdByName" },
+    { title: "金额", dataIndex: "totalAmount", align: "right", nowrap: true, render: (value) => `¥${String(value ?? "0.00")}` },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (value) => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"}[String(value)] ?? String(value)) },
+    { title: "创建人", dataIndex: "createdByName", nowrap: true },
     {
       title: "操作",
       key: "actions",
@@ -196,13 +196,13 @@ export function PurchasesPage() {
     { title: "采购单号", dataIndex: "documentNo", render: (value, row) => <button className="text-primary hover:underline" onClick={() => openDetail({ id: row.purchaseId } as PurchaseDraft)}>{String(value)}{row.matchesHistory && <span className="block text-xs">匹配历史资料</span>}</button> },
     { title: "供应商", dataIndex: "partnerName" },
     { title: "商品", key: "product", render: (_, row) => <div>{row.productCode} · {row.productName}<div className="text-xs text-text-tertiary">{row.productModel || "-"} / {row.productSpecification || "-"} · {row.unit}</div></div> },
-    { title: "业务日期", dataIndex: "businessDate" },
-    { title: "数量", dataIndex: "quantity", align: "right" },
-    { title: "成交单价", dataIndex: "unitPrice", align: "right", render: value => `¥${value}` },
-    { title: "原金额", dataIndex: "amount", align: "right", render: value => `¥${value}` },
-    { title: "有效退货", dataIndex: "returnedAmount", align: "right", render: value => value == null ? "—" : `¥${value}` },
-    { title: "净采购", dataIndex: "netAmount", align: "right", render: value => value == null ? "—" : `¥${value}` },
-    { title: "状态", dataIndex: "status", render: value => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"} as Record<string,string>)[String(value)] ?? String(value) },
+    { title: "业务日期", dataIndex: "businessDate", nowrap: true },
+    { title: "数量", dataIndex: "quantity", align: "right", nowrap: true },
+    { title: "成交单价", dataIndex: "unitPrice", align: "right", nowrap: true, render: value => `¥${value}` },
+    { title: "原金额", dataIndex: "amount", align: "right", nowrap: true, render: value => `¥${value}` },
+    { title: "有效退货", dataIndex: "returnedAmount", align: "right", nowrap: true, render: value => value == null ? "—" : `¥${value}` },
+    { title: "净采购", dataIndex: "netAmount", align: "right", nowrap: true, render: value => value == null ? "—" : `¥${value}` },
+    { title: "状态", dataIndex: "status", nowrap: true, render: value => ({DRAFT:"草稿",POSTED:"已过账",CANCELLED:"已取消"} as Record<string,string>)[String(value)] ?? String(value) },
   ];
 
   function toggleView(next: "documents" | "items") {

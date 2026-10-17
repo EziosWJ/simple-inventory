@@ -107,10 +107,10 @@ export function InventoryAdjustmentsPage() {
 
   const columns: DataTableColumn<InventoryAdjustment>[] = [
     { title: "商品 / 调整量", key: "items", render: (_, record) => <div className="max-w-[24rem] space-y-1">{record.items?.map((item) => <div key={item.id} className={item.matchesProduct ? "font-medium text-primary" : "text-sm"}>{item.productCode} · {item.productName} · {item.quantity} {item.unit}{item.reason ? ` · ${item.reason}` : ""}</div>) ?? "—"}</div> },
-    { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(statusDict.options, value as AdjustmentStatus) },
-    { title: "创建人", key: "creator", render: (_, record) => record.createdByName || `用户 ${record.createdBy}` },
-    { title: "创建时间", dataIndex: "createTime", render: (value) => formatDateTime(String(value ?? "")) },
-    { title: "操作", key: "actions", render: (_, record) => <DocumentRowActions documentNo={record.documentNo}><Button size="sm" variant="secondary" onClick={() => void openDetail(record.id)}>查看</Button>{record.status === "DRAFT" && <Button size="sm" onClick={() => void openDetailForPost(record.id)}>过账</Button>}</DocumentRowActions> },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (value) => businessDictLabel(statusDict.options, value as AdjustmentStatus) },
+    { title: "创建人", key: "creator", nowrap: true, render: (_, record) => record.createdByName || `用户 ${record.createdBy}` },
+    { title: "创建时间", dataIndex: "createTime", nowrap: true, render: (value) => formatDateTime(String(value ?? "")) },
+    { title: "操作", key: "actions", nowrap: true, render: (_, record) => <DocumentRowActions documentNo={record.documentNo}><Button size="sm" variant="secondary" onClick={() => void openDetail(record.id)}>查看</Button>{record.status === "DRAFT" && <Button size="sm" onClick={() => void openDetailForPost(record.id)}>过账</Button>}</DocumentRowActions> },
   ];
 
   async function openDetailForPost(id: number) {

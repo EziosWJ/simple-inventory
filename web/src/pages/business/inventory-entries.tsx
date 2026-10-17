@@ -110,7 +110,7 @@ export function InventoryEntriesPage() {
   }, [linkedProductId, filters.productId]);
 
   const columns: DataTableColumn<InventoryEntry>[] = [
-    { title: "生效时间", dataIndex: "occurredAt", render: (value) => formatDateTime(String(value ?? "")) },
+    { title: "生效时间", dataIndex: "occurredAt", nowrap: true, render: (value) => formatDateTime(String(value ?? "")) },
     {
       title: "商品快照",
       key: "product",
@@ -124,15 +124,16 @@ export function InventoryEntriesPage() {
     {
       title: "变动",
       dataIndex: "quantity",
+      nowrap: true,
       render: (value) => <span className={String(value ?? "").startsWith("-") ? "tabular-nums text-danger" : "tabular-nums text-success"}>{String(value ?? "")}</span>,
     },
-    { title: "调整前 → 调整后", key: "balance", render: (_, record) => <span className="tabular-nums">{record.balanceBefore} → {record.balanceAfter}</span> },
-    { title: "业务来源", dataIndex: "sourceType", render: (value, row) => `${sourceLabels[value as InventorySourceType] ?? String(value ?? "")}${row.directDelivery ? " · 直送" : ""}` },
-    { title: "类型", dataIndex: "entryType", render: (value) => businessDictLabel(entryTypeFallback, value as InventoryEntryType) },
-    { title: "原因", dataIndex: "reason", render: (value) => businessDictLabel(entryReasonOptions, value as InventoryEntryReason) },
+    { title: "调整前 → 调整后", key: "balance", nowrap: true, render: (_, record) => <span className="tabular-nums">{record.balanceBefore} → {record.balanceAfter}</span> },
+    { title: "业务来源", dataIndex: "sourceType", nowrap: true, render: (value, row) => `${sourceLabels[value as InventorySourceType] ?? String(value ?? "")}${row.directDelivery ? " · 直送" : ""}` },
+    { title: "类型", dataIndex: "entryType", nowrap: true, render: (value) => businessDictLabel(entryTypeFallback, value as InventoryEntryType) },
+    { title: "原因", dataIndex: "reason", nowrap: true, render: (value) => businessDictLabel(entryReasonOptions, value as InventoryEntryReason) },
     { title: "说明", dataIndex: "remark", render: (value) => <span className="whitespace-pre-wrap">{value || "-"}</span> },
-    { title: "操作人", key: "operator", render: (_, record) => record.operatorName || `用户 ${record.operatorId}` },
-    { title: "来源单号", dataIndex: "documentNo", render: (value, record) => <button type="button" className="text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => openSource(record)}>{String(value ?? "")}</button> },
+    { title: "操作人", key: "operator", nowrap: true, render: (_, record) => record.operatorName || `用户 ${record.operatorId}` },
+    { title: "来源单号", dataIndex: "documentNo", nowrap: true, render: (value, record) => <button type="button" title={String(value ?? "")} className="block max-w-[12rem] truncate text-left text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => openSource(record)}>{String(value ?? "")}</button> },
   ];
 
   function openSource(record: InventoryEntry) {
@@ -184,7 +185,7 @@ export function InventoryEntriesPage() {
         toolbar={<TableToolbar title="流水列表" description="历史描述为过账时的商品资料快照，不随当前档案编辑变化；当前库存请查看“当前库存”页面。" actions={<span className="text-sm text-text-tertiary">共 {total} 条</span>} />}
         pagination={<Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />}
       >
-        <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error} />
+        <DataTable columns={columns} dataSource={records} rowKey="id" loading={loading} error={error} minWidth={1040} />
       </DataTableCard>
       {detailLoading && <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="rounded-admin bg-surface p-6">正在加载来源调整单…</div></div>}
       {detail && <InventoryAdjustmentDetail adjustment={detail} onClose={() => setDetail(null)} />}

@@ -105,14 +105,14 @@ export function PartnerLedgerPage() {
 
   const columns: DataTableColumn<PartnerBalanceEntry>[] = [
     {title:"往来单位／方向",key:"partner",render:(_,r)=><>{r.partnerName}<span className="block text-xs text-text-secondary">{r.direction==="CUSTOMER"?"客户":"供应商"}</span></>},
-    { title: "类型 / 来源号", key: "source", render: (_, row) => <><span className="block text-xs text-text-secondary">{entryTypeLabel[row.entryType] ?? row.entryType}</span><Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>{row.documentNo}</Button></> },
-    { title: "业务日期", dataIndex: "businessDate" },
-    { title: "实际生效", key: "effective", render: (_, row) => formatDateTime(row.effectiveAt) },
-    { title: "实际操作人", key: "actor", render: (_, row) => `${row.operatorName ?? ""}（${row.operatorId}）` },
-    { title: "变动（元）", dataIndex: "amount" },
-    { title: "前余额", dataIndex: "balanceBefore" },
-    { title: "后余额", dataIndex: "balanceAfter" },
-    { title: "细节", key: "action", render: (_, row) => <Button size="sm" variant="secondary" aria-expanded={expandedKeys.includes(String(row.id))} onClick={() => toggleDetails(row.id)}>{expandedKeys.includes(String(row.id)) ? "收起细节" : "展示细节"}</Button> },
+    { title: "类型 / 来源号", key: "source", render: (_, row) => <><span className="block text-xs text-text-secondary">{entryTypeLabel[row.entryType] ?? row.entryType}</span><Button size="sm" variant="secondary" className="max-w-[11rem]" title={row.documentNo} onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}><span className="min-w-0 truncate">{row.documentNo}</span></Button></> },
+    { title: "业务日期", dataIndex: "businessDate", nowrap: true },
+    { title: "实际生效", key: "effective", nowrap: true, render: (_, row) => formatDateTime(row.effectiveAt) },
+    { title: "实际操作人", key: "actor", nowrap: true, render: (_, row) => `${row.operatorName ?? ""}（${row.operatorId}）` },
+    { title: "变动（元）", dataIndex: "amount", nowrap: true },
+    { title: "前余额", dataIndex: "balanceBefore", nowrap: true },
+    { title: "后余额", dataIndex: "balanceAfter", nowrap: true },
+    { title: "细节", key: "action", nowrap: true, render: (_, row) => <Button size="sm" variant="secondary" aria-expanded={expandedKeys.includes(String(row.id))} onClick={() => toggleDetails(row.id)}>{expandedKeys.includes(String(row.id)) ? "收起细节" : "展示细节"}</Button> },
   ];
 
   return <div className="space-y-4">

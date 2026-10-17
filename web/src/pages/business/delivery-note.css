@@ -22,6 +22,9 @@
   border: 1px solid #d1d5db;
   display: flex;
   flex-direction: column;
+  /* The rotated watermark's bounding box is wider than the sheet; clip it so
+     the admin page does not gain a horizontal scrollbar at common widths. */
+  overflow: hidden;
 }
 
 .delivery-watermark {

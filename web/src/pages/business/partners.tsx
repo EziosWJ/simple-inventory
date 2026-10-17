@@ -86,14 +86,15 @@ export function PartnersPage() {
       key: "name",
       render: (_, record) => <div><div className="font-medium">{record.name}</div><div className="text-xs text-text-tertiary">{record.code}</div></div>,
     },
-    { title: "分类", dataIndex: "type", render: (value) => businessDictLabel(partnerTypeDict.options, value) },
-    { title: "身份", key: "identity", render: (_, record) => identities(record, partnerIdentityDict.options).join(" / ") },
+    { title: "分类", dataIndex: "type", nowrap: true, render: (value) => businessDictLabel(partnerTypeDict.options, value) },
+    { title: "身份", key: "identity", nowrap: true, render: (_, record) => identities(record, partnerIdentityDict.options).join(" / ") },
     { title: "联系人", dataIndex: "contact", render: (value) => value || "-" },
-    { title: "电话", dataIndex: "phone", render: (value) => value || "-" },
-    { title: "状态", dataIndex: "status", render: (value) => businessDictLabel(businessStatusDict.options, value) },
+    { title: "电话", dataIndex: "phone", nowrap: true, render: (value) => value || "-" },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (value) => businessDictLabel(businessStatusDict.options, value) },
     {
       title: "操作",
       key: "actions",
+      nowrap: true,
       render: (_, record) => <div className="flex gap-1">
         <Button size="sm" variant="secondary" onClick={() => setDetail(record)}>查看</Button>
         <Button size="sm" variant="secondary" onClick={() => setEditing(record)}>编辑</Button>

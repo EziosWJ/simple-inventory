@@ -36,11 +36,11 @@ export function DirectOrdersPage() {
   }, [query, page, reload]);
   const columns: DataTableColumn<DirectOrder>[] = [
     { title: "供应商", dataIndex: "supplierName" }, { title: "客户", dataIndex: "customerName" },
-    { title: "业务日期", dataIndex: "businessDate" },
+    { title: "业务日期", dataIndex: "businessDate", nowrap: true },
     { title: "采购金额", dataIndex: "purchaseTotal", align: "right", render: v => `¥${v}` },
     { title: "销售金额", dataIndex: "saleTotal", align: "right", render: v => `¥${v}` },
-    { title: "状态", dataIndex: "status", render: (_, row) => directStatus[row.status] },
-    { title: "操作", key: "actions", render: (_, row) => <DocumentRowActions documentNo={row.documentNo}><Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}`)}>详情</Button>{row.status === "DRAFT" && <Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}/edit`)}>编辑</Button>}</DocumentRowActions> },
+    { title: "状态", dataIndex: "status", nowrap: true, render: (_, row) => directStatus[row.status] },
+    { title: "操作", key: "actions", nowrap: true, render: (_, row) => <DocumentRowActions documentNo={row.documentNo}><Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}`)}>详情</Button>{row.status === "DRAFT" && <Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}/edit`)}>编辑</Button>}</DocumentRowActions> },
   ];
   function search() { setPage(1); setQuery({ ...filters }); }
   return <div className="space-y-space-4">

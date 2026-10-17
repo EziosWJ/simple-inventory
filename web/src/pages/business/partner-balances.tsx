@@ -119,11 +119,11 @@ export function PartnerBalancesPage() {
   }
   const columns: DataTableColumn<PartnerBalance>[] = [
     { title: "往来单位", dataIndex: "partnerName" },
-    { title: "身份", key: "direction", render: (_, row) => row.direction === "CUSTOMER" ? "客户" : "供应商" },
-    { title: "当前款项", key: "state", render: (_, row) => amountLabel(row) },
-    { title: "金额（元）", key: "amount", align: "right", render: (_, row) => <strong className="tabular-nums">{displayAmount(row.amount)}</strong> },
-    { title: "往来记录数", dataIndex: "entryCount", align: "right" },
-    { title: "操作", key: "action", render: (_, row) => {
+    { title: "身份", key: "direction", nowrap: true, render: (_, row) => row.direction === "CUSTOMER" ? "客户" : "供应商" },
+    { title: "当前款项", key: "state", nowrap: true, render: (_, row) => amountLabel(row) },
+    { title: "金额（元）", key: "amount", align: "right", nowrap: true, render: (_, row) => <strong className="tabular-nums">{displayAmount(row.amount)}</strong> },
+    { title: "往来记录数", dataIndex: "entryCount", align: "right", nowrap: true },
+    { title: "操作", key: "action", nowrap: true, render: (_, row) => {
       const amount = cents(row.amount);
       return <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={() => route("/business/partner-ledger", row)}>查看明细</Button>
