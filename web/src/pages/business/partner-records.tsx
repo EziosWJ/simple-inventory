@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PartnerSelect } from "@/components/business/master-data-select";
 import { Textarea } from "@/components/ui/textarea";
+import { DocumentRowActions } from "@/components/business/document-row-actions";
 import { balanceDescription, cents, entryTypeLabel, money, paymentMethodLabel } from "@/lib/partner-ledger";
 import type { DataTableColumn } from "@/types";
 
@@ -127,7 +128,6 @@ export function PartnerRecords({ category, version = 0, onChanged, detailId, onD
   }
 
   const columns: DataTableColumn<PartnerBalanceEntry>[] = [
-    { title: "单号", dataIndex: "documentNo" },
     { title: "往来单位", dataIndex: "partnerName" },
     { title: "业务", key: "type", render: (_, row) => entryTypeLabel[row.entryType] ?? row.entryType },
     { title: "业务日期", dataIndex: "businessDate" },
@@ -135,7 +135,7 @@ export function PartnerRecords({ category, version = 0, onChanged, detailId, onD
     { title: "本笔变动后", key: "balance", render: (_, row) => balanceDescription(row.direction, row.balanceAfter) },
     { title: "附件", key: "attachments", render: (_, row) => `${row.attachmentCount ?? 0} 个` },
     { title: "状态", key: "status", render: (_, row) => row.entryType === "REVERSAL" ? "冲销记录" : row.reversedById ? "已冲销" : "已生效" },
-    { title: "操作", key: "action", render: (_, row) => <Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>查看详情</Button> },
+    { title: "操作", key: "action", render: (_, row) => <DocumentRowActions documentNo={row.documentNo}><Button size="sm" variant="secondary" onClick={() => void partnerBalanceEntry(row.id).then(setDetail).catch(e => setError(String(e)))}>查看详情</Button></DocumentRowActions> },
   ];
   function applyFilters(next: Filters) {
     if (next.businessFrom && next.businessTo && next.businessFrom > next.businessTo) { setError("业务日期起始不能晚于结束日期。"); return; }

@@ -10,6 +10,7 @@ import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace
 import { DataTable } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/datetime";
+import { copyText } from "@/lib/clipboard";
 import { statusText, statusTone } from "./sale-query-status";
 
 export function SaleDetail({ detail, saleId, loading, error, onRetry, onClose, goTo, onEdit, onChange }: {
@@ -201,8 +202,7 @@ function CopyDocumentNo({ documentNo }: { documentNo: string }) {
   const [message, setMessage] = useState("");
   return <span className="inline-flex items-center gap-space-2">
     <Button size="sm" variant="ghost" aria-label="复制销售单号" onClick={async () => {
-      try { await navigator.clipboard.writeText(documentNo); setMessage("已复制"); }
-      catch { setMessage("复制失败，请选中单号复制"); }
+      setMessage(await copyText(documentNo) ? "已复制" : "复制失败，请手动复制单号");
     }}><Copy className="h-3.5 w-3.5" aria-hidden />复制单号</Button>
     {message && <span role="status" className="text-xs">{message}</span>}
   </span>;

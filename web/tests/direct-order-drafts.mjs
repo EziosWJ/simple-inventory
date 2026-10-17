@@ -52,7 +52,7 @@ try {
     assert.equal(await filter.getByRole("button", { name: `浏览选择${label}`, exact: true }).count(), 1);
     assert.equal(await filter.getByRole("button", { name: "浏览选择", exact: true }).count(), 0);
   }
-  await page.getByRole("button", { name: saved.documentNo, exact: true }).click();
+  await page.getByRole("row").filter({ hasText: saved.documentNo }).getByRole("button", { name: "详情", exact: true }).click();
   await page.getByRole("heading", { name: `直送详情 · ${saved.documentNo}` }).waitFor();
   assert.equal(await page.getByRole("button", { name: "保存草稿", exact: true }).count(), 0);
   await page.getByRole("link", { name: "编辑草稿", exact: true }).click();

@@ -12,6 +12,7 @@ import { PartnerSelect, ProductSelect } from "@/components/business/master-data-
 import { DirectDeliveryTrace } from "@/components/business/direct-delivery-trace";
 import { purchasePostingConfirmation } from "@/pages/business/purchase-posting-impact";
 import { DocumentDisclosure, DocumentItems, DocumentOperationRecords, DocumentSummary } from "@/components/business/document-presentation";
+import { DocumentRowActions } from "@/components/business/document-row-actions";
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelPurchase,
@@ -165,17 +166,7 @@ export function PurchasesPage() {
   }
 
   const columns: DataTableColumn<PurchaseDraft>[] = [
-    {
-      title: "采购单号",
-      dataIndex: "documentNo",
-      nowrap: true,
-      render: (value, record) => (
-        <button className="text-primary hover:underline" onClick={() => void openDetail(record)}>
-          {String(value ?? "")}{record.matchesHistory&&<span className="block text-xs text-primary">匹配历史资料</span>}
-        </button>
-      ),
-    },
-    { title: "供应商", dataIndex: "partnerName" },
+    { title: "供应商", dataIndex: "partnerName", render: (value, record) => <span className="block min-w-[8rem]">{String(value ?? "")}{record.matchesHistory && <span className="block text-xs text-primary">匹配历史资料</span>}</span> },
     { title: "采购内容", key: "items", render: (_, record) => { const full = record.items.map(item => `${item.productCode} · ${item.productName} ${item.productModel ?? ""} ${item.productSpecification ?? ""} ×${item.quantity} ${item.unit}`).join("、"); return <span className="block max-w-[22rem] truncate text-sm" title={full}>{full || "—"}</span>; } },
     { title: "交付方式", dataIndex: "directDelivery", render: value => value ? "直送" : "普通" },
     { title: "业务日期", dataIndex: "businessDate", nowrap: true },
@@ -187,7 +178,7 @@ export function PurchasesPage() {
       key: "actions",
       nowrap: true,
       render: (_, record) => (
-        <div className="flex gap-2">
+        <DocumentRowActions documentNo={record.documentNo}>
           <Button size="sm" variant="secondary" onClick={() => void openDetail(record)}>查看</Button>
           {record.status === "DRAFT" && !record.sourceOrderId && (
             <>
@@ -197,7 +188,7 @@ export function PurchasesPage() {
             </>
           )}
           {record.status === "POSTED" && !record.sourceOrderId && <><Button size="sm" variant="secondary" onClick={() => { setCancelTarget(record); setCancelReason(""); }}>整单取消</Button><Button size="sm" onClick={() => goTo(`/business/purchase-returns?purchaseId=${record.id}`)}>办理退货</Button></>}{record.sourceOrderId && <Button size="sm" onClick={() => goTo(`/business/direct-orders/${record.sourceOrderId}`)}>来源直送单</Button>}
-        </div>
+        </DocumentRowActions>
       ),
     },
   ];

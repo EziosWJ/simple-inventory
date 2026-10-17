@@ -9,6 +9,7 @@ import { TableToolbar } from "@/components/common/table-toolbar";
 import { Pagination } from "@/components/common/pagination";
 import { Field } from "@/components/common/field";
 import { PartnerSelect } from "@/components/business/master-data-select";
+import { DocumentRowActions } from "@/components/business/document-row-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -34,13 +35,12 @@ export function DirectOrdersPage() {
     return () => { active = false; };
   }, [query, page, reload]);
   const columns: DataTableColumn<DirectOrder>[] = [
-    { title: "直送单号", dataIndex: "documentNo", render: (v, row) => <button className="text-primary hover:underline" onClick={() => navigate(`/business/direct-orders/${row.id}`)}>{String(v)}</button> },
     { title: "供应商", dataIndex: "supplierName" }, { title: "客户", dataIndex: "customerName" },
     { title: "业务日期", dataIndex: "businessDate" },
     { title: "采购金额", dataIndex: "purchaseTotal", align: "right", render: v => `¥${v}` },
     { title: "销售金额", dataIndex: "saleTotal", align: "right", render: v => `¥${v}` },
     { title: "状态", dataIndex: "status", render: (_, row) => directStatus[row.status] },
-    { title: "操作", key: "actions", render: (_, row) => <div className="flex gap-space-2"><Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}`)}>详情</Button>{row.status === "DRAFT" && <Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}/edit`)}>编辑</Button>}</div> },
+    { title: "操作", key: "actions", render: (_, row) => <DocumentRowActions documentNo={row.documentNo}><Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}`)}>详情</Button>{row.status === "DRAFT" && <Button size="sm" onClick={() => navigate(`/business/direct-orders/${row.id}/edit`)}>编辑</Button>}</DocumentRowActions> },
   ];
   function search() { setPage(1); setQuery({ ...filters }); }
   return <div className="space-y-space-4">
