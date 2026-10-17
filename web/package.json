@@ -17,7 +17,8 @@
     "test:print-layout": "node tests/print-layout.mjs",
     "test:business-feedback": "node tests/business-feedback.mjs",
     "test:datetime": "node tests/datetime.mjs",
-    "test:zero-sale": "node tests/zero-sale.mjs"
+    "test:zero-sale": "node tests/zero-sale.mjs",
+    "test:mcp-tokens": "node tests/mcp-tokens.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

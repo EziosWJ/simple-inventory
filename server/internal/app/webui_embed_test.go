@@ -54,3 +54,19 @@ func TestBuildServesAllBundledFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestEmbeddedMCPDisabled(t *testing.T) {
+	router, err := Build(testConfig("prod", false), readyProbe{}, newFakeStores().deps())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{"GET", "POST", "OPTIONS"} {
+		r := httptest.NewRequest(method, "/mcp", nil)
+		r.Header.Set("Origin", "https://example.test")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		if w.Code != 404 || strings.Contains(w.Body.String(), "<html") {
+			t.Fatal(w.Code, w.Body.String())
+		}
+	}
+}

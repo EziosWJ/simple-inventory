@@ -814,6 +814,39 @@ definitions:
       message:
         type: string
     type: object
+  mcpserver.ApiEnvelope:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  mcpserver.TokenCreateInput:
+    properties:
+      expiresInDays:
+        type: integer
+      expiresOn:
+        type: string
+      name:
+        type: string
+      permanent:
+        type: boolean
+      userId:
+        type: integer
+    type: object
+  mcpserver.TokenExtendInput:
+    properties:
+      days:
+        type: integer
+      permanent:
+        type: boolean
+    type: object
+  mcpserver.TokenStatusInput:
+    properties:
+      enabled:
+        type: boolean
+    type: object
   notification.ApiEnvelope:
     properties:
       code:
@@ -1672,6 +1705,10 @@ definitions:
         type: string
       openingAmount:
         type: string
+      page:
+        type: integer
+      pageSize:
+        type: integer
       partnerId:
         type: integer
       partnerName:
@@ -1682,6 +1719,8 @@ definitions:
         type: array
       to:
         type: string
+      total:
+        type: integer
     type: object
   sale.ApiEnvelope:
     properties:
@@ -3730,6 +3769,166 @@ paths:
       summary: 登录日志分页
       tags:
       - 登录日志
+  /api/system/mcp/tokens:
+    post:
+      parameters:
+      - description: 令牌名称、绑定用户与有效期
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/mcpserver.TokenCreateInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 创建 MCP 令牌
+      tags:
+      - MCP令牌
+  /api/system/mcp/tokens/{id}/extend:
+    post:
+      parameters:
+      - description: 令牌 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 增加天数或改为永久
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/mcpserver.TokenExtendInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 延期 MCP 令牌
+      tags:
+      - MCP令牌
+  /api/system/mcp/tokens/{id}/reset:
+    post:
+      parameters:
+      - description: 令牌 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 重置 MCP 令牌
+      tags:
+      - MCP令牌
+  /api/system/mcp/tokens/{id}/secret:
+    get:
+      parameters:
+      - description: 令牌 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 查看 MCP 令牌原值
+      tags:
+      - MCP令牌
+  /api/system/mcp/tokens/{id}/status:
+    put:
+      parameters:
+      - description: 令牌 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 启用状态
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/mcpserver.TokenStatusInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: 启用或停用 MCP 令牌
+      tags:
+      - MCP令牌
+  /api/system/mcp/tokens/page:
+    get:
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，1-500
+        in: query
+        name: pageSize
+        type: integer
+      - description: 名称关键字
+        in: query
+        name: keyword
+        type: string
+      - description: 绑定用户 ID
+        in: query
+        name: userId
+        type: integer
+      - description: 状态：ENABLED/DISABLED/EXPIRED
+        in: query
+        name: state
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/mcpserver.ApiEnvelope'
+      security:
+      - BearerAuth: []
+      summary: MCP 令牌分页
+      tags:
+      - MCP令牌
   /api/system/menu:
     post:
       parameters:

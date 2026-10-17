@@ -129,3 +129,12 @@ export type {
   UserStatusRequest,
   UserUpdateRequest,
 } from "./user";
+export type {
+  McpTokenCreateRequest,
+  McpTokenExtendRequest,
+  McpTokenListQuery,
+  McpTokenRecord,
+  McpTokenSecret,
+  McpTokenState,
+  McpTokenStatusRequest,
+} from "./mcp-token";

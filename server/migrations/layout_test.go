@@ -56,6 +56,7 @@ func TestSchemaAndSeedResponsibilitiesStaySeparate(t *testing.T) {
 			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO inventory_entry_new", "COPY INTO inventory_entry_new")
 			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO sale_document_new", "COPY INTO sale_document_new")
 			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO sale_document_item_new", "COPY INTO sale_document_item_new")
+			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO mcp_token_new", "COPY INTO mcp_token_new")
 			ddlOnly = strings.ReplaceAll(ddlOnly, "INSERT INTO partner_balance_entry_new", "COPY INTO partner_balance_entry_new")
 			if schemaDML.Match([]byte(ddlOnly)) {
 				t.Errorf("schema migration %s contains seed-data DML", name)

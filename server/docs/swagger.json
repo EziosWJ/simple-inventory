@@ -2054,6 +2054,265 @@
                 }
             }
         },
+        "/api/system/mcp/tokens": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "创建 MCP 令牌",
+                "parameters": [
+                    {
+                        "description": "令牌名称、绑定用户与有效期",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.TokenCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/mcp/tokens/page": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "MCP 令牌分页",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数，1-500",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "名称关键字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "绑定用户 ID",
+                        "name": "userId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态：ENABLED/DISABLED/EXPIRED",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/mcp/tokens/{id}/extend": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "延期 MCP 令牌",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "令牌 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "增加天数或改为永久",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.TokenExtendInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/mcp/tokens/{id}/reset": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "重置 MCP 令牌",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "令牌 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/mcp/tokens/{id}/secret": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "查看 MCP 令牌原值",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "令牌 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/mcp/tokens/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "MCP令牌"
+                ],
+                "summary": "启用或停用 MCP 令牌",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "令牌 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "启用状态",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.TokenStatusInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/mcpserver.ApiEnvelope"
+                        }
+                    }
+                }
+            }
+        },
         "/api/system/menu": {
             "post": {
                 "security": [
@@ -10417,6 +10676,57 @@
                 }
             }
         },
+        "mcpserver.ApiEnvelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "mcpserver.TokenCreateInput": {
+            "type": "object",
+            "properties": {
+                "expiresInDays": {
+                    "type": "integer"
+                },
+                "expiresOn": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permanent": {
+                    "type": "boolean"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "mcpserver.TokenExtendInput": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer"
+                },
+                "permanent": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "mcpserver.TokenStatusInput": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
         "notification.ApiEnvelope": {
             "type": "object",
             "properties": {
@@ -11726,6 +12036,12 @@
                 "openingAmount": {
                     "type": "string"
                 },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
                 "partnerId": {
                     "type": "integer"
                 },
@@ -11740,6 +12056,9 @@
                 },
                 "to": {
                     "type": "string"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

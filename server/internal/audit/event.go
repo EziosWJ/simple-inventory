@@ -10,8 +10,11 @@ type Metadata struct {
 type Event struct {
 	Action, Resource string
 	ResourceID       int64
-	Summary          string
-	Metadata         Metadata
+	// Summary describes the outcome and Params the action's parameters; both
+	// are stored beside the event so an audit can answer what changed and why.
+	Summary  string
+	Params   string
+	Metadata Metadata
 }
 type Recorder interface {
 	Record(context.Context, Event) error

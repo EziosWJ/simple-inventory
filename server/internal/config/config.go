@@ -22,6 +22,7 @@ const (
 // Config contains all process-level configuration. Environment-specific YAML
 // may contain deployment credentials; APP_ environment variables override YAML.
 type Config struct {
+	MCP         MCPConfig      `koanf:"mcp"`
 	Environment string         `koanf:"env"`
 	Service     ServiceConfig  `koanf:"service"`
 	HTTP        HTTPConfig     `koanf:"http"`
@@ -107,6 +108,30 @@ type LogConfig struct {
 // created. This keeps configuration errors deterministic and close to startup.
 func (c Config) Validate() error {
 	var errs []error
+	if c.MCP.Enabled {
+		m := c.MCP
+		if len(m.AllowedHosts) == 0 || m.MaxBodyBytes < 1 || m.MaxBodyBytes > 65536 || m.MaxOutputBytes < 1024 || m.MaxOutputBytes > 1048576 || m.Timeout <= 0 || m.Timeout > 10*time.Second || m.RequestsPerMinute < 1 || m.RequestsPerMinute > 600 || m.MaxConcurrent < 1 || m.MaxConcurrent > 32 || m.MaxPage < 1 || m.MaxPage > 1000 {
+			errs = append(errs, errors.New("invalid MCP limits"))
+		}
+		for _, h := range m.AllowedHosts {
+			if h == "*" {
+				continue
+			}
+			host, port, err := net.SplitHostPort(h)
+			n, portErr := strconv.Atoi(port)
+			if err != nil || portErr != nil || n < 1 || n > 65535 || host == "" || strings.ContainsAny(host, "* /\\?#@\t\r\n") || (strings.Contains(host, ":") && net.ParseIP(host) == nil) {
+				errs = append(errs, errors.New("MCP hosts must be exact host:port authorities without wildcards"))
+			}
+		}
+		for _, o := range m.AllowedOrigins {
+			// Only the bare development wildcard is allowed, mirroring how
+			// allowed_hosts opts one authority in explicitly; any other pattern
+			// would read as an exact origin while matching more than one.
+			if o == "" || (o != "*" && strings.Contains(o, "*")) {
+				errs = append(errs, errors.New("MCP origins must be exact, or the explicit * development wildcard"))
+			}
+		}
+	}
 
 	if !oneOf(c.Environment, EnvironmentDev, EnvironmentTest, EnvironmentProd) {
 		errs = append(errs, fmt.Errorf("env must be one of dev, test, prod"))
@@ -303,4 +328,17 @@ func oneOf(value string, allowed ...string) bool {
 func isSQLiteMemoryPath(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
 	return value == ":memory:" || strings.HasPrefix(value, "file::memory:")
+}
+
+// MCPConfig bounds the private read adapter.
+type MCPConfig struct {
+	Enabled           bool          `koanf:"enabled"`
+	AllowedHosts      []string      `koanf:"allowed_hosts"`
+	AllowedOrigins    []string      `koanf:"allowed_origins"`
+	MaxBodyBytes      int64         `koanf:"max_body_bytes"`
+	MaxOutputBytes    int64         `koanf:"max_output_bytes"`
+	Timeout           time.Duration `koanf:"timeout"`
+	RequestsPerMinute int           `koanf:"requests_per_minute"`
+	MaxConcurrent     int           `koanf:"max_concurrent"`
+	MaxPage           int           `koanf:"max_page"`
 }

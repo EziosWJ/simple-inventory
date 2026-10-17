@@ -126,3 +126,9 @@ Handler → Service → Repository → GORM/database/sql → Database
 Schema 变更必须使用 Goose migration；API 进程不执行 `AutoMigrate()`。PostgreSQL 与 SQLite 的方言差异应限制在 migration、database 或 repository 层，不扩散到 Service 和 Handler。
 
 详细约定见 [CONTEXT.md](CONTEXT.md) 和 [docs/adr/](docs/adr/)。后端运行说明见 [server/README.md](server/README.md)。
+
+## 私有 MCP（默认关闭）
+
+运行 `task dev:sqlite` 即可在现有开发库上启用 MCP，地址为 `http://localhost:8300/mcp`，手机使用电脑局域网 IP。在 **系统管理 → MCP令牌** 创建令牌并复制原值，客户端请求头填 `token: <原值>`（`Authorization: Bearer <原值>` 继续兼容）。令牌绑定已有系统用户，有效期默认永久，支持查看、延期、停用与重置，工具权限动态继承该用户当前的业务权限。
+
+共十个只读工具：商品／往来搜索、当前库存与双方向余额、采购／销售跨单明细与完整筛选范围合计、采购单与销售单详情、往来明细与指定单位期间对账。详见[使用方法](docs/mcp-usage.md)、[实施进度与验证记录](docs/mcp-next-progress.md)和[首版验证记录](docs/mcp-server-v1-verification.md)。

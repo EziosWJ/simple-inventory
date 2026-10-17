@@ -30,6 +30,7 @@ import (
 	"github.com/EziosWJ/simple-inventory/server/internal/filemgmt"
 	"github.com/EziosWJ/simple-inventory/server/internal/inventory"
 	"github.com/EziosWJ/simple-inventory/server/internal/logmgmt"
+	"github.com/EziosWJ/simple-inventory/server/internal/mcpserver"
 	"github.com/EziosWJ/simple-inventory/server/internal/notification"
 	"github.com/EziosWJ/simple-inventory/server/internal/partner"
 	platformdatabase "github.com/EziosWJ/simple-inventory/server/internal/platform/database"
@@ -67,8 +68,8 @@ func TestSQLiteMigrationLifecycleAndBackup(t *testing.T) {
 	if err := database.GORM.Table("warehouse").Count(&warehouses).Error; err != nil {
 		t.Fatalf("count seeded warehouse: %v", err)
 	}
-	if users != 1 || menus != 41 || configs != 4 || warehouses != 1 {
-		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 41, 4, 1", users, menus, configs, warehouses)
+	if users != 1 || menus != 42 || configs != 4 || warehouses != 1 {
+		t.Fatalf("seed counts = users %d, menus %d, configs %d, warehouses %d; want 1, 42, 4, 1", users, menus, configs, warehouses)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatalf("close SQLite database: %v", err)
@@ -795,8 +796,18 @@ func sqliteDependencies(t *testing.T, database *platformdatabase.Database, stora
 	if err != nil {
 		t.Fatalf("create SQLite notification service: %v", err)
 	}
+	// The MCP token administration module is part of every assembled router.
+	mcpBox, err := mcpserver.NewSecretBox("integration-mcp-display-secret")
+	if err != nil {
+		t.Fatalf("create MCP secret box: %v", err)
+	}
+	mcpTokens, err := mcpserver.NewTokenService(mcpserver.NewRepository(database.GORM, mcpBox))
+	if err != nil {
+		t.Fatalf("create MCP token service: %v", err)
+	}
 	return app.Dependencies{
-		Auth: authService, RBAC: rbacService, Department: deptService, User: userService,
+		MCPTokens: mcpTokens,
+		Auth:      authService, RBAC: rbacService, Department: deptService, User: userService,
 		Dictionary: dictionaryService, SysConfig: configService, File: fileService,
 		Log: logService, Notification: notificationService,
 		Inventory:      inventory.NewService(inventory.NewRepository(database.GORM)),
