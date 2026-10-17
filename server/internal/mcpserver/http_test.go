@@ -358,3 +358,64 @@ func TestDevelopmentOriginWildcardAcceptsAnyOrigin(t *testing.T) {
 		t.Fatalf("preflight: %d %v", w.Code, w.Header())
 	}
 }
+
+// flushRecorder signals the first flush so a streaming response can be
+// inspected without waiting for the handler to return.
+type flushRecorder struct {
+	*httptest.ResponseRecorder
+	flushed chan struct{}
+	once    sync.Once
+}
+
+func (f *flushRecorder) Flush() {
+	f.ResponseRecorder.Flush()
+	f.once.Do(func() { close(f.flushed) })
+}
+
+func TestGetStreamDoesNotBlockTools(t *testing.T) {
+	cfg := testConfig()
+	cfg.MaxConcurrent = 1
+	h := NewHandler(cfg, fakeAuth{allowed: map[string]bool{}}, Services{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stream := httptest.NewRequest(http.MethodGet, "http://localhost:18300/mcp", nil).WithContext(ctx)
+	stream.RemoteAddr = "127.0.0.1:54321"
+	stream.Header.Set("token", strings.Repeat("a", 70))
+	recorder := &flushRecorder{ResponseRecorder: httptest.NewRecorder(), flushed: make(chan struct{})}
+	done := make(chan struct{})
+	go func() {
+		h.ServeHTTP(recorder, stream)
+		close(done)
+	}()
+
+	select {
+	case <-recorder.flushed:
+	case <-time.After(time.Second):
+		t.Fatal("GET stream did not start")
+	}
+	if recorder.Code != http.StatusOK || recorder.Header().Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("stream response: %d %q", recorder.Code, recorder.Header().Get("Content-Type"))
+	}
+	// The idle stream must not consume the only tool slot.
+	if w := req(h, "POST", listBody, nil); w.Code != http.StatusOK {
+		t.Fatalf("tool call blocked by stream: %d %s", w.Code, w.Body.String())
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("GET stream did not end with the client")
+	}
+}
+
+func TestGetStreamRequiresCredential(t *testing.T) {
+	h := NewHandler(testConfig(), fakeAuth{}, Services{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r := httptest.NewRequest(http.MethodGet, "http://localhost:18300/mcp", nil)
+	r.RemoteAddr = "127.0.0.1:54321"
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated stream: %d %s", w.Code, w.Body.String())
+	}
+}

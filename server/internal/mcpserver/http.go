@@ -34,12 +34,16 @@ type handler struct {
 	services Services
 	logger   *slog.Logger
 	slots    chan struct{}
+	streams  chan struct{}
 	mu       sync.Mutex
 	rates    map[int64]rate
 }
 
 func NewHandler(cfg config.MCPConfig, repo Authenticator, s Services, logger *slog.Logger) http.Handler {
-	h := &handler{cfg: cfg, repo: repo, services: s, logger: logger, slots: make(chan struct{}, cfg.MaxConcurrent), rates: map[int64]rate{}}
+	// Tool calls are bounded by MaxConcurrent. Idle server-to-client streams
+	// are cheap but long-lived, so they use a separate, wider bound and never
+	// starve a tool call.
+	h := &handler{cfg: cfg, repo: repo, services: s, logger: logger, slots: make(chan struct{}, cfg.MaxConcurrent), streams: make(chan struct{}, cfg.MaxConcurrent*4), rates: map[int64]rate{}}
 	return h
 }
 
@@ -121,6 +125,10 @@ func (h *handler) admit(id int64) bool {
 	return true
 }
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// The request context is retained for the optional GET stream, which must
+	// stay open past the per-request tool timeout and end only when the client
+	// disconnects.
+	requestCtx := r.Context()
 	w.Header().Set("Cache-Control", "no-store")
 	// The request id is created before any admission check, so a client that
 	// only reports "it failed" can quote the same id the log line carries.
@@ -206,6 +214,47 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "60")
 		h.reject(w, r, requestID, 429, "rate_limited", "rate_limited", "token_id", token.ID, "requests_per_minute", h.cfg.RequestsPerMinute)
 		return
+	}
+	// Streamable HTTP clients may open the optional server-to-client GET
+	// stream. This server never sends unsolicited messages, but some clients
+	// (Cherry Studio on iOS among them) treat the spec-permitted 405 as a
+	// failed connection and never ask for the tool list. Keep an authenticated
+	// idle stream open instead: it carries no business data, and releasing the
+	// admission slot first keeps tool calls from being blocked by long-lived
+	// streams.
+	if r.Method == http.MethodGet {
+		select {
+		case h.streams <- struct{}{}:
+			defer func() { <-h.streams }()
+		default:
+			h.reject(w, r, requestID, 503, "streams_limited", "streams_limited", "max_concurrent_streams", cap(h.streams))
+			return
+		}
+		launched = true
+		<-h.slots
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache, no-transform")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+		flusher, _ := w.(http.Flusher)
+		if flusher != nil {
+			flusher.Flush()
+		}
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-requestCtx.Done():
+				return
+			case <-ticker.C:
+				if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil {
+					return
+				}
+				if flusher != nil {
+					flusher.Flush()
+				}
+			}
+		}
 	}
 	controller := http.NewResponseController(w)
 	_ = controller.SetReadDeadline(time.Now().Add(h.cfg.Timeout))
