@@ -232,6 +232,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		launched = true
 		<-h.slots
+		// The HTTP server's write timeout would otherwise close the stream
+		// after a few seconds; the client's disconnect now bounds its lifetime.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache, no-transform")
 		w.Header().Set("X-Accel-Buffering", "no")
